@@ -58,22 +58,32 @@ export default function MatchTrackerPage() {
   const timer = useMatchTimer(match ?? ({} as Match))
 
   const load = async () => {
-    const [{ data: m }, { data: teamsData }, { data: tpData }, { data: evData }] = await Promise.all([
+    // Step 1: match + teams (teams needed to filter team_players correctly)
+    const [{ data: m }, { data: teamsData }] = await Promise.all([
       supabase.from('matches').select('*').eq('id', matchId).single(),
       supabase.from('teams').select('*').eq('session_id', sessionId),
-      supabase.from('team_players').select('*'),
-      supabase.from('match_events').select('*').eq('match_id', matchId),
     ])
     if (m) setMatch(m as Match)
     if (teamsData) setTeams(teamsData as Team[])
+    if (!m || !teamsData) return
+
+    const teamIds = (teamsData as Team[]).map((t) => t.id)
+
+    // Step 2: team_players (filtered to this session) + events
+    const [{ data: tpData }, { data: evData }] = await Promise.all([
+      supabase.from('team_players').select('*').in('team_id', teamIds),
+      supabase.from('match_events').select('*').eq('match_id', m.id),
+    ])
     if (tpData) setTeamPlayers(tpData as TeamPlayer[])
     if (evData) setEvents(evData as MatchEvent[])
 
-    // Load player details
+    // Step 3: player details
     if (tpData) {
       const pIds = [...new Set((tpData as TeamPlayer[]).map((tp) => tp.player_id))]
-      const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
-      if (pData) setPlayers(pData as Player[])
+      if (pIds.length > 0) {
+        const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
+        if (pData) setPlayers(pData as Player[])
+      }
     }
   }
 
@@ -84,6 +94,8 @@ export default function MatchTrackerPage() {
   const team1 = teams.find((t) => t.id === match.team1_id)
   const team2 = teams.find((t) => t.id === match.team2_id)
   const waitingTeam = teams.find((t) => t.id === match.waiting_team_id)
+
+  if (!team1 || !team2) return <div className="p-4 text-gray-400">Loading…</div>
 
   const playingPlayerIds = teamPlayers
     .filter((tp) => tp.team_id === match.team1_id || tp.team_id === match.team2_id)

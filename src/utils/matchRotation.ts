@@ -13,13 +13,22 @@ export function resolveMatch(match: Match): NextMatchConfig {
     throw new Error('Cannot resolve match without a winner')
   }
 
-  // Loser is the playing team that is not the winner
-  const loserTeamId = winner_team_id === team1_id ? team2_id : team1_id
+  // Draw resolved by waiting team: winner IS the waiting team.
+  // Both playing teams "lose"; one stays to face the winner, the other sits out.
+  if (winner_team_id === waiting_team_id) {
+    return {
+      nextTeam1Id: winner_team_id,  // waiting team (winner) comes on
+      nextTeam2Id: team2_id,        // one draw team stays to face them
+      nextWaitingTeamId: team1_id,  // other draw team sits out
+    }
+  }
 
+  // Normal: winner stays, waiting team comes on, loser sits out
+  const loserTeamId = winner_team_id === team1_id ? team2_id : team1_id
   return {
-    nextTeam1Id: winner_team_id,   // winner stays on
-    nextTeam2Id: waiting_team_id,  // waiting team comes on
-    nextWaitingTeamId: loserTeamId, // loser sits out
+    nextTeam1Id: winner_team_id,
+    nextTeam2Id: waiting_team_id,
+    nextWaitingTeamId: loserTeamId,
   }
 }
 

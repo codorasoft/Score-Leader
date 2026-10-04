@@ -9,46 +9,64 @@ interface MatchTimerResult {
   pause: () => Promise<void>
 }
 
-function computeElapsed(match: Match): number {
-  if (match.timer_status !== 'running' || !match.timer_started_at) {
-    return match.timer_elapsed_seconds
-  }
-  const delta = Math.floor((Date.now() - new Date(match.timer_started_at).getTime()) / 1000)
-  return match.timer_elapsed_seconds + delta
+function computeElapsed(
+  baseSeconds: number,
+  status: TimerStatus,
+  startedAt: string | null,
+): number {
+  if (status !== 'running' || !startedAt) return baseSeconds
+  return baseSeconds + Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
 }
 
 export function useMatchTimer(match: Match): MatchTimerResult {
-  const [elapsed, setElapsed] = useState(() => computeElapsed(match))
+  // Local state so start/pause update UI immediately without waiting for a DB reload
+  const [timerStatus, setTimerStatus] = useState<TimerStatus>(match.timer_status)
+  const [startedAt, setStartedAt] = useState<string | null>(match.timer_started_at ?? null)
+  const [baseElapsed, setBaseElapsed] = useState(match.timer_elapsed_seconds)
+  const [elapsed, setElapsed] = useState(() =>
+    computeElapsed(match.timer_elapsed_seconds, match.timer_status, match.timer_started_at ?? null),
+  )
 
+  // Sync from parent when the match prop is refreshed (after load())
   useEffect(() => {
-    setElapsed(computeElapsed(match))
-    if (match.timer_status !== 'running') return
+    setTimerStatus(match.timer_status)
+    setStartedAt(match.timer_started_at ?? null)
+    setBaseElapsed(match.timer_elapsed_seconds)
+    setElapsed(
+      computeElapsed(match.timer_elapsed_seconds, match.timer_status, match.timer_started_at ?? null),
+    )
+  }, [match.id, match.timer_status, match.timer_elapsed_seconds, match.timer_started_at])
 
+  // Tick every second while running
+  useEffect(() => {
+    if (timerStatus !== 'running') return
     const interval = setInterval(() => {
-      setElapsed(computeElapsed(match))
+      setElapsed(computeElapsed(baseElapsed, timerStatus, startedAt))
     }, 1000)
-
     return () => clearInterval(interval)
-  }, [match])
+  }, [timerStatus, baseElapsed, startedAt])
 
   const start = useCallback(async () => {
+    const now = new Date().toISOString()
+    setTimerStatus('running')
+    setStartedAt(now)
     await supabase
       .from('matches')
-      .update({ timer_started_at: new Date().toISOString(), timer_status: 'running' })
+      .update({ timer_started_at: now, timer_status: 'running' })
       .eq('id', match.id)
   }, [match.id])
 
   const pause = useCallback(async () => {
-    const currentElapsed = computeElapsed(match)
+    const current = computeElapsed(baseElapsed, timerStatus, startedAt)
+    setTimerStatus('paused')
+    setStartedAt(null)
+    setBaseElapsed(current)
+    setElapsed(current)
     await supabase
       .from('matches')
-      .update({
-        timer_elapsed_seconds: currentElapsed,
-        timer_status: 'paused',
-        timer_started_at: null,
-      })
+      .update({ timer_elapsed_seconds: current, timer_status: 'paused', timer_started_at: null })
       .eq('id', match.id)
-  }, [match])
+  }, [match.id, baseElapsed, timerStatus, startedAt])
 
-  return { elapsed, timerStatus: match.timer_status, start, pause }
+  return { elapsed, timerStatus, start, pause }
 }
