@@ -3,13 +3,10 @@ import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useRealtime } from '../../hooks/useRealtime'
-import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
-import type { Session, Match, Team, MatchEvent, Player } from '../../lib/types'
-
-const formatEventClock = (e: MatchEvent) => {
-  const clock = eventClockSeconds(e)
-  return clock == null ? '' : formatMatchClock(clock)
-}
+import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
+import { MatchTimeline } from '../../components/MatchTimeline'
+import { SessionMatchList } from '../../components/SessionMatchList'
+import type { Session, Match, Team, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
 const colorBg: Record<string, string> = {
   red: 'bg-red-900/40 border-red-600',
@@ -21,119 +18,124 @@ export default function LiveSessionPage() {
   const { token } = useParams<{ token: string }>()
   const { t } = useTranslation()
   const [session, setSession] = useState<Session | null>(null)
-  const [match, setMatch] = useState<Match | null>(null)
+  const [matches, setMatches] = useState<Match[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [elapsed, setElapsed] = useState(0)
 
   const load = useCallback(async () => {
-    const { data: sess } = await supabase
-      .from('sessions').select('*').eq('share_token', token).single()
+    const { data: sess } = await supabase.from('sessions').select('*').eq('share_token', token).single()
     if (!sess) return
+    const sessionId = (sess as Session).id
     setSession(sess as Session)
 
     const [{ data: teamsData }, { data: matchData }] = await Promise.all([
-      supabase.from('teams').select('*').eq('session_id', (sess as Session).id),
-      supabase.from('matches').select('*').eq('session_id', (sess as Session).id)
-        .in('status', ['pending', 'active'])
-        .order('match_number', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('teams').select('*').eq('session_id', sessionId),
+      supabase.from('matches').select('*').eq('session_id', sessionId),
     ])
-    setTeams((teamsData ?? []) as Team[])
+    const teamRows = (teamsData ?? []) as Team[]
+    const matchRows = (matchData ?? []) as Match[]
+    setTeams(teamRows)
+    setMatches(matchRows)
+    if (teamRows.length === 0 || matchRows.length === 0) return
 
-    if (matchData) {
-      setMatch(matchData as Match)
-      const { data: evData } = await supabase.from('match_events').select('*').eq('match_id', (matchData as Match).id)
-      setEvents((evData ?? []) as MatchEvent[])
+    const [{ data: evData }, { data: tpData }] = await Promise.all([
+      supabase.from('match_events').select('*').in('match_id', matchRows.map((m) => m.id)),
+      supabase.from('team_players').select('player_id').in('team_id', teamRows.map((tm) => tm.id)),
+    ])
+    const evRows = (evData ?? []) as MatchEvent[]
+    setEvents(evRows)
 
-      const pIds = [...new Set((evData ?? []).map((e: MatchEvent) => e.player_id))]
-      if (pIds.length > 0) {
-        const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
-        setPlayers((pData ?? []) as Player[])
-      }
+    // Session roster plus anyone named in an event, so swapped players still have names
+    const pIds = [...new Set([
+      ...((tpData ?? []) as Pick<TeamPlayer, 'player_id'>[]).map((r) => r.player_id),
+      ...evRows.map((e) => e.player_id),
+    ])]
+    if (pIds.length > 0) {
+      const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
+      setPlayers((pData ?? []) as Player[])
     }
   }, [token])
 
   useEffect(() => { load() }, [load])
 
+  const match = matches
+    .filter((m) => m.status !== 'completed')
+    .sort((a, b) => b.match_number - a.match_number)[0] ?? null
+
   useEffect(() => {
-    if (!match || match.timer_status !== 'running') return
-    const base = match.timer_elapsed_seconds
-    const startedAt = match.timer_started_at ? new Date(match.timer_started_at).getTime() : Date.now()
-    const tick = () => setElapsed(base + Math.floor((Date.now() - startedAt) / 1000))
+    if (!match) return
+    if (match.timer_status !== 'running' || !match.timer_started_at) {
+      setElapsed(match.timer_elapsed_seconds)
+      return
+    }
+    const startedAt = new Date(match.timer_started_at).getTime()
+    const tick = () => setElapsed(match.timer_elapsed_seconds + Math.floor((Date.now() - startedAt) / 1000))
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [match])
+  }, [match?.id, match?.timer_status, match?.timer_started_at, match?.timer_elapsed_seconds])
 
   useRealtime('matches', { column: 'session_id', value: session?.id ?? '' }, load)
+  useRealtime('match_events', { column: 'match_id', value: match?.id ?? '' }, load)
 
   if (!session) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
-  if (!match) return (
-    <div className="max-w-lg mx-auto p-4 text-center">
-      <h1 className="text-xl font-bold mb-2">{session.date}</h1>
-      <p className="text-gray-400">{t('live.noActiveMatch')}</p>
-    </div>
-  )
 
-  const team1 = teams.find((tm) => tm.id === match.team1_id)
-  const team2 = teams.find((tm) => tm.id === match.team2_id)
-  const waitingTeam = teams.find((tm) => tm.id === match.waiting_team_id)
-
-  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
-  const ss = String(elapsed % 60).padStart(2, '0')
-
-  const goalEvents = events
-    .filter((e) => e.event_type === 'goal' || e.event_type === 'penalty_goal')
-    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const teamName = (team: Team | undefined) =>
+    team ? t('common.teamName', { color: t(`common.teamColor.${team.color}`) }) : ''
+  const team1 = teams.find((tm) => tm.id === match?.team1_id)
+  const team2 = teams.find((tm) => tm.id === match?.team2_id)
+  const waitingTeam = teams.find((tm) => tm.id === match?.waiting_team_id)
 
   return (
-    <div className="max-w-lg mx-auto p-4">
-      <div className="text-center text-4xl font-mono font-bold mb-2">{mm}:{ss}</div>
-      <div className="text-center text-xs text-gray-400 mb-4 uppercase">
-        {match.timer_status === 'running'
-          ? t('live.live')
-          : match.timer_status === 'stopped' ? t('live.notStarted') : t('live.paused')}
-      </div>
-
-      <div className="flex gap-4 mb-6">
-        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1?.color ?? 'red']}`}>
-          <div className="text-xs text-gray-400 uppercase mb-1">
-            {team1 ? t('common.teamName', { color: t(`common.teamColor.${team1.color}`) }) : ''}
-          </div>
-          <div className="text-4xl font-bold">{match.team1_score}</div>
+    <div className="max-w-lg mx-auto">
+      {!match ? (
+        <div className="text-center mb-8">
+          <h1 className="text-xl font-bold mb-2">{session.date}</h1>
+          <p className="text-gray-400">{t('live.noActiveMatch')}</p>
         </div>
-        <div className="text-gray-500 font-bold self-center">{t('common.vs')}</div>
-        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team2?.color ?? 'blue']}`}>
-          <div className="text-xs text-gray-400 uppercase mb-1">
-            {team2 ? t('common.teamName', { color: t(`common.teamColor.${team2.color}`) }) : ''}
+      ) : (
+        <div className="mb-8">
+          <div className="text-center text-xs text-gray-400 font-mono mb-1">{t('common.match', { number: match.match_number })}</div>
+          <div className="text-center text-4xl font-mono font-bold" dir="ltr">
+            {formatMatchClock(Math.min(elapsed, MATCH_DURATION_SECONDS))}
+            {elapsed > MATCH_DURATION_SECONDS && (
+              <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - MATCH_DURATION_SECONDS)}</span>
+            )}
           </div>
-          <div className="text-4xl font-bold">{match.team2_score}</div>
-        </div>
-      </div>
+          <div className="text-center text-xs text-gray-400 mt-1 mb-4 uppercase">
+            {match.timer_status === 'running'
+              ? <span className="text-green-400">● {t('live.live')}</span>
+              : match.timer_status === 'stopped' ? t('live.notStarted') : t('live.paused')}
+          </div>
 
-      {waitingTeam && (
-        <p className="text-center text-sm text-gray-400 mb-4">
-          {t('common.waiting')}: <span className="font-semibold text-gray-300">
-            {t('common.teamName', { color: t(`common.teamColor.${waitingTeam.color}`) })}
-          </span>
-        </p>
+          <div className="flex gap-4 mb-4">
+            <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1?.color ?? 'red']}`}>
+              <div className="text-xs text-gray-400 uppercase mb-1">{teamName(team1)}</div>
+              <div className="text-4xl font-bold">{match.team1_score}</div>
+            </div>
+            <div className="text-gray-500 font-bold self-center">{t('common.vs')}</div>
+            <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team2?.color ?? 'blue']}`}>
+              <div className="text-xs text-gray-400 uppercase mb-1">{teamName(team2)}</div>
+              <div className="text-4xl font-bold">{match.team2_score}</div>
+            </div>
+          </div>
+
+          {waitingTeam && (
+            <p className="text-center text-sm text-gray-400 mb-4">
+              {t('common.waiting')}: <span className="font-semibold text-gray-300">{teamName(waitingTeam)}</span>
+            </p>
+          )}
+
+          <section className="bg-gray-800 rounded-xl p-3">
+            <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>
+            <MatchTimeline events={events.filter((e) => e.match_id === match.id)} teams={teams} players={players} />
+          </section>
+        </div>
       )}
 
-      {goalEvents.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-xs uppercase text-gray-400 mb-2">{t('live.goals')}</h3>
-          {goalEvents.map((e) => {
-            const scorer = players.find((p) => p.id === e.player_id)
-            return (
-              <div key={e.id} className="text-sm py-1 flex gap-2">
-                <span className="text-gray-400 font-mono" dir="ltr">{formatEventClock(e)}</span>
-                <span>{scorer?.name ?? t('live.unknown')}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      <SessionMatchList matches={matches} events={events} teams={teams} players={players} />
     </div>
   )
 }

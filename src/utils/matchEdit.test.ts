@@ -47,9 +47,14 @@ it('counts penalty_goal events but ignores assists and cards', () => {
   expect(r.team2_score).toBe(0)
 })
 
-it('keeps the existing winner on a draw so penalty or rotation results survive', () => {
-  const r = recomputeResult({ ...match, winner_team_id: 'blue', draw_resolved_by: 'penalties' }, [goal('red'), goal('blue')])
+it('keeps the penalty shootout winner when match 1 is edited to another draw', () => {
+  const r = recomputeResult({ ...match, match_number: 1, winner_team_id: 'blue', draw_resolved_by: 'penalties' }, [goal('red'), goal('blue')])
   expect(r).toEqual({ team1_score: 1, team2_score: 1, is_draw: true, winner_team_id: 'blue', draw_resolved_by: 'penalties' })
+})
+
+it('applies the draw rule when a later match is edited into a draw: the challenger (team2) wins', () => {
+  const r = recomputeResult({ ...match, winner_team_id: 'red' }, [goal('red'), goal('blue')])
+  expect(r).toEqual({ team1_score: 1, team2_score: 1, is_draw: true, winner_team_id: 'blue', draw_resolved_by: 'late_team' })
 })
 
 it('clears draw_resolved_by when the edited result is no longer a draw', () => {

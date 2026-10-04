@@ -1,4 +1,5 @@
 import type { EventType, Match, MatchEvent } from '../lib/types'
+import { decideResult } from './matchRotation'
 
 const SCORING: EventType[] = ['goal', 'penalty_goal']
 const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card']
@@ -17,13 +18,11 @@ export function recomputeResult(
   const team1_score = goals.filter((e) => e.team_id === match.team1_id).length
   const team2_score = goals.filter((e) => e.team_id === match.team2_id).length
   if (team1_score === team2_score) {
-    return {
-      team1_score,
-      team2_score,
-      is_draw: true,
-      winner_team_id: match.winner_team_id,
-      draw_resolved_by: match.draw_resolved_by ?? (match.match_number === 1 ? 'penalties' : 'late_team'),
+    // Match 1 draws were settled by a shootout, so its winner is kept; later draws follow the session rule
+    if (match.match_number === 1) {
+      return { team1_score, team2_score, is_draw: true, winner_team_id: match.winner_team_id, draw_resolved_by: 'penalties' }
     }
+    return { team1_score, team2_score, ...decideResult({ ...match, team1_score, team2_score }) }
   }
   return {
     team1_score,

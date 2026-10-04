@@ -6,47 +6,18 @@ import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
-import { resolveMatch } from '../../utils/matchRotation'
+import { resolveMatch, decideResult } from '../../utils/matchRotation'
 import { findLastUndoable } from '../../utils/matchEdit'
-import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock, eventClockSeconds } from '../../utils/matchClock'
+import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
+import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
 import { SwapDialog } from '../../components/SwapDialog'
 import { SuspensionCountdown } from '../../components/SuspensionCountdown'
+import { MatchResultDialog } from '../../components/MatchResultDialog'
+import { MatchTimeline } from '../../components/MatchTimeline'
+import { SessionMatchList } from '../../components/SessionMatchList'
 import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
-
-// Helper to derive match update when scores are equal (draw detection)
-export function buildMatchUpdate(params: {
-  team1_score: number
-  team2_score: number
-  match_number: number
-  waiting_team_id: string
-  team1_id: string
-  team2_id: string
-}): Partial<Match> {
-  const { team1_score, team2_score, match_number, waiting_team_id } = params
-  if (team1_score !== team2_score) {
-    return {
-      is_draw: false,
-      winner_team_id: team1_score > team2_score ? params.team1_id : params.team2_id,
-    }
-  }
-  if (match_number === 1) {
-    return { is_draw: true, winner_team_id: null, draw_resolved_by: null }
-  }
-  // team1_id is always the previous match's winner — they keep their spot on a draw
-  return {
-    is_draw: true,
-    draw_resolved_by: 'late_team',
-    winner_team_id: params.team1_id,
-  }
-}
-
-
-const colorDot: Record<string, string> = { red: 'bg-red-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
-const EVENT_ICON: Partial<Record<MatchEvent['event_type'], string>> = {
-  goal: '⚽', penalty_goal: '⚽', yellow_card: '🟨', red_card: '🟥',
-}
 
 const colorBg: Record<string, string> = {
   red: 'bg-red-900/40 border-red-600',
@@ -64,9 +35,16 @@ export default function MatchTrackerPage() {
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
+  const [sessionMatches, setSessionMatches] = useState<Match[]>([])
+  const [sessionEvents, setSessionEvents] = useState<MatchEvent[]>([])
   const [dialog, setDialog] = useState<'goal' | 'card' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
+  const [result, setResult] = useState<{
+    outcome: MatchOutcome
+    nextMatchId: string | null
+    next: { team1Id: string; team2Id: string; waitingTeamId: string }
+  } | null>(null)
   // Clock reading captured when Goal/Card is tapped, not after the scorer is picked
   const [eventClock, setEventClock] = useState(0)
   const [penaltyMode, setPenaltyMode] = useState(false)
@@ -75,7 +53,18 @@ export default function MatchTrackerPage() {
 
   const timer = useMatchTimer(match ?? ({} as Match))
 
+  const loadSessionMatches = async () => {
+    const { data: mData } = await supabase.from('matches').select('*').eq('session_id', sessionId)
+    const rows = (mData ?? []) as Match[]
+    setSessionMatches(rows)
+    const finishedIds = rows.filter((m) => m.status === 'completed').map((m) => m.id)
+    if (finishedIds.length === 0) { setSessionEvents([]); return }
+    const { data: evData } = await supabase.from('match_events').select('*').in('match_id', finishedIds)
+    setSessionEvents((evData ?? []) as MatchEvent[])
+  }
+
   const load = async () => {
+    loadSessionMatches()
     // Step 1: match + teams (teams needed to filter team_players correctly)
     const [{ data: m }, { data: teamsData }] = await Promise.all([
       supabase.from('matches').select('*').eq('id', matchId).single(),
@@ -196,11 +185,6 @@ export default function MatchTrackerPage() {
     load()
   }
 
-  const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
-  const loggedEvents = events
-    .filter((e) => e.event_type in EVENT_ICON)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at))
-
   const lastEvent = findLastUndoable(events)
   const lastEventIsGoal = lastEvent?.event_type === 'goal' || lastEvent?.event_type === 'penalty_goal'
   const lastEventLabel = lastEvent && t(
@@ -233,10 +217,25 @@ export default function MatchTrackerPage() {
     const p1TeamId = teamPlayers.find((tp) => tp.player_id === p1Id)?.team_id
     const p2TeamId = teamPlayers.find((tp) => tp.player_id === p2Id)?.team_id
     if (!p1TeamId || !p2TeamId) return
-    await Promise.all([
+    const moved = await Promise.all([
       supabase.from('team_players').update({ team_id: p2TeamId }).eq('player_id', p1Id).eq('team_id', p1TeamId),
       supabase.from('team_players').update({ team_id: p1TeamId }).eq('player_id', p2Id).eq('team_id', p2TeamId),
     ])
+    if (moved.every((r) => !r.error)) {
+      // Logged as a linked pair; each row's team_id is the team that player moved to
+      const clock = timer.timerStatus === 'stopped'
+        ? { elapsed_seconds: null, minute: null }
+        : { elapsed_seconds: timer.elapsed, minute: Math.floor(timer.elapsed / 60) }
+      const { data: first } = await supabase.from('match_events')
+        .insert({ match_id: match.id, player_id: p1Id, team_id: p2TeamId, event_type: 'swap', ...clock })
+        .select().single()
+      if (first) {
+        await supabase.from('match_events').insert({
+          match_id: match.id, player_id: p2Id, team_id: p1TeamId, event_type: 'swap',
+          related_event_id: (first as MatchEvent).id, ...clock,
+        })
+      }
+    }
     load()
   }
 
@@ -249,14 +248,7 @@ export default function MatchTrackerPage() {
   }
 
   const doEndMatch = async () => {
-    const update = buildMatchUpdate({
-      team1_score: match.team1_score,
-      team2_score: match.team2_score,
-      match_number: match.match_number,
-      waiting_team_id: match.waiting_team_id,
-      team1_id: match.team1_id,
-      team2_id: match.team2_id,
-    })
+    const update = decideResult(match)
 
     if (update.is_draw && match.match_number === 1 && !update.winner_team_id) {
       setPenaltyMode(true)
@@ -268,13 +260,15 @@ export default function MatchTrackerPage() {
 
   const handlePenaltyDecide = async () => {
     const winnerId = penaltyT1 > penaltyT2 ? match.team1_id : match.team2_id
-    await finishMatch({ is_draw: true, draw_resolved_by: 'penalties', winner_team_id: winnerId })
+    await finishMatch({ is_draw: true, draw_resolved_by: 'penalties', winner_team_id: winnerId }, { team1: penaltyT1, team2: penaltyT2 })
   }
 
-  const finishMatch = async (update: Partial<Match>) => {
+  const finishMatch = async (update: Partial<Match>, penalties?: { team1: number; team2: number }) => {
     if (!update.winner_team_id) return
 
-    await supabase.from('matches').update({ ...update, status: 'completed' }).eq('id', match.id)
+    const { error } = await supabase.from('matches').update({ ...update, status: 'completed' }).eq('id', match.id)
+    // Don't start the next match if this result was not saved
+    if (error) return
 
     const completedMatch = { ...match, ...update } as Match
     const { nextTeam1Id, nextTeam2Id, nextWaitingTeamId } = resolveMatch(completedMatch)
@@ -289,11 +283,21 @@ export default function MatchTrackerPage() {
       status: 'pending',
     }).select().single()
 
-    if (nextMatch) {
-      navigate(`/admin/sessions/${sessionId}/match/${(nextMatch as Match).id}`)
-    } else {
-      navigate(`/admin/sessions/${sessionId}/awards`)
-    }
+    setResult({
+      outcome: describeOutcome({ ...completedMatch, winner_team_id: update.winner_team_id, elapsedSeconds: timer.elapsed, penalties }),
+      nextMatchId: nextMatch ? (nextMatch as Match).id : null,
+      next: { team1Id: nextTeam1Id, team2Id: nextTeam2Id, waitingTeamId: nextWaitingTeamId },
+    })
+  }
+
+  // Same component instance is reused for the next match, so per-match UI state must be reset
+  const continueAfterResult = () => {
+    const nextId = result?.nextMatchId
+    setResult(null)
+    setPenaltyMode(false)
+    setPenaltyT1(0)
+    setPenaltyT2(0)
+    navigate(nextId ? `/admin/sessions/${sessionId}/match/${nextId}` : `/admin/sessions/${sessionId}/awards`)
   }
 
   const teamsWithPlayers = teams
@@ -386,26 +390,10 @@ export default function MatchTrackerPage() {
         </button>
       )}
 
-      {loggedEvents.length > 0 && (
-        <div className="mb-4 bg-gray-800 rounded-xl p-3">
-          <h3 className="text-xs uppercase text-gray-400 mb-2">{t('match.log')}</h3>
-          {loggedEvents.map((e) => {
-            const clock = eventClockSeconds(e)
-            const assist = events.find((a) => a.event_type === 'assist' && a.related_event_id === e.id)
-            const team = teams.find((tm) => tm.id === e.team_id)
-            return (
-              <div key={e.id} className="flex items-center gap-3 text-sm py-1">
-                <span className="font-mono text-gray-400 w-24 shrink-0" dir="ltr">{clock != null ? formatMatchClock(clock) : '—'}</span>
-                <span className={`w-2 h-2 rounded-full shrink-0 ${team ? colorDot[team.color] : 'bg-gray-500'}`} />
-                <span className="truncate">
-                  {EVENT_ICON[e.event_type]} {playerName(e.player_id)}
-                  {assist && <span className="text-xs text-gray-400 ms-2">({playerName(assist.player_id)})</span>}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      <section className="mb-4 bg-gray-800 rounded-xl p-3">
+        <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>
+        <MatchTimeline events={events} teams={teams} players={players} />
+      </section>
 
       {confirmUndo && lastEvent && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmUndo(false)}>
@@ -467,6 +455,13 @@ export default function MatchTrackerPage() {
         {t('match.endMatch')}
       </button>
 
+      {sessionMatches.some((m) => m.status === 'completed') && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold mb-3">{t('timeline.sessionProgress')}</h2>
+          <SessionMatchList matches={sessionMatches} events={sessionEvents} teams={teams} players={players} />
+        </div>
+      )}
+
       {/* Early-end confirmation */}
       {confirmEarlyEnd && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmEarlyEnd(false)}>
@@ -490,6 +485,20 @@ export default function MatchTrackerPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {result && (
+        <MatchResultDialog
+          outcome={result.outcome}
+          team1={{ team: team1, score: match.team1_score }}
+          team2={{ team: team2, score: match.team2_score }}
+          next={{
+            team1: teams.find((tm) => tm.id === result.next.team1Id),
+            team2: teams.find((tm) => tm.id === result.next.team2Id),
+            waiting: teams.find((tm) => tm.id === result.next.waitingTeamId),
+          }}
+          onContinue={continueAfterResult}
+        />
       )}
 
       {/* Dialogs */}

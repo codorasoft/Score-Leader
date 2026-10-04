@@ -195,5 +195,32 @@
     "g": "أهداف",
     "a": "تمرير",
     "tooltip": "{{goals}} أهداف · {{assists}} تمريرات"
+  },
+  "result": {
+    "winsTitle": "فوز {{team}}!",
+    "reason": {
+      "goalLimit": "{{team}} كان أول من سجّل {{limit}} أهداف.",
+      "timeUp": "{{team}} كان متقدماً عند انتهاء الـ{{minutes}} دقائق.",
+      "endedEarly": "{{team}} كان متقدماً عندما أُنهيت المباراة مبكراً.",
+      "penalties": "{{team}} فاز بركلات الترجيح {{winnerPens}}–{{loserPens}}.",
+      "drawPreviousWinnerLoses": "تعادل. {{loser}} فاز في المباراة السابقة، لذلك يُحسب التعادل خسارة له. يبقى {{team}} في الملعب."
+    },
+    "next": "التالية: {{team1}} ضد {{team2}}",
+    "waits": "{{team}} ينتظر",
+    "continue": "متابعة"
+  },
+  "timeline": {
+    "title": "مجريات المباراة",
+    "noEvents": "لا توجد أحداث بعد",
+    "assist": "تمريرة: {{name}}",
+    "swapDetail": "{{name}}: {{from}} ← {{to}}",
+    "lastMatch": "آخر مباراة",
+    "earlierMatches": "المباريات السابقة ({{count}})",
+    "wins": "فوز {{team}}",
+    "winsPens": "فوز {{team}} بركلات الترجيح",
+    "draw": "تعادل",
+    "show": "المجريات",
+    "sessionProgress": "الجلسة حتى الآن",
+    "drawWinner": "تعادل · فوز {{team}}"
   }
 }

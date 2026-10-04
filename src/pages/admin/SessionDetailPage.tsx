@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { recomputeResult } from '../../utils/matchEdit'
 import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
+import { MatchTimeline } from '../../components/MatchTimeline'
 import type { Match, Team, Session, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
 const colorDot: Record<string, string> = {
@@ -25,6 +26,7 @@ export default function SessionDetailPage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [timelineId, setTimelineId] = useState<string | null>(null)
   const [goalDialog, setGoalDialog] = useState<{ match: Match; teamId: string } | null>(null)
   const [confirmDeleteMatchId, setConfirmDeleteMatchId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -137,11 +139,11 @@ export default function SessionDetailPage() {
 
           return (
             <div key={m.id} className="bg-gray-800 rounded-xl p-4">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="text-xs text-gray-400 font-mono">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <span className="text-xs text-gray-400 font-mono pt-1">
                   {t('common.match', { number: m.match_number })}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-end flex-wrap gap-2">
                   {winner && (
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-green-400">
                       <span className={`w-2 h-2 rounded-full ${colorDot[winner.color] ?? 'bg-gray-400'}`} />
@@ -154,6 +156,13 @@ export default function SessionDetailPage() {
                     </button>
                   ) : (
                     <>
+                      <button
+                        onClick={() => setTimelineId(timelineId === m.id ? null : m.id)}
+                        aria-expanded={timelineId === m.id}
+                        className={`px-2 py-1 rounded text-xs ${timelineId === m.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+                      >
+                        {t('timeline.show')}
+                      </button>
                       <button onClick={() => setEditingId(m.id)} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">
                         {t('sessionDetail.editMatch')}
                       </button>
@@ -244,6 +253,12 @@ export default function SessionDetailPage() {
                   )}
 
                   <p className="text-xs text-gray-500">{t('sessionDetail.rotationNote')}</p>
+                </div>
+              )}
+
+              {!isEditing && timelineId === m.id && (
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                  <MatchTimeline events={matchEvents} teams={teams} players={players} />
                 </div>
               )}
 

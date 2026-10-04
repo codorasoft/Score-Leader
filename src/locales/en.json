@@ -195,5 +195,32 @@
     "g": "G",
     "a": "A",
     "tooltip": "{{goals}} goals · {{assists}} assists"
+  },
+  "result": {
+    "winsTitle": "{{team}} wins!",
+    "reason": {
+      "goalLimit": "{{team}} was first to score {{limit}} goals.",
+      "timeUp": "{{team}} was ahead when the {{minutes}} minutes ran out.",
+      "endedEarly": "{{team}} was ahead when the match was ended early.",
+      "penalties": "{{team}} won the penalty shootout {{winnerPens}}–{{loserPens}}.",
+      "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on."
+    },
+    "next": "Next: {{team1}} vs {{team2}}",
+    "waits": "{{team}} waits",
+    "continue": "Continue"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "noEvents": "No events yet",
+    "assist": "assist: {{name}}",
+    "swapDetail": "{{name}}: {{from}} → {{to}}",
+    "lastMatch": "Last match",
+    "earlierMatches": "Earlier matches ({{count}})",
+    "wins": "{{team}} wins",
+    "winsPens": "{{team}} wins on penalties",
+    "draw": "Draw",
+    "show": "Timeline",
+    "sessionProgress": "Session so far",
+    "drawWinner": "Draw · {{team}} wins"
   }
 }
