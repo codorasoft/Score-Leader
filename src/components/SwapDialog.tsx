@@ -28,8 +28,8 @@ export function SwapDialog({ teams, onSwap, onClose }: SwapDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold mb-2">{t('swap.title')}</h2>
         <p className="text-sm text-gray-400 mb-4">
           {!firstId ? t('swap.selectFirst') : t('swap.selectSecond')}
