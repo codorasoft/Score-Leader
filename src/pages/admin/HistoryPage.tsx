@@ -7,10 +7,37 @@ import type { Session } from '../../lib/types'
 export default function HistoryPage() {
   const { t } = useTranslation()
   const [sessions, setSessions] = useState<Session[]>([])
+  // Maps sessionId → latest pending matchId so active sessions have a Resume link
+  const [activeMatchMap, setActiveMatchMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    supabase.from('sessions').select('*').order('date', { ascending: false })
-      .then(({ data }) => setSessions((data ?? []) as Session[]))
+    const load = async () => {
+      const { data } = await supabase
+        .from('sessions')
+        .select('*')
+        .order('date', { ascending: false })
+      const rows = (data ?? []) as Session[]
+      setSessions(rows)
+
+      const activeIds = rows.filter((s) => s.status === 'active').map((s) => s.id)
+      if (activeIds.length === 0) return
+
+      // Find the latest pending match for every active session in one query
+      const { data: matchRows } = await supabase
+        .from('matches')
+        .select('id, session_id, match_number')
+        .in('session_id', activeIds)
+        .eq('status', 'pending')
+        .order('match_number', { ascending: false })
+
+      const map: Record<string, string> = {}
+      for (const m of (matchRows ?? []) as { id: string; session_id: string; match_number: number }[]) {
+        // keep only the highest match_number per session (first occurrence due to DESC order)
+        if (!map[m.session_id]) map[m.session_id] = m.id
+      }
+      setActiveMatchMap(map)
+    }
+    load()
   }, [])
 
   return (
@@ -28,7 +55,7 @@ export default function HistoryPage() {
                 {t(`history.status.${s.status}` as const)}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap justify-end">
               <Link
                 to={`/s/${s.share_token}`}
                 className="px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600"
@@ -36,9 +63,19 @@ export default function HistoryPage() {
               >
                 {t('history.publicLink')}
               </Link>
+              {s.status === 'active' && activeMatchMap[s.id] && (
+                <Link
+                  to={`/admin/sessions/${s.id}/match/${activeMatchMap[s.id]}`}
+                  className="px-3 py-1 bg-green-600 rounded text-xs font-semibold hover:bg-green-500"
+                >
+                  {t('history.resume')}
+                </Link>
+              )}
               {s.status === 'active' && (
-                <Link to={`/admin/sessions/${s.id}/awards`}
-                  className="px-3 py-1 bg-blue-600 rounded text-xs">
+                <Link
+                  to={`/admin/sessions/${s.id}/awards`}
+                  className="px-3 py-1 bg-blue-600 rounded text-xs hover:bg-blue-500"
+                >
                   {t('history.awards')}
                 </Link>
               )}
