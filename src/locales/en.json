@@ -105,6 +105,7 @@
     "title": "Session History",
     "noSessions": "No sessions yet",
     "publicLink": "Public link",
+    "matches": "Matches",
     "resume": "Resume",
     "awards": "Awards",
     "status": {
@@ -112,6 +113,14 @@
       "completed": "Completed",
       "draft": "Draft"
     }
+  },
+  "sessionDetail": {
+    "back": "History",
+    "noMatches": "No completed matches yet",
+    "wins": "wins",
+    "draw": "Draw",
+    "resolvedPenalties": "Resolved by penalties",
+    "upcoming": "Upcoming"
   },
   "leaderboard": {
     "title": "Leaderboard"

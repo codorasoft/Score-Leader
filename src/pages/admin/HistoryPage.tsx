@@ -57,6 +57,12 @@ export default function HistoryPage() {
             </div>
             <div className="flex gap-2 flex-wrap justify-end">
               <Link
+                to={`/admin/sessions/${s.id}`}
+                className="px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600"
+              >
+                {t('history.matches')}
+              </Link>
+              <Link
                 to={`/s/${s.share_token}`}
                 className="px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600"
                 target="_blank"

@@ -9,6 +9,7 @@ import NewSessionPage from './pages/admin/NewSessionPage'
 import TeamBuilderPage from './pages/admin/TeamBuilderPage'
 import MatchTrackerPage from './pages/admin/MatchTrackerPage'
 import AwardsPage from './pages/admin/AwardsPage'
+import SessionDetailPage from './pages/admin/SessionDetailPage'
 import HistoryPage from './pages/admin/HistoryPage'
 
 import LiveSessionPage from './pages/public/LiveSessionPage'
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
           { index: true, element: <HistoryPage /> },
           { path: 'players', element: <PlayersPage /> },
           { path: 'sessions/new', element: <NewSessionPage /> },
+          { path: 'sessions/:sessionId', element: <SessionDetailPage /> },
           { path: 'sessions/:sessionId/teams', element: <TeamBuilderPage /> },
           { path: 'sessions/:sessionId/match/:matchId', element: <MatchTrackerPage /> },
           { path: 'sessions/:sessionId/awards', element: <AwardsPage /> },
