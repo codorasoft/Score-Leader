@@ -146,7 +146,6 @@
     "votesReadyBody": "أرسل هذه الروابط إلى المجموعة. أغلق كل تصويت من صفحة سجل الجلسة عندما ينتهي الجميع من التصويت.",
     "copyLink": "نسخ الرابط",
     "copied": "تم النسخ!",
-    "shareWhatsApp": "واتساب",
     "done": "تم",
     "votesTitle": "التصويتات",
     "voteOpen": "مفتوح",
@@ -160,7 +159,8 @@
     "closeVote": "إغلاق التصويت",
     "tiePick": "تعادل — اضغط على الفائز لإغلاق التصويت",
     "winner": "الفائز: {{name}}",
-    "noVotesYet": "لا توجد أصوات بعد"
+    "noVotesYet": "لا توجد أصوات بعد",
+    "shareMessenger": "ماسنجر"
   },
   "history": {
     "title": "سجل الجلسات",
@@ -283,5 +283,22 @@
     "wins_few": "انتصارات",
     "wins_many": "انتصاراً",
     "wins_other": "فوز"
+  },
+  "summary": {
+    "heading": "⚽ ScoreLeader · {{date}}",
+    "matches_zero": "{{count}} مباراة",
+    "matches_one": "مباراة واحدة",
+    "matches_two": "مباراتان",
+    "matches_few": "{{count}} مباريات",
+    "matches_many": "{{count}} مباراة",
+    "matches_other": "{{count}} مباراة",
+    "score": "(⁦{{for}}–{{against}}⁩)",
+    "link": "📊 التفاصيل الكاملة: {{url}}",
+    "button": "مشاركة الملخص",
+    "title": "ملخص الجلسة",
+    "share": "مشاركة في ماسنجر",
+    "copy": "نسخ النص",
+    "copied": "تم النسخ! الصقه في ماسنجر.",
+    "help": "اضغط مشاركة في ماسنجر واختر ماسنجر، أو انسخ النص والصقه في محادثة المجموعة."
   }
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { copyText, shareToMessenger } from '../lib/messengerShare'
 
 export interface CreatedVote {
   awardType: string
@@ -13,11 +14,11 @@ export function ShareVoteButtons({ title, token }: { title: string; token: strin
   const [copied, setCopied] = useState(false)
   const url = voteUrl(token)
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url)
+    // If the clipboard is blocked the link is still visible to copy by hand
+    if (await copyText(url)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch { /* clipboard blocked; the link is visible to copy by hand */ }
+    }
   }
   return (
     <div className="space-y-2">
@@ -26,14 +27,12 @@ export function ShareVoteButtons({ title, token }: { title: string; token: strin
         <button onClick={copy} className="flex-1 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold">
           {copied ? t('awards.copied') : t('awards.copyLink')}
         </button>
-        <a
-          href={`https://wa.me/?text=${encodeURIComponent(`${title}: ${url}`)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex-1 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-sm font-semibold text-center"
+        <button
+          onClick={() => shareToMessenger(`${title}: ${url}`)}
+          className="flex-1 py-2 rounded-lg bg-[#0866FF] hover:bg-[#0756d6] text-sm font-semibold"
         >
-          {t('awards.shareWhatsApp')}
-        </a>
+          💬 {t('awards.shareMessenger')}
+        </button>
       </div>
     </div>
   )

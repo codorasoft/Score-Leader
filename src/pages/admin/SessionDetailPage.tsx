@@ -9,7 +9,9 @@ import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionStandings } from '../../components/SessionStandings'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { SessionVotes } from '../../components/SessionVotes'
-import type { Match, Team, Session, MatchEvent, Player, TeamPlayer } from '../../lib/types'
+import { SessionSummaryShare } from '../../components/SessionSummaryShare'
+import { buildSessionSummary } from '../../utils/sessionSummary'
+import type { Match, Team, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 
 const colorDot: Record<string, string> = {
   green: 'bg-green-500',
@@ -23,6 +25,7 @@ export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const { t } = useTranslation()
   const [session, setSession] = useState<Session | null>(null)
+  const [awards, setAwards] = useState<SessionAward[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
@@ -35,11 +38,13 @@ export default function SessionDetailPage() {
   const [busy, setBusy] = useState(false)
 
   const load = async () => {
-    const [{ data: sess }, { data: matchData }, { data: teamData }] = await Promise.all([
+    const [{ data: sess }, { data: matchData }, { data: teamData }, { data: awardData }] = await Promise.all([
       supabase.from('sessions').select('*').eq('id', sessionId).single(),
       supabase.from('matches').select('*').eq('session_id', sessionId).order('match_number'),
       supabase.from('teams').select('*').eq('session_id', sessionId),
+      supabase.from('session_awards').select('*').eq('session_id', sessionId),
     ])
+    setAwards((awardData ?? []) as SessionAward[])
     const matchRows = (matchData ?? []) as Match[]
     const teamRows = (teamData ?? []) as Team[]
     setSession(sess as Session)
@@ -126,6 +131,17 @@ export default function SessionDetailPage() {
         <Link to="/admin" className="text-gray-400 hover:text-white text-sm">← {t('sessionDetail.back')}</Link>
         <h1 className="text-xl font-bold">{session?.date ?? '…'}</h1>
       </div>
+
+      {session && completed.length > 0 && (
+        <div className="mb-6">
+          <SessionSummaryShare
+            text={buildSessionSummary({
+              t, date: session.date, teams, players, matches, events, awards,
+              url: `${window.location.origin}/s/${session.share_token}`,
+            })}
+          />
+        </div>
+      )}
 
       <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
       <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
