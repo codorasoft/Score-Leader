@@ -15,7 +15,7 @@ export function computePlayerStats(
   players: Player[],
   events: MatchEvent[],
   matches: Match[],
-  teamPlayerMap: Record<string, string>, // playerId → teamId
+  playerTeams: Record<string, string[]>, // playerId → the player’s team in each session
 ): PlayerStat[] {
   return players.map((player) => {
     const pEvents = events.filter((e) => e.player_id === player.id)
@@ -25,18 +25,19 @@ export function computePlayerStats(
     const yellowCards = pEvents.filter((e) => e.event_type === 'yellow_card').length
     const redCards = pEvents.filter((e) => e.event_type === 'red_card').length
 
-    const playerTeamId = teamPlayerMap[player.id]
+    const teamIds = new Set(playerTeams[player.id] ?? [])
     const completedMatches = matches.filter(
-      (m) => m.status === 'completed' && (m.team1_id === playerTeamId || m.team2_id === playerTeamId)
+      (m) => m.status === 'completed' && (teamIds.has(m.team1_id) || teamIds.has(m.team2_id))
     )
     const matchesPlayed = completedMatches.length
-    const matchesWon = completedMatches.filter((m) => m.winner_team_id === playerTeamId).length
+    // A draw still stores winner_team_id (who keeps the field), so it must not count as a win
+    const matchesWon = completedMatches.filter((m) => !m.is_draw && m.winner_team_id && teamIds.has(m.winner_team_id)).length
 
     // Clean sheet: GK's team conceded 0 goals in a match
     let cleanSheets = 0
     if (player.position === 'GK') {
       for (const m of completedMatches) {
-        const conceded = m.team1_id === playerTeamId ? m.team2_score : m.team1_score
+        const conceded = teamIds.has(m.team1_id) ? m.team2_score : m.team1_score
         if (conceded === 0) cleanSheets++
       }
     }

@@ -20,7 +20,7 @@ export default function AwardsPage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
-  const [teamPlayerMap, setTeamPlayerMap] = useState<Record<string, string>>({})
+  const [teamPlayerMap, setTeamPlayerMap] = useState<Record<string, string[]>>({})
   const [saving, setSaving] = useState(false)
 
   const [mvpChoice, setMvpChoice] = useState<string | null>(null)
@@ -33,11 +33,17 @@ export default function AwardsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: spData }, { data: matchData }, { data: evData }, { data: tpData }] = await Promise.all([
+      const [{ data: spData }, { data: matchData }, { data: teamData }] = await Promise.all([
         supabase.from('session_players').select('player_id').eq('session_id', sessionId),
         supabase.from('matches').select('*').eq('session_id', sessionId),
-        supabase.from('match_events').select('*'),
-        supabase.from('team_players').select('*'),
+        supabase.from('teams').select('id').eq('session_id', sessionId),
+      ])
+      // Awards are per session: only this session's events and team assignments count
+      const matchIds = (matchData ?? []).map((m: { id: string }) => m.id)
+      const teamIds = (teamData ?? []).map((tm: { id: string }) => tm.id)
+      const [{ data: evData }, { data: tpData }] = await Promise.all([
+        matchIds.length ? supabase.from('match_events').select('*').in('match_id', matchIds) : Promise.resolve({ data: [] }),
+        teamIds.length ? supabase.from('team_players').select('*').in('team_id', teamIds) : Promise.resolve({ data: [] }),
       ])
 
       const playerIds = (spData ?? []).map((r: { player_id: string }) => r.player_id)
@@ -49,10 +55,8 @@ export default function AwardsPage() {
       setMatches((matchData ?? []) as Match[])
       setEvents((evData ?? []) as MatchEvent[])
 
-      const map: Record<string, string> = {}
-      for (const tp of (tpData ?? []) as TeamPlayer[]) {
-        map[tp.player_id] = tp.team_id
-      }
+      const map: Record<string, string[]> = {}
+      for (const tp of (tpData ?? []) as TeamPlayer[]) (map[tp.player_id] ??= []).push(tp.team_id)
       setTeamPlayerMap(map)
     }
     load()
