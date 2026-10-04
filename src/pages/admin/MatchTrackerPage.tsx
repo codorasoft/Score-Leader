@@ -29,10 +29,11 @@ export function buildMatchUpdate(params: {
   if (match_number === 1) {
     return { is_draw: true, winner_team_id: null, draw_resolved_by: null }
   }
+  // team1_id is always the previous match's winner — they keep their spot on a draw
   return {
     is_draw: true,
     draw_resolved_by: 'late_team',
-    winner_team_id: waiting_team_id,
+    winner_team_id: params.team1_id,
   }
 }
 

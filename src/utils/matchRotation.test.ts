@@ -27,13 +27,15 @@ it('draw on match 1 with penalty winner: winner stays, loser waits', () => {
   expect(next.nextWaitingTeamId).toBe('red')
 })
 
-it('draw on match > 1: waiting team won, one playing team waits', () => {
+it('draw on match > 1: team1 (prev winner) retains spot, team2 sits out', () => {
+  // team1_id is always the previous match winner; they keep their spot on a draw
   const next = resolveMatch(base({
-    is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 'yellow',
-    match_number: 2, waiting_team_id: 'yellow',
+    is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 'red',
+    match_number: 2,
   }))
-  expect(next.nextTeam1Id).toBe('yellow')
-  expect(['red', 'blue']).toContain(next.nextWaitingTeamId)
+  expect(next.nextTeam1Id).toBe('red')    // prev winner stays
+  expect(next.nextTeam2Id).toBe('yellow') // waiting team comes on
+  expect(next.nextWaitingTeamId).toBe('blue') // team2 sits out
 })
 
 it('blue wins cleanly: blue stays, yellow comes on, red waits', () => {
