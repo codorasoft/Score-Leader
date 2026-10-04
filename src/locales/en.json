@@ -133,7 +133,6 @@
     "deleteMatch": "Delete",
     "confirmDeleteMatch": "Delete this match and all its events?",
     "winner": "Winner",
-    "noWinner": "Draw",
     "addGoal": "+ Goal",
     "assistBy": "assist: {{name}}",
     "done": "Done",

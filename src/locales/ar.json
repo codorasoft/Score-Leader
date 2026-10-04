@@ -133,7 +133,6 @@
     "deleteMatch": "حذف",
     "confirmDeleteMatch": "هل تريد حذف هذه المباراة وجميع أحداثها؟",
     "winner": "الفائز",
-    "noWinner": "تعادل",
     "addGoal": "+ هدف",
     "assistBy": "تمريرة: {{name}}",
     "done": "تم",

@@ -54,34 +54,10 @@ export default function HistoryPage() {
 
   const deleteSession = async (sessionId: string) => {
     setDeleting(true)
-    // Cascade manually: events → awards → votes → matches → team_players → teams → session
-    const { data: matchRows } = await supabase.from('matches').select('id').eq('session_id', sessionId)
-    const matchIds = (matchRows ?? []).map((m: { id: string }) => m.id)
-    if (matchIds.length > 0) {
-      await supabase.from('match_events').delete().in('match_id', matchIds)
-    }
-
-    const { data: teamRows } = await supabase.from('teams').select('id').eq('session_id', sessionId)
-    const teamIds = (teamRows ?? []).map((t: { id: string }) => t.id)
-    if (teamIds.length > 0) {
-      await supabase.from('team_players').delete().in('team_id', teamIds)
-    }
-
-    const { data: voteRows } = await supabase.from('award_votes').select('id').eq('session_id', sessionId)
-    const voteIds = (voteRows ?? []).map((v: { id: string }) => v.id)
-    if (voteIds.length > 0) {
-      await supabase.from('award_vote_nominations').delete().in('award_vote_id', voteIds)
-      await supabase.from('award_vote_entries').delete().in('award_vote_id', voteIds)
-      await supabase.from('award_votes').delete().in('id', voteIds)
-    }
-
-    await supabase.from('session_awards').delete().eq('session_id', sessionId)
-    await supabase.from('matches').delete().eq('session_id', sessionId)
-    if (teamIds.length > 0) {
-      await supabase.from('teams').delete().in('id', teamIds)
-    }
-    await supabase.from('sessions').delete().eq('id', sessionId)
-
+    // matches/match_events reference teams without CASCADE, so they must go before the
+    // session's cascade removes teams; everything else cascades from the session row.
+    const { error } = await supabase.from('matches').delete().eq('session_id', sessionId)
+    if (!error) await supabase.from('sessions').delete().eq('id', sessionId)
     setConfirmDeleteId(null)
     setDeleting(false)
     load()
