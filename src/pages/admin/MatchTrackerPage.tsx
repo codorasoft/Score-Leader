@@ -37,6 +37,9 @@ export function buildMatchUpdate(params: {
   }
 }
 
+const MATCH_DURATION_SECONDS = 7 * 60  // 7 minutes
+const GOAL_LIMIT = 2
+
 const colorBg: Record<string, string> = {
   red: 'bg-red-900/40 border-red-600',
   blue: 'bg-blue-900/40 border-blue-600',
@@ -111,6 +114,10 @@ export default function MatchTrackerPage() {
 
   const mm = String(Math.floor(timer.elapsed / 60)).padStart(2, '0')
   const ss = String(timer.elapsed % 60).padStart(2, '0')
+
+  const isGoalLimitReached = match.team1_score >= GOAL_LIMIT || match.team2_score >= GOAL_LIMIT
+  const isTimeUp = timer.elapsed >= MATCH_DURATION_SECONDS
+  const shouldEndMatch = isGoalLimitReached || isTimeUp
 
   const handleGoalConfirm = async ({ scorerId, assisterId }: { scorerId: string; assisterId: string | null }) => {
     setDialog(null)
@@ -237,6 +244,13 @@ export default function MatchTrackerPage() {
         </div>
       </div>
 
+      {/* End-condition banner */}
+      {shouldEndMatch && !penaltyMode && (
+        <div className="mb-4 rounded-xl px-4 py-3 bg-red-600/20 border border-red-500 text-red-300 font-semibold text-sm text-center animate-pulse">
+          {isTimeUp ? t('match.timeUp') : t('match.goalLimitReached')}
+        </div>
+      )}
+
       {/* Score */}
       <div className="flex items-center justify-center gap-6 mb-6">
         <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1.color]}`}>
@@ -311,7 +325,11 @@ export default function MatchTrackerPage() {
 
       <button
         onClick={handleEndMatch}
-        className="w-full py-3 bg-red-700 rounded-xl font-bold hover:bg-red-600"
+        className={`w-full py-3 rounded-xl font-bold transition-colors ${
+          shouldEndMatch
+            ? 'bg-red-500 hover:bg-red-400 animate-pulse shadow-lg shadow-red-700/50'
+            : 'bg-red-700 hover:bg-red-600'
+        }`}
       >
         {t('match.endMatch')}
       </button>

@@ -66,7 +66,9 @@
     "suspended": "Suspended",
     "returnEarly": "Return early",
     "penaltyTitle": "Penalty Shootout",
-    "penaltyConfirm": "Confirm Penalty Result"
+    "penaltyConfirm": "Confirm Penalty Result",
+    "goalLimitReached": "Goal limit reached — end the match!",
+    "timeUp": "Time's up — end the match!"
   },
   "goal": {
     "whoScored": "Who scored?",

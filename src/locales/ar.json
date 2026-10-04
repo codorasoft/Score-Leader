@@ -66,7 +66,9 @@
     "suspended": "موقوف",
     "returnEarly": "عودة مبكرة",
     "penaltyTitle": "ركلات الترجيح",
-    "penaltyConfirm": "تأكيد نتيجة الركلات"
+    "penaltyConfirm": "تأكيد نتيجة الركلات",
+    "goalLimitReached": "تم الوصول لحد الأهداف — أنهِ المباراة!",
+    "timeUp": "انتهى الوقت — أنهِ المباراة!"
   },
   "goal": {
     "whoScored": "من سجّل؟",
