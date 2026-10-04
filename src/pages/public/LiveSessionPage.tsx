@@ -30,7 +30,8 @@ export default function LiveSessionPage() {
     const [{ data: teamsData }, { data: matchData }] = await Promise.all([
       supabase.from('teams').select('*').eq('session_id', (sess as Session).id),
       supabase.from('matches').select('*').eq('session_id', (sess as Session).id)
-        .eq('status', 'active').maybeSingle(),
+        .in('status', ['pending', 'active'])
+        .order('match_number', { ascending: false }).limit(1).maybeSingle(),
     ])
     setTeams((teamsData ?? []) as Team[])
 
@@ -82,7 +83,9 @@ export default function LiveSessionPage() {
     <div className="max-w-lg mx-auto p-4">
       <div className="text-center text-4xl font-mono font-bold mb-2">{mm}:{ss}</div>
       <div className="text-center text-xs text-gray-400 mb-4 uppercase">
-        {match.timer_status === 'running' ? t('live.live') : match.timer_status}
+        {match.timer_status === 'running'
+          ? t('live.live')
+          : match.timer_status === 'stopped' ? t('live.notStarted') : t('live.paused')}
       </div>
 
       <div className="flex gap-4 mb-6">

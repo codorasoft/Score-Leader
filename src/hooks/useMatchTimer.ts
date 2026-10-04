@@ -52,7 +52,7 @@ export function useMatchTimer(match: Match): MatchTimerResult {
     setStartedAt(now)
     await supabase
       .from('matches')
-      .update({ timer_started_at: now, timer_status: 'running' })
+      .update({ timer_started_at: now, timer_status: 'running', status: 'active' })
       .eq('id', match.id)
   }, [match.id])
 

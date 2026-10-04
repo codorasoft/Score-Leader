@@ -1,6 +1,7 @@
-import { renderHook } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import { vi } from 'vitest'
 import type { Match } from '../lib/types'
+import { supabase } from '../lib/supabase'
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -34,6 +35,13 @@ it('elapsed equals timer_elapsed_seconds when stopped', () => {
   const match = baseMatch({ timer_elapsed_seconds: 0, timer_status: 'stopped' })
   const { result } = renderHook(() => useMatchTimer(match))
   expect(result.current.elapsed).toBe(0)
+})
+
+it('start marks the match active so the public live page can find it', async () => {
+  const { result } = renderHook(() => useMatchTimer(baseMatch({ status: 'pending' })))
+  await act(() => result.current.start())
+  const { update } = vi.mocked(supabase.from).mock.results.at(-1)!.value
+  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: 'active', timer_status: 'running' }))
 })
 
 it('returns timerStatus from match', () => {

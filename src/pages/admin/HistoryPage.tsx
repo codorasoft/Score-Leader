@@ -28,7 +28,7 @@ export default function HistoryPage() {
       .from('matches')
       .select('id, session_id, match_number')
       .in('session_id', activeIds)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'active'])
       .order('match_number', { ascending: false })
 
     const map: Record<string, string> = {}

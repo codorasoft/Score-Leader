@@ -159,7 +159,8 @@
     "goals": "Goals",
     "live": "Live",
     "unknown": "Unknown",
-    "notStarted": "Next match — not started yet"
+    "notStarted": "Next match — not started yet",
+    "paused": "Paused"
   },
   "errors": {
     "network": "No connection — this change was not saved. Check your internet and try again.",
