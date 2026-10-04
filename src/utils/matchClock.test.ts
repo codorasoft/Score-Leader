@@ -1,4 +1,4 @@
-import { formatMatchClock, eventClockSeconds, canRecordEvents } from './matchClock'
+import { formatMatchClock, eventClockSeconds, canRecordEvents, finishedMatchFields } from './matchClock'
 
 describe('formatMatchClock', () => {
   it('shows minutes and seconds inside regular time', () => {
@@ -42,5 +42,13 @@ describe('canRecordEvents', () => {
 
   it('is false once the match is completed', () => {
     expect(canRecordEvents('completed', 'paused')).toBe(false)
+  })
+})
+
+describe('finishedMatchFields', () => {
+  it('marks the match completed and stops the clock at the final match time', () => {
+    expect(finishedMatchFields(465)).toEqual({
+      status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: 465, timer_started_at: null,
+    })
   })
 })

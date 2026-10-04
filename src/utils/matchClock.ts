@@ -1,4 +1,4 @@
-import type { MatchEvent, MatchStatus, TimerStatus } from '../lib/types'
+import type { Match, MatchEvent, MatchStatus, TimerStatus } from '../lib/types'
 
 export const MATCH_DURATION_SECONDS = 7 * 60
 export const GOAL_LIMIT = 2
@@ -19,4 +19,9 @@ export function eventClockSeconds(event: Pick<MatchEvent, 'elapsed_seconds' | 'm
 // A paused clock is still mid-match (e.g. a stoppage), so events may be recorded then.
 export function canRecordEvents(matchStatus: MatchStatus, timerStatus: TimerStatus) {
   return matchStatus !== 'completed' && timerStatus !== 'stopped'
+}
+
+// Ending a match stops its clock and keeps the final match time.
+export function finishedMatchFields(elapsedSeconds: number): Pick<Match, 'status' | 'timer_status' | 'timer_elapsed_seconds' | 'timer_started_at'> {
+  return { status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: elapsedSeconds, timer_started_at: null }
 }

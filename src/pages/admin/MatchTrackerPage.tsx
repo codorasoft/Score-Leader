@@ -9,7 +9,7 @@ import { primeAlertAudio } from '../../utils/matchAlert'
 import { resolveMatch, decideResult } from '../../utils/matchRotation'
 import { findLastUndoable } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
-import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock } from '../../utils/matchClock'
+import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
 import { SwapDialog } from '../../components/SwapDialog'
@@ -268,7 +268,7 @@ export default function MatchTrackerPage() {
   const finishMatch = async (update: Partial<Match>, penalties?: { team1: number; team2: number }) => {
     if (!update.winner_team_id) return
 
-    const { error } = await supabase.from('matches').update({ ...update, status: 'completed' }).eq('id', match.id)
+    const { error } = await supabase.from('matches').update({ ...update, ...finishedMatchFields(timer.elapsed) }).eq('id', match.id)
     // Don't start the next match if this result was not saved
     if (error) return
 
