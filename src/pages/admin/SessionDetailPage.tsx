@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { recomputeResult } from '../../utils/matchEdit'
+import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import type { Match, Team, Session, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
@@ -197,6 +198,9 @@ export default function SessionDetailPage() {
                             return (
                               <div key={g.id} className="flex items-center justify-between bg-gray-700/60 rounded px-3 py-1.5 text-sm">
                                 <span>
+                                  {eventClockSeconds(g) != null && (
+                                    <span className="font-mono text-xs text-gray-400 me-2" dir="ltr">{formatMatchClock(eventClockSeconds(g)!)}</span>
+                                  )}
                                   ⚽ {playerName(g.player_id)}
                                   {assist && (
                                     <span className="text-xs text-gray-400 ms-2">

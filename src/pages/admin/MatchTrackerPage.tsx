@@ -8,6 +8,7 @@ import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
 import { resolveMatch } from '../../utils/matchRotation'
 import { findLastUndoable } from '../../utils/matchEdit'
+import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock, eventClockSeconds } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
 import { SwapDialog } from '../../components/SwapDialog'
@@ -41,8 +42,11 @@ export function buildMatchUpdate(params: {
   }
 }
 
-const MATCH_DURATION_SECONDS = 7 * 60  // 7 minutes
-const GOAL_LIMIT = 2
+
+const colorDot: Record<string, string> = { red: 'bg-red-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const EVENT_ICON: Partial<Record<MatchEvent['event_type'], string>> = {
+  goal: '⚽', penalty_goal: '⚽', yellow_card: '🟨', red_card: '🟥',
+}
 
 const colorBg: Record<string, string> = {
   red: 'bg-red-900/40 border-red-600',
@@ -63,6 +67,8 @@ export default function MatchTrackerPage() {
   const [dialog, setDialog] = useState<'goal' | 'card' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
+  // Clock reading captured when Goal/Card is tapped, not after the scorer is picked
+  const [eventClock, setEventClock] = useState(0)
   const [penaltyMode, setPenaltyMode] = useState(false)
   const [penaltyT1, setPenaltyT1] = useState(0)
   const [penaltyT2, setPenaltyT2] = useState(0)
@@ -134,28 +140,36 @@ export default function MatchTrackerPage() {
     (e) => e.event_type === 'red_card' && !e.suspension_ended_at
   )
 
-  const mm = String(Math.floor(timer.elapsed / 60)).padStart(2, '0')
-  const ss = String(timer.elapsed % 60).padStart(2, '0')
 
   const isTimeUp = timer.elapsed >= MATCH_DURATION_SECONDS
   const shouldEndMatch = reachedEnd
+  const inProgress = canRecordEvents(match.status, timer.timerStatus)
+
+  const openEventDialog = (kind: 'goal' | 'card') => {
+    if (!inProgress) return
+    setEventClock(timer.elapsed)
+    setDialog(kind)
+  }
+  const clockFields = { elapsed_seconds: eventClock, minute: Math.floor(eventClock / 60) }
 
   const handleGoalConfirm = async ({ scorerId, assisterId }: { scorerId: string; assisterId: string | null }) => {
     setDialog(null)
     const scorerTeamId = teamPlayers.find((tp) => tp.player_id === scorerId)?.team_id
-    if (!scorerTeamId) return
+    if (!scorerTeamId || !inProgress) return
 
     // Insert goal event
     const { data: goalEvent } = await supabase
       .from('match_events')
-      .insert({ match_id: match.id, player_id: scorerId, team_id: scorerTeamId, event_type: 'goal', minute: Math.floor(timer.elapsed / 60) })
+      .insert({ match_id: match.id, player_id: scorerId, team_id: scorerTeamId, event_type: 'goal', ...clockFields })
       .select().single()
+    // Never bump the score for a goal that failed to save
+    if (!goalEvent) return
 
-    if (assisterId && goalEvent) {
+    if (assisterId) {
       const assisterTeamId = teamPlayers.find((tp) => tp.player_id === assisterId)?.team_id
       await supabase.from('match_events').insert({
         match_id: match.id, player_id: assisterId, team_id: assisterTeamId,
-        event_type: 'assist', related_event_id: (goalEvent as MatchEvent).id, minute: Math.floor(timer.elapsed / 60),
+        event_type: 'assist', related_event_id: (goalEvent as MatchEvent).id, ...clockFields,
       })
     }
 
@@ -172,14 +186,20 @@ export default function MatchTrackerPage() {
     playerId: string; cardType: 'yellow_card' | 'red_card'; suspensionMinutes: 2 | 3 | null
   }) => {
     setDialog(null)
+    if (!inProgress) return
     const playerTeamId = teamPlayers.find((tp) => tp.player_id === playerId)?.team_id
     await supabase.from('match_events').insert({
       match_id: match.id, player_id: playerId, team_id: playerTeamId, event_type: cardType,
       suspension_minutes: suspensionMinutes, suspension_started_at: suspensionMinutes ? new Date().toISOString() : null,
-      minute: Math.floor(timer.elapsed / 60),
+      ...clockFields,
     })
     load()
   }
+
+  const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
+  const loggedEvents = events
+    .filter((e) => e.event_type in EVENT_ICON)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
 
   const lastEvent = findLastUndoable(events)
   const lastEventIsGoal = lastEvent?.event_type === 'goal' || lastEvent?.event_type === 'penalty_goal'
@@ -290,7 +310,12 @@ export default function MatchTrackerPage() {
     <div>
       {/* Timer */}
       <div className="text-center mb-6">
-        <div className="text-5xl font-mono font-bold">{mm}:{ss}</div>
+        <div className="text-5xl font-mono font-bold">
+          {formatMatchClock(Math.min(timer.elapsed, MATCH_DURATION_SECONDS))}
+          {timer.elapsed > MATCH_DURATION_SECONDS && (
+            <span className="block text-2xl text-red-400 mt-1">+{formatMatchClock(timer.elapsed - MATCH_DURATION_SECONDS)}</span>
+          )}
+        </div>
         <div className="mt-2 flex justify-center gap-3">
           {timer.timerStatus !== 'running' ? (
             <button onClick={handleStart} className="px-4 py-2 bg-green-600 rounded font-semibold">{t('match.start')}</button>
@@ -341,10 +366,14 @@ export default function MatchTrackerPage() {
       {/* Action buttons */}
       {!penaltyMode && (
         <div className="flex gap-3 mb-4">
-          <button onClick={() => setDialog('goal')} className="flex-1 py-3 bg-green-700 rounded font-semibold">{t('match.goal')}</button>
-          <button onClick={() => setDialog('card')} className="flex-1 py-3 bg-yellow-700 rounded font-semibold">{t('match.card')}</button>
+          <button onClick={() => openEventDialog('goal')} disabled={!inProgress} className="flex-1 py-3 bg-green-700 rounded font-semibold disabled:opacity-40">{t('match.goal')}</button>
+          <button onClick={() => openEventDialog('card')} disabled={!inProgress} className="flex-1 py-3 bg-yellow-700 rounded font-semibold disabled:opacity-40">{t('match.card')}</button>
           <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>
         </div>
+      )}
+
+      {!penaltyMode && !inProgress && (
+        <p className="text-xs text-gray-400 text-center -mt-2 mb-4">{t('match.startFirst')}</p>
       )}
 
       {!penaltyMode && lastEvent && (
@@ -355,6 +384,27 @@ export default function MatchTrackerPage() {
           <span className="font-semibold">{t('match.undo')}</span>
           <span className="text-gray-400 truncate">{lastEventLabel}</span>
         </button>
+      )}
+
+      {loggedEvents.length > 0 && (
+        <div className="mb-4 bg-gray-800 rounded-xl p-3">
+          <h3 className="text-xs uppercase text-gray-400 mb-2">{t('match.log')}</h3>
+          {loggedEvents.map((e) => {
+            const clock = eventClockSeconds(e)
+            const assist = events.find((a) => a.event_type === 'assist' && a.related_event_id === e.id)
+            const team = teams.find((tm) => tm.id === e.team_id)
+            return (
+              <div key={e.id} className="flex items-center gap-3 text-sm py-1">
+                <span className="font-mono text-gray-400 w-24 shrink-0" dir="ltr">{clock != null ? formatMatchClock(clock) : '—'}</span>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${team ? colorDot[team.color] : 'bg-gray-500'}`} />
+                <span className="truncate">
+                  {EVENT_ICON[e.event_type]} {playerName(e.player_id)}
+                  {assist && <span className="text-xs text-gray-400 ms-2">({playerName(assist.player_id)})</span>}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {confirmUndo && lastEvent && (

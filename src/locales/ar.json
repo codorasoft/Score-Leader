@@ -77,7 +77,9 @@
     "undoGoal": "⚽ هدف — {{name}}",
     "undoYellow": "🟨 بطاقة صفراء — {{name}}",
     "undoRed": "🟥 بطاقة حمراء — {{name}}",
-    "undoConfirm": "نعم، تراجع"
+    "undoConfirm": "نعم، تراجع",
+    "startFirst": "اضغط بدء لتسجيل الأهداف والبطاقات",
+    "log": "سجل المباراة"
   },
   "goal": {
     "whoScored": "من سجّل؟",

@@ -3,7 +3,13 @@ import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useRealtime } from '../../hooks/useRealtime'
+import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
 import type { Session, Match, Team, MatchEvent, Player } from '../../lib/types'
+
+const formatEventClock = (e: MatchEvent) => {
+  const clock = eventClockSeconds(e)
+  return clock == null ? '' : formatMatchClock(clock)
+}
 
 const colorBg: Record<string, string> = {
   red: 'bg-red-900/40 border-red-600',
@@ -77,7 +83,9 @@ export default function LiveSessionPage() {
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
   const ss = String(elapsed % 60).padStart(2, '0')
 
-  const goalEvents = events.filter((e) => e.event_type === 'goal' || e.event_type === 'penalty_goal')
+  const goalEvents = events
+    .filter((e) => e.event_type === 'goal' || e.event_type === 'penalty_goal')
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
 
   return (
     <div className="max-w-lg mx-auto p-4">
@@ -119,7 +127,7 @@ export default function LiveSessionPage() {
             const scorer = players.find((p) => p.id === e.player_id)
             return (
               <div key={e.id} className="text-sm py-1 flex gap-2">
-                <span className="text-gray-400">{e.minute ?? 0}'</span>
+                <span className="text-gray-400 font-mono" dir="ltr">{formatEventClock(e)}</span>
                 <span>{scorer?.name ?? t('live.unknown')}</span>
               </div>
             )

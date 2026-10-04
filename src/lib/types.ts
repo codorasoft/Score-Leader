@@ -59,6 +59,7 @@ export interface MatchEvent {
   event_type: EventType
   related_event_id: string | null
   minute: number | null
+  elapsed_seconds: number | null
   suspension_minutes: number | null
   suspension_started_at: string | null
   suspension_ended_at: string | null
