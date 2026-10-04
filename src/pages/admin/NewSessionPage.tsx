@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { PositionBadge } from './PlayersPage'
 import type { Player } from '../../lib/types'
@@ -44,6 +45,7 @@ export function AttendancePicker({ players, selected, onToggle }: AttendancePick
 
 export default function NewSessionPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [step, setStep] = useState<'date' | 'attendance'>('date')
   const [sessionDate, setSessionDate] = useState('')
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -93,8 +95,8 @@ export default function NewSessionPage() {
   if (step === 'date') {
     return (
       <div className="max-w-sm">
-        <h1 className="text-xl font-bold mb-6">New Session</h1>
-        <label className="block text-sm text-gray-400 mb-2">Session date</label>
+        <h1 className="text-xl font-bold mb-6">{t('session.title')}</h1>
+        <label className="block text-sm text-gray-400 mb-2">{t('session.dateLabel')}</label>
         <input
           type="date"
           value={sessionDate}
@@ -106,7 +108,7 @@ export default function NewSessionPage() {
           disabled={!sessionDate}
           className="w-full py-2 bg-blue-600 rounded font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
-          Start Session
+          {t('session.startSession')}
         </button>
       </div>
     )
@@ -114,8 +116,8 @@ export default function NewSessionPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-2">Select Attendees</h1>
-      <p className="text-gray-400 text-sm mb-4">Tap players to mark who's coming. Max 15.</p>
+      <h1 className="text-xl font-bold mb-2">{t('session.attendeesTitle')}</h1>
+      <p className="text-gray-400 text-sm mb-4">{t('session.attendeesHint')}</p>
       <AttendancePicker players={players} selected={selected} onToggle={togglePlayer} />
       <div className="mt-6">
         <button
@@ -123,7 +125,7 @@ export default function NewSessionPage() {
           disabled={selected.size === 0}
           className="px-6 py-2 bg-green-600 rounded font-semibold hover:bg-green-700 disabled:opacity-50"
         >
-          Confirm Attendance
+          {t('session.confirmAttendance')}
         </button>
       </div>
     </div>

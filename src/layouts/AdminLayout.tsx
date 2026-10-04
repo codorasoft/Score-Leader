@@ -1,14 +1,17 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
+import { LanguageToggle } from '../components/LanguageToggle'
 
 export default function AdminLayout() {
   const { signOut } = useAuth()
   const location = useLocation()
+  const { t } = useTranslation()
 
   const nav = [
-    { to: '/admin/players', label: 'Players' },
-    { to: '/admin/sessions/new', label: 'New Session' },
-    { to: '/admin/history', label: 'History' },
+    { to: '/admin/players', label: t('nav.players') },
+    { to: '/admin/sessions/new', label: t('nav.newSession') },
+    { to: '/admin/history', label: t('nav.history') },
   ]
 
   return (
@@ -23,7 +26,10 @@ export default function AdminLayout() {
             </Link>
           ))}
         </nav>
-        <button onClick={signOut} className="text-xs text-gray-400 hover:text-white">Sign out</button>
+        <div className="flex items-center gap-3">
+          <LanguageToggle />
+          <button onClick={signOut} className="text-xs text-gray-400 hover:text-white">{t('nav.signOut')}</button>
+        </div>
       </header>
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
         <Outlet />

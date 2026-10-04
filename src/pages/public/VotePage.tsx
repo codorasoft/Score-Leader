@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { getFingerprint } from '../../utils/fingerprint'
 import type { AwardVote, Player } from '../../lib/types'
 
 export default function VotePage() {
   const { voteToken } = useParams<{ voteToken: string }>()
+  const { t } = useTranslation()
   const [vote, setVote] = useState<AwardVote | null>(null)
   const [nominees, setNominees] = useState<Player[]>([])
   const [chosen, setChosen] = useState<string | null>(null)
@@ -58,22 +60,22 @@ export default function VotePage() {
     setSubmitted(true)
   }
 
-  if (loading) return <div className="p-4 text-gray-400 text-center">Loading…</div>
-  if (!vote) return <div className="p-4 text-red-400 text-center">Vote not found</div>
-  if (vote.status === 'closed') return <div className="p-4 text-center"><p className="text-gray-400">This vote is closed.</p></div>
+  if (loading) return <div className="p-4 text-gray-400 text-center">{t('common.loading')}</div>
+  if (!vote) return <div className="p-4 text-red-400 text-center">{t('vote.notFound')}</div>
+  if (vote.status === 'closed') return <div className="p-4 text-center"><p className="text-gray-400">{t('vote.closed')}</p></div>
   if (alreadyVoted || submitted) return (
     <div className="p-4 text-center">
       <div className="text-4xl mb-3">✓</div>
-      <p className="text-gray-300">Your vote has been recorded.</p>
+      <p className="text-gray-300">{t('vote.recorded')}</p>
     </div>
   )
 
-  const label: Record<string, string> = { mvp: 'MVP', fair_play: 'Well-Mannered Player' }
+  const awardLabel = t(`vote.awardType.${vote.award_type}` as const, { defaultValue: vote.award_type })
 
   return (
     <div className="max-w-sm mx-auto p-6">
-      <h1 className="text-xl font-bold mb-1">Vote: {label[vote.award_type] ?? vote.award_type}</h1>
-      <p className="text-sm text-gray-400 mb-4">Select one player</p>
+      <h1 className="text-xl font-bold mb-1">{awardLabel}</h1>
+      <p className="text-sm text-gray-400 mb-4">{t('vote.selectOne')}</p>
 
       <div className="space-y-2 mb-6">
         {nominees.map((p) => (
@@ -91,7 +93,7 @@ export default function VotePage() {
         disabled={!chosen}
         className="w-full py-3 bg-blue-600 rounded-xl font-bold disabled:opacity-50"
       >
-        Submit Vote
+        {t('vote.submit')}
       </button>
     </div>
   )

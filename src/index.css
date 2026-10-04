@@ -1,7 +1,12 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 
 @theme {
   --color-team-red: #EF4444;
   --color-team-blue: #3B82F6;
   --color-team-yellow: #EAB308;
+}
+
+[lang="ar"] {
+  font-family: 'Cairo', system-ui, sans-serif;
 }

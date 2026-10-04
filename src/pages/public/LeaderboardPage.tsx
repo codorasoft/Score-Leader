@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { computePlayerStats } from '../../utils/stats'
 import type { Player, Match, MatchEvent, TeamPlayer } from '../../lib/types'
@@ -6,6 +7,7 @@ import type { Player, Match, MatchEvent, TeamPlayer } from '../../lib/types'
 type SortKey = 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
 
 export default function LeaderboardPage() {
+  const { t } = useTranslation()
   const [players, setPlayers] = useState<Player[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
@@ -41,7 +43,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="max-w-lg mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Leaderboard</h1>
+      <h1 className="text-2xl font-bold mb-4">{t('leaderboard.title')}</h1>
 
       <div className="flex gap-2 mb-4">
         {cols.map(({ key, label }) => (
@@ -65,7 +67,7 @@ export default function LeaderboardPage() {
             </div>
           </div>
         ))}
-        {sorted.length === 0 && <p className="text-gray-500 text-center py-8">No stats yet</p>}
+        {sorted.length === 0 && <p className="text-gray-500 text-center py-8">{t('common.noStats')}</p>}
       </div>
     </div>
   )

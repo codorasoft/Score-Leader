@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Player } from '../lib/types'
 
 type CardType = 'yellow_card' | 'red_card'
@@ -10,6 +11,7 @@ interface CardDialogProps {
 }
 
 export function CardDialog({ players, onConfirm, onClose }: CardDialogProps) {
+  const { t } = useTranslation()
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [cardType, setCardType] = useState<CardType | null>(null)
 
@@ -20,12 +22,12 @@ export function CardDialog({ players, onConfirm, onClose }: CardDialogProps) {
     }
   }
 
+  const title = !playerId ? t('card.who') : !cardType ? t('card.type') : t('card.suspension')
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm">
-        <h2 className="text-lg font-bold mb-4">
-          {!playerId ? 'Card — who?' : !cardType ? 'Card type?' : 'Suspension?'}
-        </h2>
+        <h2 className="text-lg font-bold mb-4">{title}</h2>
 
         {!playerId && (
           <div className="space-y-2">
@@ -47,33 +49,33 @@ export function CardDialog({ players, onConfirm, onClose }: CardDialogProps) {
               onClick={() => handleCardSelect('yellow_card')}
               className="flex-1 py-3 bg-yellow-500 rounded font-bold text-black"
             >
-              Yellow
+              {t('card.yellow')}
             </button>
             <button
               onClick={() => handleCardSelect('red_card')}
               className="flex-1 py-3 bg-red-600 rounded font-bold"
             >
-              Red
+              {t('card.red')}
             </button>
           </div>
         )}
 
         {playerId && cardType === 'red_card' && (
           <div className="space-y-2">
-            <p className="text-sm text-gray-400 mb-3">Suspension duration:</p>
+            <p className="text-sm text-gray-400 mb-3">{t('card.suspensionLabel')}</p>
             {([2, 3] as const).map((mins) => (
               <button
                 key={mins}
                 onClick={() => onConfirm({ playerId, cardType: 'red_card', suspensionMinutes: mins })}
                 className="w-full py-3 bg-red-700 rounded font-bold hover:bg-red-600"
               >
-                {mins} min
+                {t('card.min', { count: mins })}
               </button>
             ))}
           </div>
         )}
 
-        <button onClick={onClose} className="mt-4 text-sm text-gray-400 block">Cancel</button>
+        <button onClick={onClose} className="mt-4 text-sm text-gray-400 block">{t('common.cancel')}</button>
       </div>
     </div>
   )

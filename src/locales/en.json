@@ -1,0 +1,135 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "edit": "Edit",
+    "remove": "Remove",
+    "team": "Team",
+    "teamName": "{{color}} Team",
+    "teamColor": {
+      "red": "Red",
+      "blue": "Blue",
+      "yellow": "Yellow"
+    },
+    "waiting": "Waiting",
+    "vs": "vs",
+    "match": "Match #{{number}}",
+    "returnNow": "RETURN NOW",
+    "noStats": "No stats yet"
+  },
+  "login": {
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…"
+  },
+  "nav": {
+    "players": "Players",
+    "newSession": "New Session",
+    "history": "History",
+    "signOut": "Sign out",
+    "leaderboard": "Leaderboard"
+  },
+  "players": {
+    "title": "Players",
+    "addPlayer": "+ Add Player",
+    "editPlayer": "Edit Player",
+    "addPlayerTitle": "Add Player",
+    "namePlaceholder": "Name",
+    "skillRating": "Skill Rating: {{value}}",
+    "photoUrlPlaceholder": "Photo URL (optional)"
+  },
+  "session": {
+    "title": "New Session",
+    "dateLabel": "Session date",
+    "startSession": "Start Session",
+    "attendeesTitle": "Select Attendees",
+    "attendeesHint": "Tap players to mark who's coming. Max 15.",
+    "confirmAttendance": "Confirm Attendance"
+  },
+  "teamBuilder": {
+    "title": "Team Builder",
+    "shuffleAll": "Shuffle All",
+    "noGkWarning": "Fewer than 3 goalkeepers — designate field players as GKs if needed.",
+    "confirmAndStart": "Confirm Teams & Start",
+    "saving": "Saving…"
+  },
+  "match": {
+    "start": "▶ Start",
+    "pause": "⏸ Pause",
+    "goal": "⚽ Goal",
+    "card": "🟨 Card",
+    "swap": "↔ Swap",
+    "endMatch": "End Match",
+    "suspended": "Suspended",
+    "returnEarly": "Return early",
+    "penaltyTitle": "Penalty Shootout",
+    "penaltyConfirm": "Confirm Penalty Result"
+  },
+  "goal": {
+    "whoScored": "Who scored?",
+    "assist": "Assist? (optional)",
+    "noAssist": "No assist"
+  },
+  "card": {
+    "who": "Card — who?",
+    "type": "Card type?",
+    "suspension": "Suspension?",
+    "yellow": "Yellow",
+    "red": "Red",
+    "suspensionLabel": "Suspension duration:",
+    "min": "{{count}} min"
+  },
+  "swap": {
+    "title": "Swap Players",
+    "selectFirst": "Select first player",
+    "selectSecond": "Select player to swap with"
+  },
+  "awards": {
+    "title": "Session Awards",
+    "autoCalc": "Auto-calculated",
+    "bestScorer": "Best Goalscorer",
+    "bestAssister": "Best Assister",
+    "bestGk": "Best Goalkeeper",
+    "mvp": "MVP",
+    "fairPlay": "Well-Mannered / Fair Play",
+    "adminPicks": "Admin picks",
+    "openVote": "Open vote",
+    "finishSession": "Finish Session",
+    "saving": "Saving…",
+    "tied": "(tied)"
+  },
+  "history": {
+    "title": "Session History",
+    "noSessions": "No sessions yet",
+    "publicLink": "Public link",
+    "awards": "Awards",
+    "status": {
+      "active": "Active",
+      "completed": "Completed",
+      "draft": "Draft"
+    }
+  },
+  "leaderboard": {
+    "title": "Leaderboard"
+  },
+  "vote": {
+    "selectOne": "Select one player",
+    "submit": "Submit Vote",
+    "recorded": "Your vote has been recorded.",
+    "closed": "This vote is closed.",
+    "notFound": "Vote not found",
+    "awardType": {
+      "mvp": "MVP",
+      "fair_play": "Well-Mannered Player"
+    }
+  },
+  "live": {
+    "noActiveMatch": "No active match",
+    "goals": "Goals",
+    "live": "Live",
+    "unknown": "Unknown"
+  }
+}

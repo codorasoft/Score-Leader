@@ -1,0 +1,135 @@
+{
+  "common": {
+    "loading": "جار التحميل…",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "save": "حفظ",
+    "edit": "تعديل",
+    "remove": "حذف",
+    "team": "فريق",
+    "teamName": "فريق {{color}}",
+    "teamColor": {
+      "red": "أحمر",
+      "blue": "أزرق",
+      "yellow": "أصفر"
+    },
+    "waiting": "انتظار",
+    "vs": "ضد",
+    "match": "مباراة #{{number}}",
+    "returnNow": "عُد الآن",
+    "noStats": "لا توجد إحصائيات بعد"
+  },
+  "login": {
+    "emailPlaceholder": "البريد الإلكتروني",
+    "passwordPlaceholder": "كلمة المرور",
+    "signIn": "تسجيل الدخول",
+    "signingIn": "جار الدخول…"
+  },
+  "nav": {
+    "players": "اللاعبون",
+    "newSession": "جلسة جديدة",
+    "history": "السجل",
+    "signOut": "تسجيل الخروج",
+    "leaderboard": "قائمة المتصدرين"
+  },
+  "players": {
+    "title": "اللاعبون",
+    "addPlayer": "+ إضافة لاعب",
+    "editPlayer": "تعديل اللاعب",
+    "addPlayerTitle": "إضافة لاعب",
+    "namePlaceholder": "الاسم",
+    "skillRating": "تقييم المهارة: {{value}}",
+    "photoUrlPlaceholder": "رابط الصورة (اختياري)"
+  },
+  "session": {
+    "title": "جلسة جديدة",
+    "dateLabel": "تاريخ الجلسة",
+    "startSession": "بدء الجلسة",
+    "attendeesTitle": "اختيار الحاضرين",
+    "attendeesHint": "اضغط على اللاعبين لتحديد من سيحضر. الحد الأقصى 15.",
+    "confirmAttendance": "تأكيد الحضور"
+  },
+  "teamBuilder": {
+    "title": "بناء الفرق",
+    "shuffleAll": "خلط الفرق",
+    "noGkWarning": "أقل من 3 حراس مرمى — حدد لاعبين ميدانيين كحراس إذا لزم الأمر.",
+    "confirmAndStart": "تأكيد الفرق والبدء",
+    "saving": "جار الحفظ…"
+  },
+  "match": {
+    "start": "▶ بدء",
+    "pause": "⏸ إيقاف مؤقت",
+    "goal": "⚽ هدف",
+    "card": "🟨 بطاقة",
+    "swap": "↔ تبديل",
+    "endMatch": "إنهاء المباراة",
+    "suspended": "موقوف",
+    "returnEarly": "عودة مبكرة",
+    "penaltyTitle": "ركلات الترجيح",
+    "penaltyConfirm": "تأكيد نتيجة الركلات"
+  },
+  "goal": {
+    "whoScored": "من سجّل؟",
+    "assist": "تمريرة حاسمة؟ (اختياري)",
+    "noAssist": "بدون تمريرة حاسمة"
+  },
+  "card": {
+    "who": "البطاقة — لمن؟",
+    "type": "نوع البطاقة؟",
+    "suspension": "الإيقاف؟",
+    "yellow": "صفراء",
+    "red": "حمراء",
+    "suspensionLabel": "مدة الإيقاف:",
+    "min": "{{count}} دقيقة"
+  },
+  "swap": {
+    "title": "تبديل اللاعبين",
+    "selectFirst": "اختر اللاعب الأول",
+    "selectSecond": "اختر اللاعب للتبديل معه"
+  },
+  "awards": {
+    "title": "جوائز الجلسة",
+    "autoCalc": "محسوبة تلقائياً",
+    "bestScorer": "أفضل هداف",
+    "bestAssister": "أفضل مُمرر",
+    "bestGk": "أفضل حارس مرمى",
+    "mvp": "أفضل لاعب",
+    "fairPlay": "اللاعب المثالي / الفير بلاي",
+    "adminPicks": "اختيار المشرف",
+    "openVote": "تصويت مفتوح",
+    "finishSession": "إنهاء الجلسة",
+    "saving": "جار الحفظ…",
+    "tied": "(تعادل)"
+  },
+  "history": {
+    "title": "سجل الجلسات",
+    "noSessions": "لا توجد جلسات بعد",
+    "publicLink": "رابط عام",
+    "awards": "الجوائز",
+    "status": {
+      "active": "نشطة",
+      "completed": "مكتملة",
+      "draft": "مسودة"
+    }
+  },
+  "leaderboard": {
+    "title": "قائمة المتصدرين"
+  },
+  "vote": {
+    "selectOne": "اختر لاعباً واحداً",
+    "submit": "إرسال التصويت",
+    "recorded": "تم تسجيل تصويتك.",
+    "closed": "التصويت مغلق.",
+    "notFound": "التصويت غير موجود",
+    "awardType": {
+      "mvp": "أفضل لاعب",
+      "fair_play": "لاعب الفير بلاي"
+    }
+  },
+  "live": {
+    "noActiveMatch": "لا توجد مباراة نشطة",
+    "goals": "الأهداف",
+    "live": "مباشر",
+    "unknown": "غير معروف"
+  }
+}

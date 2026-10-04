@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { resolveMatch } from '../../utils/matchRotation'
@@ -44,6 +45,7 @@ const colorBg: Record<string, string> = {
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [match, setMatch] = useState<Match | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
@@ -89,13 +91,13 @@ export default function MatchTrackerPage() {
 
   useEffect(() => { load() }, [matchId])
 
-  if (!match) return <div className="p-4 text-gray-400">Loading…</div>
+  if (!match) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
-  const team1 = teams.find((t) => t.id === match.team1_id)
-  const team2 = teams.find((t) => t.id === match.team2_id)
-  const waitingTeam = teams.find((t) => t.id === match.waiting_team_id)
+  const team1 = teams.find((tm) => tm.id === match.team1_id)
+  const team2 = teams.find((tm) => tm.id === match.team2_id)
+  const waitingTeam = teams.find((tm) => tm.id === match.waiting_team_id)
 
-  if (!team1 || !team2) return <div className="p-4 text-gray-400">Loading…</div>
+  if (!team1 || !team2) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
   const playingPlayerIds = teamPlayers
     .filter((tp) => tp.team_id === match.team1_id || tp.team_id === match.team2_id)
@@ -227,36 +229,36 @@ export default function MatchTrackerPage() {
         <div className="text-5xl font-mono font-bold">{mm}:{ss}</div>
         <div className="mt-2 flex justify-center gap-3">
           {timer.timerStatus !== 'running' ? (
-            <button onClick={timer.start} className="px-4 py-2 bg-green-600 rounded font-semibold">▶ Start</button>
+            <button onClick={timer.start} className="px-4 py-2 bg-green-600 rounded font-semibold">{t('match.start')}</button>
           ) : (
-            <button onClick={timer.pause} className="px-4 py-2 bg-yellow-600 rounded font-semibold">⏸ Pause</button>
+            <button onClick={timer.pause} className="px-4 py-2 bg-yellow-600 rounded font-semibold">{t('match.pause')}</button>
           )}
         </div>
       </div>
 
       {/* Score */}
       <div className="flex items-center justify-center gap-6 mb-6">
-        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1?.color ?? 'red']}`}>
-          <div className="text-xs uppercase text-gray-400 mb-1">{team1?.color ?? ''} Team</div>
+        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1.color]}`}>
+          <div className="text-xs uppercase text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team1.color}`) })}</div>
           <div className="text-4xl font-bold">{match.team1_score}</div>
         </div>
-        <div className="text-gray-500 font-bold">vs</div>
-        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team2?.color ?? 'blue']}`}>
-          <div className="text-xs uppercase text-gray-400 mb-1">{team2?.color ?? ''} Team</div>
+        <div className="text-gray-500 font-bold">{t('common.vs')}</div>
+        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team2.color]}`}>
+          <div className="text-xs uppercase text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team2.color}`) })}</div>
           <div className="text-4xl font-bold">{match.team2_score}</div>
         </div>
       </div>
 
       {waitingTeam && (
         <div className="text-center text-sm text-gray-400 mb-6">
-          Waiting: <span className="capitalize font-semibold text-gray-300">{waitingTeam.color} Team</span>
+          {t('common.waiting')}: <span className="font-semibold text-gray-300">{t('common.teamName', { color: t(`common.teamColor.${waitingTeam.color}`) })}</span>
         </div>
       )}
 
       {/* Suspensions */}
       {activeSuspensions.length > 0 && (
         <div className="mb-4">
-          <h3 className="text-xs uppercase text-gray-400 mb-2">Suspended</h3>
+          <h3 className="text-xs uppercase text-gray-400 mb-2">{t('match.suspended')}</h3>
           <div className="space-y-2">
             {activeSuspensions.map((e) => (
               <SuspensionCountdown key={e.id} event={e} onReturn={load} />
@@ -268,19 +270,19 @@ export default function MatchTrackerPage() {
       {/* Action buttons */}
       {!penaltyMode && (
         <div className="flex gap-3 mb-4">
-          <button onClick={() => setDialog('goal')} className="flex-1 py-3 bg-green-700 rounded font-semibold">⚽ Goal</button>
-          <button onClick={() => setDialog('card')} className="flex-1 py-3 bg-yellow-700 rounded font-semibold">🟨 Card</button>
-          <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">↔ Swap</button>
+          <button onClick={() => setDialog('goal')} className="flex-1 py-3 bg-green-700 rounded font-semibold">{t('match.goal')}</button>
+          <button onClick={() => setDialog('card')} className="flex-1 py-3 bg-yellow-700 rounded font-semibold">{t('match.card')}</button>
+          <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>
         </div>
       )}
 
       {/* Penalty mode */}
       {penaltyMode && (
         <div className="bg-gray-800 rounded-xl p-4 mb-4">
-          <h3 className="font-bold mb-3">Penalty Shootout</h3>
+          <h3 className="font-bold mb-3">{t('match.penaltyTitle')}</h3>
           <div className="flex gap-4 items-center mb-4">
             <div className="flex-1">
-              <div className="text-xs text-gray-400 mb-1 capitalize">{team1?.color} Team</div>
+              <div className="text-xs text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team1.color}`) })}</div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setPenaltyT1((n) => Math.max(0, n - 1))} className="px-2 py-1 bg-gray-700 rounded">−</button>
                 <span className="text-2xl font-bold w-8 text-center">{penaltyT1}</span>
@@ -288,7 +290,7 @@ export default function MatchTrackerPage() {
               </div>
             </div>
             <div className="flex-1">
-              <div className="text-xs text-gray-400 mb-1 capitalize">{team2?.color} Team</div>
+              <div className="text-xs text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team2.color}`) })}</div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setPenaltyT2((n) => Math.max(0, n - 1))} className="px-2 py-1 bg-gray-700 rounded">−</button>
                 <span className="text-2xl font-bold w-8 text-center">{penaltyT2}</span>
@@ -301,7 +303,7 @@ export default function MatchTrackerPage() {
             disabled={penaltyT1 === penaltyT2}
             className="w-full py-2 bg-blue-600 rounded font-semibold disabled:opacity-50"
           >
-            Confirm Penalty Result
+            {t('match.penaltyConfirm')}
           </button>
         </div>
       )}
@@ -310,7 +312,7 @@ export default function MatchTrackerPage() {
         onClick={handleEndMatch}
         className="w-full py-3 bg-red-700 rounded-xl font-bold hover:bg-red-600"
       >
-        End Match
+        {t('match.endMatch')}
       </button>
 
       {/* Dialogs */}

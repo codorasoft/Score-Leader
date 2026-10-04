@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Player, Team } from '../lib/types'
 
 interface TeamWithPlayers {
@@ -12,9 +13,8 @@ interface SwapDialogProps {
   onClose: () => void
 }
 
-const colorLabel: Record<string, string> = { red: 'Red', blue: 'Blue', yellow: 'Yellow' }
-
 export function SwapDialog({ teams, onSwap, onClose }: SwapDialogProps) {
+  const { t } = useTranslation()
   const [firstId, setFirstId] = useState<string | null>(null)
   const [firstTeamId, setFirstTeamId] = useState<string | null>(null)
 
@@ -30,14 +30,16 @@ export function SwapDialog({ teams, onSwap, onClose }: SwapDialogProps) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm">
-        <h2 className="text-lg font-bold mb-2">Swap Players</h2>
+        <h2 className="text-lg font-bold mb-2">{t('swap.title')}</h2>
         <p className="text-sm text-gray-400 mb-4">
-          {!firstId ? 'Select first player' : 'Select player to swap with'}
+          {!firstId ? t('swap.selectFirst') : t('swap.selectSecond')}
         </p>
 
         {teams.map(({ team, players }) => (
           <div key={team.id} className="mb-4">
-            <h3 className="text-xs uppercase text-gray-400 mb-2">{colorLabel[team.color]} Team</h3>
+            <h3 className="text-xs uppercase text-gray-400 mb-2">
+              {t('common.teamName', { color: t(`common.teamColor.${team.color}`) })}
+            </h3>
             <div className="space-y-1">
               {players.map((p) => {
                 const isFirst = p.id === firstId
@@ -59,7 +61,7 @@ export function SwapDialog({ teams, onSwap, onClose }: SwapDialogProps) {
           </div>
         ))}
 
-        <button onClick={onClose} className="text-sm text-gray-400">Cancel</button>
+        <button onClick={onClose} className="text-sm text-gray-400">{t('common.cancel')}</button>
       </div>
     </div>
   )

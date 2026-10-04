@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import type { MatchEvent } from '../lib/types'
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function SuspensionCountdown({ event, onReturn }: Props) {
+  const { t } = useTranslation()
   const totalSeconds = (event.suspension_minutes ?? 2) * 60
   const started = event.suspension_started_at ? new Date(event.suspension_started_at).getTime() : Date.now()
 
@@ -35,14 +37,14 @@ export function SuspensionCountdown({ event, onReturn }: Props) {
       <div>
         <span className="font-bold text-sm">{event.player_id}</span>
         <span className={`ml-2 font-mono text-sm ${remaining === 0 ? 'text-red-400' : 'text-yellow-400'}`}>
-          {remaining === 0 ? 'RETURN NOW' : `${mm}:${ss}`}
+          {remaining === 0 ? t('common.returnNow') : `${mm}:${ss}`}
         </span>
       </div>
       <button
         onClick={handleReturnEarly}
         className="text-xs text-gray-400 hover:text-white ml-2"
       >
-        Return early
+        {t('match.returnEarly')}
       </button>
     </div>
   )

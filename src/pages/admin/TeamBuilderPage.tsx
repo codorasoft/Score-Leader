@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext,
   DragEndEvent,
@@ -20,15 +21,10 @@ const colorStyles: Record<TeamColor, string> = {
   yellow: 'border-yellow-500 bg-yellow-900/20',
 }
 
-const colorLabels: Record<TeamColor, string> = {
-  red: 'Red Team',
-  blue: 'Blue Team',
-  yellow: 'Yellow Team',
-}
-
 export default function TeamBuilderPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [teams, setTeams] = useState<[Player[], Player[], Player[]]>([[], [], []])
   const [needsGk, setNeedsGk] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -87,23 +83,19 @@ export default function TeamBuilderPage() {
     if (!sessionId) return
     setSaving(true)
 
-    // Insert 3 teams
     const { data: teamRows } = await supabase
       .from('teams')
       .insert(COLORS.map((color) => ({ session_id: sessionId, color })))
       .select()
     if (!teamRows) { setSaving(false); return }
 
-    // Insert team_players
     const teamPlayerRows = (teamRows as Team[]).flatMap((team, idx) =>
       teams[idx].map((p) => ({ team_id: team.id, player_id: p.id }))
     )
     await supabase.from('team_players').insert(teamPlayerRows)
 
-    // Set session active
     await supabase.from('sessions').update({ status: 'active' }).eq('id', sessionId)
 
-    // Create first match with random team selection
     const shuffled = [...teamRows].sort(() => Math.random() - 0.5) as Team[]
     const { data: matchData } = await supabase
       .from('matches')
@@ -127,18 +119,18 @@ export default function TeamBuilderPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold">Team Builder</h1>
+        <h1 className="text-xl font-bold">{t('teamBuilder.title')}</h1>
         <button
           onClick={loadAndBalance}
           className="px-4 py-2 text-sm bg-gray-700 rounded hover:bg-gray-600"
         >
-          Shuffle All
+          {t('teamBuilder.shuffleAll')}
         </button>
       </div>
 
       {needsGk && (
         <div className="mb-4 p-3 bg-yellow-900/40 border border-yellow-600 rounded-lg text-sm text-yellow-300">
-          ⚠ Fewer than 3 goalkeepers — designate field players as GKs if needed.
+          ⚠ {t('teamBuilder.noGkWarning')}
         </div>
       )}
 
@@ -146,7 +138,7 @@ export default function TeamBuilderPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {COLORS.map((color, idx) => (
             <div key={color} className={`border rounded-xl p-3 ${colorStyles[color]}`}>
-              <h2 className="font-bold mb-3 capitalize">{colorLabels[color]}</h2>
+              <h2 className="font-bold mb-3">{t('common.teamName', { color: t(`common.teamColor.${color}`) })}</h2>
               <div className="space-y-2">
                 {teams[idx].map((player) => (
                   <DraggablePlayer key={player.id} player={player} />
@@ -163,7 +155,7 @@ export default function TeamBuilderPage() {
           disabled={saving || teams.every((t) => t.length === 0)}
           className="px-6 py-3 bg-green-600 rounded-xl font-bold hover:bg-green-700 disabled:opacity-50"
         >
-          {saving ? 'Saving…' : 'Confirm Teams & Start'}
+          {saving ? t('teamBuilder.saving') : t('teamBuilder.confirmAndStart')}
         </button>
       </div>
     </div>

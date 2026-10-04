@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import type { Player, PlayerPosition } from '../../lib/types'
 
@@ -29,6 +30,7 @@ interface PlayerFormData {
 const defaultForm: PlayerFormData = { name: '', position: 'MID', skill_rating: 3, photo_url: '' }
 
 export default function PlayersPage() {
+  const { t } = useTranslation()
   const [players, setPlayers] = useState<Player[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
@@ -81,9 +83,9 @@ export default function PlayersPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold">Players</h1>
+        <h1 className="text-xl font-bold">{t('players.title')}</h1>
         <button onClick={openAdd} className="px-4 py-2 bg-blue-600 rounded text-sm font-semibold hover:bg-blue-700">
-          + Add Player
+          {t('players.addPlayer')}
         </button>
       </div>
 
@@ -101,8 +103,8 @@ export default function PlayersPage() {
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <button onClick={() => openEdit(p)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-              <button onClick={() => handleDeactivate(p.id)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+              <button onClick={() => openEdit(p)} className="text-xs text-blue-400 hover:text-blue-300">{t('common.edit')}</button>
+              <button onClick={() => handleDeactivate(p.id)} className="text-xs text-red-400 hover:text-red-300">{t('common.remove')}</button>
             </div>
           </div>
         ))}
@@ -111,10 +113,10 @@ export default function PlayersPage() {
       {dialogOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
-            <h2 className="text-lg font-bold">{editingPlayer ? 'Edit Player' : 'Add Player'}</h2>
+            <h2 className="text-lg font-bold">{editingPlayer ? t('players.editPlayer') : t('players.addPlayerTitle')}</h2>
 
             <input
-              placeholder="Name"
+              placeholder={t('players.namePlaceholder')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
@@ -131,7 +133,7 @@ export default function PlayersPage() {
             </select>
 
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Skill Rating: {form.skill_rating}</label>
+              <label className="text-sm text-gray-400 mb-1 block">{t('players.skillRating', { value: form.skill_rating })}</label>
               <input
                 type="range"
                 min={1}
@@ -143,15 +145,15 @@ export default function PlayersPage() {
             </div>
 
             <input
-              placeholder="Photo URL (optional)"
+              placeholder={t('players.photoUrlPlaceholder')}
               value={form.photo_url}
               onChange={(e) => setForm({ ...form, photo_url: e.target.value })}
               className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
             />
 
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setDialogOpen(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
-              <button onClick={handleSave} disabled={!form.name} className="px-4 py-2 bg-blue-600 rounded text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">Save</button>
+              <button onClick={() => setDialogOpen(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">{t('common.cancel')}</button>
+              <button onClick={handleSave} disabled={!form.name} className="px-4 py-2 bg-blue-600 rounded text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{t('common.save')}</button>
             </div>
           </div>
         </div>

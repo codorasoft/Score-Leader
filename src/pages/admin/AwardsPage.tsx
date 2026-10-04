@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { computePlayerStats, getAutoAwardWinner } from '../../utils/stats'
 import type { Player, Match, MatchEvent, TeamPlayer, SessionAward } from '../../lib/types'
@@ -14,6 +15,7 @@ interface VoteSetup {
 export default function AwardsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [players, setPlayers] = useState<Player[]>([])
   const [matches, setMatches] = useState<Match[]>([])
@@ -21,7 +23,6 @@ export default function AwardsPage() {
   const [teamPlayerMap, setTeamPlayerMap] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
 
-  // Admin choices for MVP and Fair Play
   const [mvpChoice, setMvpChoice] = useState<string | null>(null)
   const [mvpDecision, setMvpDecision] = useState<AwardDecision>('admin_direct')
   const [mvpVoteSetup, setMvpVoteSetup] = useState<VoteSetup>({ nominees: [], decidedBy: 'vote' })
@@ -66,7 +67,6 @@ export default function AwardsPage() {
     setSaving(true)
     const awards: Omit<SessionAward, 'id'>[] = []
 
-    // Auto awards
     if (bestScorer.winner) {
       awards.push({ session_id: sessionId!, award_type: 'best_goalscorer', winner_player_id: bestScorer.winner.player.id, decided_by: 'auto_stat', is_tied: bestScorer.tied })
     }
@@ -77,7 +77,6 @@ export default function AwardsPage() {
       awards.push({ session_id: sessionId!, award_type: 'best_goalkeeper', winner_player_id: bestGk.winner.player.id, decided_by: 'auto_stat', is_tied: bestGk.tied })
     }
 
-    // MVP
     if (mvpDecision === 'admin_direct' && mvpChoice) {
       awards.push({ session_id: sessionId!, award_type: 'mvp', winner_player_id: mvpChoice, decided_by: 'admin_direct', is_tied: false })
     } else if (mvpDecision === 'vote') {
@@ -92,7 +91,6 @@ export default function AwardsPage() {
       }
     }
 
-    // Fair play
     if (fairPlayDecision === 'admin_direct' && fairPlayChoice) {
       awards.push({ session_id: sessionId!, award_type: 'fair_play', winner_player_id: fairPlayChoice, decided_by: 'admin_direct', is_tied: false })
     } else if (fairPlayDecision === 'vote') {
@@ -111,7 +109,6 @@ export default function AwardsPage() {
       await supabase.from('session_awards').insert(awards)
     }
 
-    // Mark session completed
     await supabase.from('sessions').update({ status: 'completed' }).eq('id', sessionId)
 
     setSaving(false)
@@ -123,22 +120,20 @@ export default function AwardsPage() {
 
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
-      <h1 className="text-xl font-bold">Session Awards</h1>
+      <h1 className="text-xl font-bold">{t('awards.title')}</h1>
 
-      {/* Auto awards */}
       <section className="bg-gray-800 rounded-xl p-4 space-y-3">
-        <h2 className="font-semibold text-sm uppercase text-gray-400">Auto-calculated</h2>
-        <AwardRow label="Best Goalscorer" winner={bestScorer.winner?.player.name} tied={bestScorer.tied} />
-        <AwardRow label="Best Assister" winner={bestAssister.winner?.player.name} tied={bestAssister.tied} />
-        <AwardRow label="Best Goalkeeper" winner={bestGk.winner?.player.name} tied={bestGk.tied} />
+        <h2 className="font-semibold text-sm uppercase text-gray-400">{t('awards.autoCalc')}</h2>
+        <AwardRow label={t('awards.bestScorer')} winner={bestScorer.winner?.player.name} tied={bestScorer.tied} tied_label={t('awards.tied')} />
+        <AwardRow label={t('awards.bestAssister')} winner={bestAssister.winner?.player.name} tied={bestAssister.tied} tied_label={t('awards.tied')} />
+        <AwardRow label={t('awards.bestGk')} winner={bestGk.winner?.player.name} tied={bestGk.tied} tied_label={t('awards.tied')} />
       </section>
 
-      {/* MVP */}
       <section className="bg-gray-800 rounded-xl p-4 space-y-3">
-        <h2 className="font-semibold">MVP</h2>
+        <h2 className="font-semibold">{t('awards.mvp')}</h2>
         <div className="flex gap-2">
-          <button onClick={() => setMvpDecision('admin_direct')} className={`px-3 py-1 rounded text-sm ${mvpDecision === 'admin_direct' ? 'bg-blue-600' : 'bg-gray-700'}`}>Admin picks</button>
-          <button onClick={() => setMvpDecision('vote')} className={`px-3 py-1 rounded text-sm ${mvpDecision === 'vote' ? 'bg-blue-600' : 'bg-gray-700'}`}>Open vote</button>
+          <button onClick={() => setMvpDecision('admin_direct')} className={`px-3 py-1 rounded text-sm ${mvpDecision === 'admin_direct' ? 'bg-blue-600' : 'bg-gray-700'}`}>{t('awards.adminPicks')}</button>
+          <button onClick={() => setMvpDecision('vote')} className={`px-3 py-1 rounded text-sm ${mvpDecision === 'vote' ? 'bg-blue-600' : 'bg-gray-700'}`}>{t('awards.openVote')}</button>
         </div>
         {mvpDecision === 'admin_direct' && (
           <PlayerPicker players={players} selected={mvpChoice} onSelect={setMvpChoice} />
@@ -149,12 +144,11 @@ export default function AwardsPage() {
         )}
       </section>
 
-      {/* Fair play */}
       <section className="bg-gray-800 rounded-xl p-4 space-y-3">
-        <h2 className="font-semibold">Well-Mannered / Fair Play</h2>
+        <h2 className="font-semibold">{t('awards.fairPlay')}</h2>
         <div className="flex gap-2">
-          <button onClick={() => setFairPlayDecision('admin_direct')} className={`px-3 py-1 rounded text-sm ${fairPlayDecision === 'admin_direct' ? 'bg-blue-600' : 'bg-gray-700'}`}>Admin picks</button>
-          <button onClick={() => setFairPlayDecision('vote')} className={`px-3 py-1 rounded text-sm ${fairPlayDecision === 'vote' ? 'bg-blue-600' : 'bg-gray-700'}`}>Open vote</button>
+          <button onClick={() => setFairPlayDecision('admin_direct')} className={`px-3 py-1 rounded text-sm ${fairPlayDecision === 'admin_direct' ? 'bg-blue-600' : 'bg-gray-700'}`}>{t('awards.adminPicks')}</button>
+          <button onClick={() => setFairPlayDecision('vote')} className={`px-3 py-1 rounded text-sm ${fairPlayDecision === 'vote' ? 'bg-blue-600' : 'bg-gray-700'}`}>{t('awards.openVote')}</button>
         </div>
         {fairPlayDecision === 'admin_direct' && (
           <PlayerPicker players={players} selected={fairPlayChoice} onSelect={setFairPlayChoice} />
@@ -170,18 +164,18 @@ export default function AwardsPage() {
         disabled={saving}
         className="w-full py-3 bg-green-600 rounded-xl font-bold disabled:opacity-50"
       >
-        {saving ? 'Saving…' : 'Finish Session'}
+        {saving ? t('awards.saving') : t('awards.finishSession')}
       </button>
     </div>
   )
 }
 
-function AwardRow({ label, winner, tied }: { label: string; winner?: string; tied: boolean }) {
+function AwardRow({ label, winner, tied, tied_label }: { label: string; winner?: string; tied: boolean; tied_label: string }) {
   return (
     <div className="flex justify-between items-center">
       <span className="text-sm text-gray-400">{label}</span>
       <span className="text-sm font-semibold">
-        {winner ? (tied ? `${winner} (tied)` : winner) : '—'}
+        {winner ? (tied ? `${winner} ${tied_label}` : winner) : '—'}
       </span>
     </div>
   )
