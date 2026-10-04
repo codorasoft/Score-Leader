@@ -132,10 +132,13 @@
     "editMatch": "تعديل",
     "deleteMatch": "حذف",
     "confirmDeleteMatch": "هل تريد حذف هذه المباراة وجميع أحداثها؟",
-    "editMatchTitle": "تعديل المباراة",
-    "saveMatch": "حفظ",
     "winner": "الفائز",
-    "noWinner": "تعادل"
+    "noWinner": "تعادل",
+    "addGoal": "+ هدف",
+    "assistBy": "تمريرة: {{name}}",
+    "done": "تم",
+    "noGoals": "لا أهداف",
+    "rotationNote": "تغيير هذه النتيجة لن يعيد ترتيب المباريات التي لُعبت بعدها."
   },
   "leaderboard": {
     "title": "قائمة المتصدرين"
@@ -155,6 +158,12 @@
     "noActiveMatch": "لا توجد مباراة نشطة",
     "goals": "الأهداف",
     "live": "مباشر",
-    "unknown": "غير معروف"
+    "unknown": "غير معروف",
+    "notStarted": "المباراة القادمة — لم تبدأ بعد"
+  },
+  "errors": {
+    "network": "لا يوجد اتصال — لم يتم حفظ هذا التغيير. تحقق من الإنترنت وحاول مرة أخرى.",
+    "requestFailed": "لم يتم الحفظ: {{detail}}",
+    "unknown": "خطأ غير معروف"
   }
 }

@@ -132,10 +132,13 @@
     "editMatch": "Edit",
     "deleteMatch": "Delete",
     "confirmDeleteMatch": "Delete this match and all its events?",
-    "editMatchTitle": "Edit Match",
-    "saveMatch": "Save",
     "winner": "Winner",
-    "noWinner": "Draw"
+    "noWinner": "Draw",
+    "addGoal": "+ Goal",
+    "assistBy": "assist: {{name}}",
+    "done": "Done",
+    "noGoals": "No goals",
+    "rotationNote": "Changing this result won’t reshuffle matches played after it."
   },
   "leaderboard": {
     "title": "Leaderboard"
@@ -155,6 +158,12 @@
     "noActiveMatch": "No active match",
     "goals": "Goals",
     "live": "Live",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "notStarted": "Next match — not started yet"
+  },
+  "errors": {
+    "network": "No connection — this change was not saved. Check your internet and try again.",
+    "requestFailed": "Not saved: {{detail}}",
+    "unknown": "unknown error"
   }
 }
