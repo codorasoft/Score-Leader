@@ -1,4 +1,29 @@
-import { recomputeResult } from './matchEdit'
+import { recomputeResult, findLastUndoable } from './matchEdit'
+
+describe('findLastUndoable', () => {
+  const ev = (id: string, event_type: string, created_at: string) => ({ id, event_type, created_at }) as never
+
+  it('returns the most recent goal or card regardless of array order', () => {
+    const last = findLastUndoable([
+      ev('g1', 'goal', '2026-10-04T10:00:00Z'),
+      ev('c1', 'yellow_card', '2026-10-04T10:05:00Z'),
+      ev('g2', 'goal', '2026-10-04T10:02:00Z'),
+    ])
+    expect(last?.id).toBe('c1')
+  })
+
+  it('skips assists because they are undone together with their goal', () => {
+    const last = findLastUndoable([
+      ev('g1', 'goal', '2026-10-04T10:00:00Z'),
+      ev('a1', 'assist', '2026-10-04T10:00:01Z'),
+    ])
+    expect(last?.id).toBe('g1')
+  })
+
+  it('returns null when there is nothing to undo', () => {
+    expect(findLastUndoable([])).toBeNull()
+  })
+})
 
 const match = {
   team1_id: 'red', team2_id: 'blue', winner_team_id: 'red' as string | null,

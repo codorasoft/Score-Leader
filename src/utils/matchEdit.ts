@@ -1,6 +1,13 @@
-import type { EventType, Match } from '../lib/types'
+import type { EventType, Match, MatchEvent } from '../lib/types'
 
 const SCORING: EventType[] = ['goal', 'penalty_goal']
+const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card']
+
+export function findLastUndoable<E extends Pick<MatchEvent, 'event_type' | 'created_at'>>(events: E[]): E | null {
+  return events
+    .filter((e) => UNDOABLE.includes(e.event_type))
+    .reduce<E | null>((last, e) => (!last || e.created_at > last.created_at ? e : last), null)
+}
 
 export function recomputeResult(
   match: Pick<Match, 'team1_id' | 'team2_id' | 'winner_team_id' | 'match_number' | 'draw_resolved_by'>,

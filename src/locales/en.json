@@ -71,7 +71,13 @@
     "timeUp": "Time's up — end the match!",
     "earlyEndTitle": "End match early?",
     "earlyEndBody": "The goal limit and time limit haven't been reached yet.",
-    "earlyEndConfirm": "Yes, end it"
+    "earlyEndConfirm": "Yes, end it",
+    "undo": "↶ Undo",
+    "undoTitle": "Undo the last event?",
+    "undoGoal": "⚽ Goal — {{name}}",
+    "undoYellow": "🟨 Yellow card — {{name}}",
+    "undoRed": "🟥 Red card — {{name}}",
+    "undoConfirm": "Yes, undo"
   },
   "goal": {
     "whoScored": "Who scored?",

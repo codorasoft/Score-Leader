@@ -7,6 +7,7 @@ import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
 import { resolveMatch } from '../../utils/matchRotation'
+import { findLastUndoable } from '../../utils/matchEdit'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
 import { SwapDialog } from '../../components/SwapDialog'
@@ -61,6 +62,7 @@ export default function MatchTrackerPage() {
   const [events, setEvents] = useState<MatchEvent[]>([])
   const [dialog, setDialog] = useState<'goal' | 'card' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
+  const [confirmUndo, setConfirmUndo] = useState(false)
   const [penaltyMode, setPenaltyMode] = useState(false)
   const [penaltyT1, setPenaltyT1] = useState(0)
   const [penaltyT2, setPenaltyT2] = useState(0)
@@ -176,6 +178,33 @@ export default function MatchTrackerPage() {
       suspension_minutes: suspensionMinutes, suspension_started_at: suspensionMinutes ? new Date().toISOString() : null,
       minute: Math.floor(timer.elapsed / 60),
     })
+    load()
+  }
+
+  const lastEvent = findLastUndoable(events)
+  const lastEventIsGoal = lastEvent?.event_type === 'goal' || lastEvent?.event_type === 'penalty_goal'
+  const lastEventLabel = lastEvent && t(
+    lastEventIsGoal ? 'match.undoGoal' : lastEvent.event_type === 'red_card' ? 'match.undoRed' : 'match.undoYellow',
+    { name: players.find((p) => p.id === lastEvent.player_id)?.name ?? '?' },
+  )
+
+  const handleUndo = async () => {
+    setConfirmUndo(false)
+    if (!lastEvent) return
+    if (lastEventIsGoal) {
+      // assist references the goal without CASCADE, so it must be removed first
+      const { error } = await supabase.from('match_events').delete().eq('related_event_id', lastEvent.id)
+      if (error) return
+    }
+    const { error } = await supabase.from('match_events').delete().eq('id', lastEvent.id)
+    if (error) return
+    if (lastEventIsGoal) {
+      await supabase.from('matches').update(
+        lastEvent.team_id === match.team1_id
+          ? { team1_score: Math.max(0, match.team1_score - 1) }
+          : { team2_score: Math.max(0, match.team2_score - 1) },
+      ).eq('id', match.id)
+    }
     load()
   }
 
@@ -315,6 +344,33 @@ export default function MatchTrackerPage() {
           <button onClick={() => setDialog('goal')} className="flex-1 py-3 bg-green-700 rounded font-semibold">{t('match.goal')}</button>
           <button onClick={() => setDialog('card')} className="flex-1 py-3 bg-yellow-700 rounded font-semibold">{t('match.card')}</button>
           <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>
+        </div>
+      )}
+
+      {!penaltyMode && lastEvent && (
+        <button
+          onClick={() => setConfirmUndo(true)}
+          className="w-full mb-4 py-2 rounded border border-gray-600 text-sm text-gray-300 hover:bg-gray-800 flex items-center justify-center gap-2"
+        >
+          <span className="font-semibold">{t('match.undo')}</span>
+          <span className="text-gray-400 truncate">{lastEventLabel}</span>
+        </button>
+      )}
+
+      {confirmUndo && lastEvent && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmUndo(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-2">{t('match.undoTitle')}</h2>
+            <p className="text-sm text-gray-300 mb-5">{lastEventLabel}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmUndo(false)} className="flex-1 py-2 bg-gray-700 rounded font-semibold hover:bg-gray-600">
+                {t('common.cancel')}
+              </button>
+              <button onClick={handleUndo} className="flex-1 py-2 bg-red-600 rounded font-semibold hover:bg-red-500">
+                {t('match.undoConfirm')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

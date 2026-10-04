@@ -71,7 +71,13 @@
     "timeUp": "انتهى الوقت — أنهِ المباراة!",
     "earlyEndTitle": "إنهاء المباراة مبكراً؟",
     "earlyEndBody": "لم يتم بلوغ حد الأهداف أو حد الوقت بعد.",
-    "earlyEndConfirm": "نعم، أنهِها"
+    "earlyEndConfirm": "نعم، أنهِها",
+    "undo": "↶ تراجع",
+    "undoTitle": "التراجع عن آخر حدث؟",
+    "undoGoal": "⚽ هدف — {{name}}",
+    "undoYellow": "🟨 بطاقة صفراء — {{name}}",
+    "undoRed": "🟥 بطاقة حمراء — {{name}}",
+    "undoConfirm": "نعم، تراجع"
   },
   "goal": {
     "whoScored": "من سجّل؟",
