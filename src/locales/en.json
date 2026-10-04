@@ -101,7 +101,8 @@
     "undoRed": "🟥 Red card — {{name}}",
     "undoConfirm": "Yes, undo",
     "startFirst": "Press Start to record goals and cards",
-    "log": "Match log"
+    "log": "Match log",
+    "undoSwap": "↔ Swap — {{a}} ⇄ {{b}}"
   },
   "goal": {
     "whoScored": "Who scored?",
@@ -334,5 +335,13 @@
     "best_gk": "Best Goalkeeper",
     "cleanSheets_one": "{{count}} clean sheet",
     "cleanSheets_other": "{{count}} clean sheets"
+  },
+  "offline": {
+    "noSignal": "No signal",
+    "sending": "Sending saved changes…",
+    "saved_one": "{{count}} change saved on this phone — it will be sent automatically.",
+    "saved_other": "{{count}} changes saved on this phone — they will be sent automatically.",
+    "retry": "Try now",
+    "endBlocked": "Waiting for signal: the saved changes must be sent before this match can end."
   }
 }

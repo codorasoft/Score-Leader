@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { outbox, newId } from '../lib/pitchOutbox'
 import type { Match, TimerStatus } from '../lib/types'
 
 interface MatchTimerResult {
@@ -50,10 +50,10 @@ export function useMatchTimer(match: Match): MatchTimerResult {
     const now = new Date().toISOString()
     setTimerStatus('running')
     setStartedAt(now)
-    await supabase
-      .from('matches')
-      .update({ timer_started_at: now, timer_status: 'running', status: 'active' })
-      .eq('id', match.id)
+    await outbox.runOrQueue({
+      id: newId(), kind: 'update', table: 'matches', match: { id: match.id },
+      values: { timer_started_at: now, timer_status: 'running', status: 'active' },
+    })
   }, [match.id])
 
   const pause = useCallback(async () => {
@@ -62,10 +62,10 @@ export function useMatchTimer(match: Match): MatchTimerResult {
     setStartedAt(null)
     setBaseElapsed(current)
     setElapsed(current)
-    await supabase
-      .from('matches')
-      .update({ timer_elapsed_seconds: current, timer_status: 'paused', timer_started_at: null })
-      .eq('id', match.id)
+    await outbox.runOrQueue({
+      id: newId(), kind: 'update', table: 'matches', match: { id: match.id },
+      values: { timer_elapsed_seconds: current, timer_status: 'paused', timer_started_at: null },
+    })
   }, [match.id, baseElapsed, timerStatus, startedAt])
 
   return { elapsed, timerStatus, start, pause }

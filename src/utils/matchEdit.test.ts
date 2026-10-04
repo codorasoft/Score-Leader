@@ -20,6 +20,15 @@ describe('findLastUndoable', () => {
     expect(last?.id).toBe('g1')
   })
 
+  it('includes swaps, using the first row of the swap pair', () => {
+    const last = findLastUndoable([
+      { ...ev('g1', 'goal', '2026-10-04T10:00:00Z'), related_event_id: null },
+      { ...ev('s1', 'swap', '2026-10-04T10:03:00Z'), related_event_id: null },
+      { ...ev('s2', 'swap', '2026-10-04T10:03:00Z'), related_event_id: 's1' },
+    ] as never[])
+    expect((last as { id: string }).id).toBe('s1')
+  })
+
   it('returns null when there is nothing to undo', () => {
     expect(findLastUndoable([])).toBeNull()
   })

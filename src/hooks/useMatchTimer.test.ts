@@ -1,16 +1,11 @@
 import { renderHook, act } from '@testing-library/react'
 import { vi } from 'vitest'
 import type { Match } from '../lib/types'
-import { supabase } from '../lib/supabase'
+import { outbox } from '../lib/pitchOutbox'
 
-vi.mock('../lib/supabase', () => ({
-  supabase: {
-    from: vi.fn().mockReturnValue({
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
-    }),
-  },
+vi.mock('../lib/pitchOutbox', () => ({
+  outbox: { runOrQueue: vi.fn().mockResolvedValue('sent') },
+  newId: () => 'op',
 }))
 
 import { useMatchTimer } from './useMatchTimer'
@@ -40,8 +35,10 @@ it('elapsed equals timer_elapsed_seconds when stopped', () => {
 it('start marks the match active so the public live page can find it', async () => {
   const { result } = renderHook(() => useMatchTimer(baseMatch({ status: 'pending' })))
   await act(() => result.current.start())
-  const { update } = vi.mocked(supabase.from).mock.results.at(-1)!.value
-  expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: 'active', timer_status: 'running' }))
+  expect(outbox.runOrQueue).toHaveBeenCalledWith(expect.objectContaining({
+    kind: 'update', table: 'matches', match: { id: 'm1' },
+    values: expect.objectContaining({ status: 'active', timer_status: 'running' }),
+  }))
 })
 
 it('returns timerStatus from match', () => {

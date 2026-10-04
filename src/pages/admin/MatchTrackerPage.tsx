@@ -19,6 +19,11 @@ import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionMatchList } from '../../components/SessionMatchList'
 import { SessionStandings } from '../../components/SessionStandings'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
+import { SyncStatus } from '../../components/SyncStatus'
+import { outbox, newId } from '../../lib/pitchOutbox'
+import { overlayPending } from '../../lib/outboxOverlay'
+import type { OutboxOp } from '../../lib/outbox'
+import { goalOps, cardOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
 
 const colorBg: Record<string, string> = {
@@ -52,6 +57,7 @@ export default function MatchTrackerPage() {
   const [penaltyMode, setPenaltyMode] = useState(false)
   const [penaltyT1, setPenaltyT1] = useState(0)
   const [penaltyT2, setPenaltyT2] = useState(0)
+  const [endBlocked, setEndBlocked] = useState(false)
 
   const timer = useMatchTimer(match ?? ({} as Match))
 
@@ -67,36 +73,45 @@ export default function MatchTrackerPage() {
 
   const load = async () => {
     loadSessionMatches()
-    // Step 1: match + teams (teams needed to filter team_players correctly)
     const [{ data: m }, { data: teamsData }] = await Promise.all([
       supabase.from('matches').select('*').eq('id', matchId).single(),
       supabase.from('teams').select('*').eq('session_id', sessionId),
     ])
-    if (m) setMatch(m as Match)
-    if (teamsData) setTeams(teamsData as Team[])
+    // Offline: keep what is on screen rather than wiping it
     if (!m || !teamsData) return
+    setTeams(teamsData as Team[])
 
     const teamIds = (teamsData as Team[]).map((t) => t.id)
-
-    // Step 2: team_players (filtered to this session) + events
     const [{ data: tpData }, { data: evData }] = await Promise.all([
       supabase.from('team_players').select('*').in('team_id', teamIds),
       supabase.from('match_events').select('*').eq('match_id', m.id),
     ])
-    if (tpData) setTeamPlayers(tpData as TeamPlayer[])
-    if (evData) setEvents(evData as MatchEvent[])
+    // Changes still waiting on this phone are shown on top of what the server has
+    const shown = overlayPending(outbox.pending(), {
+      match: m as Match,
+      events: (evData ?? []) as MatchEvent[],
+      teamPlayers: (tpData ?? []) as TeamPlayer[],
+    })
+    setMatch(shown.match)
+    setEvents(shown.events)
+    setTeamPlayers(shown.teamPlayers)
 
-    // Step 3: player details
-    if (tpData) {
-      const pIds = [...new Set((tpData as TeamPlayer[]).map((tp) => tp.player_id))]
-      if (pIds.length > 0) {
-        const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
-        if (pData) setPlayers(pData as Player[])
-      }
+    const pIds = [...new Set(shown.teamPlayers.map((tp) => tp.player_id))]
+    if (pIds.length > 0) {
+      const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
+      if (pData) setPlayers(pData as Player[])
     }
   }
 
   useEffect(() => { load() }, [matchId])
+
+  // Once every waiting change has been sent, reload so the screen shows the server's copy
+  useEffect(() => outbox.subscribe(() => {
+    if (outbox.pending().length === 0 && !outbox.isFlushing()) {
+      setEndBlocked(false)
+      load()
+    }
+  }), [matchId])
 
   const reachedEnd = !!match && (
     match.team1_score >= GOAL_LIMIT || match.team2_score >= GOAL_LIMIT || timer.elapsed >= MATCH_DURATION_SECONDS
@@ -143,75 +158,57 @@ export default function MatchTrackerPage() {
   }
   const clockFields = { elapsed_seconds: eventClock, minute: Math.floor(eventClock / 60) }
 
+  // Show the change immediately, then send it (or keep it on the phone until there is signal)
+  const apply = async (ops: OutboxOp[]) => {
+    const shown = overlayPending(ops, { match, events, teamPlayers })
+    setMatch(shown.match)
+    setEvents(shown.events)
+    setTeamPlayers(shown.teamPlayers)
+    let allSent = true
+    for (const op of ops) {
+      const outcome = await outbox.runOrQueue(op)
+      if (outcome === 'failed') { load(); return }
+      if (outcome === 'queued') allSent = false
+    }
+    if (allSent) load()
+  }
+
   const handleGoalConfirm = async ({ scorerId, assisterId }: { scorerId: string; assisterId: string | null }) => {
     setDialog(null)
     const scorerTeamId = teamPlayers.find((tp) => tp.player_id === scorerId)?.team_id
     if (!scorerTeamId || !inProgress) return
-
-    // Insert goal event
-    const { data: goalEvent } = await supabase
-      .from('match_events')
-      .insert({ match_id: match.id, player_id: scorerId, team_id: scorerTeamId, event_type: 'goal', ...clockFields })
-      .select().single()
-    // Never bump the score for a goal that failed to save
-    if (!goalEvent) return
-
-    if (assisterId) {
-      const assisterTeamId = teamPlayers.find((tp) => tp.player_id === assisterId)?.team_id
-      await supabase.from('match_events').insert({
-        match_id: match.id, player_id: assisterId, team_id: assisterTeamId,
-        event_type: 'assist', related_event_id: (goalEvent as MatchEvent).id, ...clockFields,
-      })
-    }
-
-    // Update score
-    const isTeam1 = scorerTeamId === match.team1_id
-    await supabase.from('matches').update(
-      isTeam1 ? { team1_score: match.team1_score + 1 } : { team2_score: match.team2_score + 1 }
-    ).eq('id', match.id)
-
-    load()
+    const assisterTeamId = assisterId ? teamPlayers.find((tp) => tp.player_id === assisterId)?.team_id : null
+    await apply(goalOps({
+      match, scorerId, scorerTeamId, assisterId, assisterTeamId, clock: clockFields, newId, now: new Date().toISOString(),
+    }))
   }
 
   const handleCardConfirm = async ({ playerId, cardType, suspensionMinutes }: {
     playerId: string; cardType: 'yellow_card' | 'red_card'; suspensionMinutes: 2 | 3 | null
   }) => {
     setDialog(null)
-    if (!inProgress) return
-    const playerTeamId = teamPlayers.find((tp) => tp.player_id === playerId)?.team_id
-    await supabase.from('match_events').insert({
-      match_id: match.id, player_id: playerId, team_id: playerTeamId, event_type: cardType,
-      suspension_minutes: suspensionMinutes, suspension_started_at: suspensionMinutes ? new Date().toISOString() : null,
-      ...clockFields,
-    })
-    load()
+    const teamId = teamPlayers.find((tp) => tp.player_id === playerId)?.team_id
+    if (!inProgress || !teamId) return
+    await apply(cardOps({ match, playerId, teamId, cardType, suspensionMinutes, clock: clockFields, newId, now: new Date().toISOString() }))
   }
 
   const lastEvent = findLastUndoable(events)
   const lastEventIsGoal = lastEvent?.event_type === 'goal' || lastEvent?.event_type === 'penalty_goal'
-  const lastEventLabel = lastEvent && t(
-    lastEventIsGoal ? 'match.undoGoal' : lastEvent.event_type === 'red_card' ? 'match.undoRed' : 'match.undoYellow',
-    { name: players.find((p) => p.id === lastEvent.player_id)?.name ?? '?' },
+  const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
+  const swapPartner = lastEvent?.event_type === 'swap'
+    ? events.find((e) => e.event_type === 'swap' && e.related_event_id === lastEvent.id)
+    : undefined
+  const lastEventLabel = lastEvent && (
+    lastEvent.event_type === 'swap'
+      ? t('match.undoSwap', { a: nameOf(lastEvent.player_id), b: swapPartner ? nameOf(swapPartner.player_id) : '?' })
+      : t(lastEventIsGoal ? 'match.undoGoal' : lastEvent.event_type === 'red_card' ? 'match.undoRed' : 'match.undoYellow',
+        { name: nameOf(lastEvent.player_id) })
   )
 
   const handleUndo = async () => {
     setConfirmUndo(false)
     if (!lastEvent) return
-    if (lastEventIsGoal) {
-      // assist references the goal without CASCADE, so it must be removed first
-      const { error } = await supabase.from('match_events').delete().eq('related_event_id', lastEvent.id)
-      if (error) return
-    }
-    const { error } = await supabase.from('match_events').delete().eq('id', lastEvent.id)
-    if (error) return
-    if (lastEventIsGoal) {
-      await supabase.from('matches').update(
-        lastEvent.team_id === match.team1_id
-          ? { team1_score: Math.max(0, match.team1_score - 1) }
-          : { team2_score: Math.max(0, match.team2_score - 1) },
-      ).eq('id', match.id)
-    }
-    load()
+    await apply(undoOps({ match, event: lastEvent, events, newId }))
   }
 
   const handleSwap = async (p1Id: string, p2Id: string) => {
@@ -219,26 +216,12 @@ export default function MatchTrackerPage() {
     const p1TeamId = teamPlayers.find((tp) => tp.player_id === p1Id)?.team_id
     const p2TeamId = teamPlayers.find((tp) => tp.player_id === p2Id)?.team_id
     if (!p1TeamId || !p2TeamId) return
-    const moved = await Promise.all([
-      supabase.from('team_players').update({ team_id: p2TeamId }).eq('player_id', p1Id).eq('team_id', p1TeamId),
-      supabase.from('team_players').update({ team_id: p1TeamId }).eq('player_id', p2Id).eq('team_id', p2TeamId),
-    ])
-    if (moved.every((r) => !r.error)) {
-      // Logged as a linked pair; each row's team_id is the team that player moved to
-      const clock = timer.timerStatus === 'stopped'
-        ? { elapsed_seconds: null, minute: null }
-        : { elapsed_seconds: timer.elapsed, minute: Math.floor(timer.elapsed / 60) }
-      const { data: first } = await supabase.from('match_events')
-        .insert({ match_id: match.id, player_id: p1Id, team_id: p2TeamId, event_type: 'swap', ...clock })
-        .select().single()
-      if (first) {
-        await supabase.from('match_events').insert({
-          match_id: match.id, player_id: p2Id, team_id: p1TeamId, event_type: 'swap',
-          related_event_id: (first as MatchEvent).id, ...clock,
-        })
-      }
-    }
-    load()
+    const clock = timer.timerStatus === 'stopped'
+      ? { elapsed_seconds: null, minute: null }
+      : { elapsed_seconds: timer.elapsed, minute: Math.floor(timer.elapsed / 60) }
+    await apply(swapOps({
+      match, p1: { id: p1Id, teamId: p1TeamId }, p2: { id: p2Id, teamId: p2TeamId }, clock, newId, now: new Date().toISOString(),
+    }))
   }
 
   const handleEndMatch = async () => {
@@ -267,6 +250,11 @@ export default function MatchTrackerPage() {
 
   const finishMatch = async (update: Partial<Match>, penalties?: { team1: number; team2: number }) => {
     if (!update.winner_team_id) return
+    // Ending creates the next match on the server, so everything recorded must be sent first
+    if (outbox.pending().length > 0 && !(await outbox.flush())) {
+      setEndBlocked(true)
+      return
+    }
 
     const { error } = await supabase.from('matches').update({ ...update, ...finishedMatchFields(timer.elapsed) }).eq('id', match.id)
     // Don't start the next match if this result was not saved
@@ -330,6 +318,8 @@ export default function MatchTrackerPage() {
           )}
         </div>
       </div>
+
+      <SyncStatus outbox={outbox} />
 
       {/* End-condition banner */}
       {shouldEndMatch && !penaltyMode && (
@@ -456,6 +446,7 @@ export default function MatchTrackerPage() {
       >
         {t('match.endMatch')}
       </button>
+      {endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('offline.endBlocked')}</p>}
 
       {sessionMatches.some((m) => m.status === 'completed') && (
         <div className="mt-8">

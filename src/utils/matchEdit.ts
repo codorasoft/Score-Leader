@@ -2,11 +2,12 @@ import type { EventType, Match, MatchEvent } from '../lib/types'
 import { decideResult } from './matchRotation'
 
 const SCORING: EventType[] = ['goal', 'penalty_goal']
-const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card']
+const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card', 'swap']
 
-export function findLastUndoable<E extends Pick<MatchEvent, 'event_type' | 'created_at'>>(events: E[]): E | null {
+// Assists and the second row of a swap pair are undone together with the event they belong to.
+export function findLastUndoable<E extends Pick<MatchEvent, 'event_type' | 'created_at'> & { related_event_id?: string | null }>(events: E[]): E | null {
   return events
-    .filter((e) => UNDOABLE.includes(e.event_type))
+    .filter((e) => UNDOABLE.includes(e.event_type) && !(e.event_type === 'swap' && e.related_event_id))
     .reduce<E | null>((last, e) => (!last || e.created_at > last.created_at ? e : last), null)
 }
 
