@@ -378,7 +378,7 @@ export default function MatchTrackerPage() {
         <GoalDialog teams={playingTeams} onConfirm={handleGoalConfirm} onClose={() => setDialog(null)} />
       )}
       {dialog === 'card' && (
-        <CardDialog players={playingPlayers} onConfirm={handleCardConfirm} onClose={() => setDialog(null)} />
+        <CardDialog teams={playingTeams} onConfirm={handleCardConfirm} onClose={() => setDialog(null)} />
       )}
       {dialog === 'swap' && (
         <SwapDialog teams={teamsWithPlayers} onSwap={handleSwap} onClose={() => setDialog(null)} />
