@@ -6,7 +6,7 @@ export function LanguageToggle() {
   return (
     <button
       onClick={() => i18n.changeLanguage(isAr ? 'en' : 'ar')}
-      className="text-xs text-gray-400 hover:text-white border border-gray-600 rounded px-2 py-1 font-mono"
+      className="h-9 min-w-9 px-2 text-sm text-gray-300 hover:text-white border border-gray-600 rounded-lg font-mono"
       title={isAr ? 'Switch to English' : 'التبديل للعربية'}
     >
       {isAr ? 'EN' : 'ع'}

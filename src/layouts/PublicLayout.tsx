@@ -8,14 +8,16 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <header className="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="font-bold text-lg tracking-tight">Score<span className="text-blue-400">Leader</span></Link>
-        <nav className="flex items-center gap-4 text-sm">
-          <Link to="/leaderboard" className={`hover:text-white ${location.pathname === '/leaderboard' ? 'text-white' : 'text-gray-400'}`}>
+      <header className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur border-b border-gray-800">
+        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between gap-4">
+        <Link to="/" className="font-bold text-lg tracking-tight shrink-0" dir="ltr">Score<span className="text-blue-400">Leader</span></Link>
+        <nav className="flex items-center gap-2 text-sm">
+          <Link to="/leaderboard" className={`px-3 py-2 rounded-lg hover:text-white ${location.pathname === '/leaderboard' ? 'bg-gray-800 text-white' : 'text-gray-400'}`}>
             {t('nav.leaderboard')}
           </Link>
           <LanguageToggle />
         </nav>
+        </div>
       </header>
       <main className="px-4 py-6">
         <Outlet />
