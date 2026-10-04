@@ -1,15 +1,16 @@
 import { createBrowserRouter } from 'react-router-dom'
+import AuthGuard from './components/AuthGuard'
+import LoginPage from './pages/LoginPage'
 
-// Lazy placeholders — pages are filled in their respective tasks
 const Placeholder = ({ name }: { name: string }) => (
   <div className="p-4 text-gray-400">{name}</div>
 )
 
 export const router = createBrowserRouter([
-  { path: '/login', element: <Placeholder name="Login" /> },
+  { path: '/login', element: <LoginPage /> },
   {
     path: '/admin',
-    element: <Placeholder name="AdminLayout" />,
+    element: <AuthGuard />,
     children: [
       { index: true, element: <Placeholder name="Dashboard" /> },
       { path: 'players', element: <Placeholder name="Players" /> },
