@@ -57,6 +57,7 @@ export default function MatchTrackerPage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
   const [dialog, setDialog] = useState<'goal' | 'card' | 'swap' | null>(null)
+  const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [penaltyMode, setPenaltyMode] = useState(false)
   const [penaltyT1, setPenaltyT1] = useState(0)
   const [penaltyT2, setPenaltyT2] = useState(0)
@@ -178,6 +179,14 @@ export default function MatchTrackerPage() {
   }
 
   const handleEndMatch = async () => {
+    if (!shouldEndMatch) {
+      setConfirmEarlyEnd(true)
+      return
+    }
+    await doEndMatch()
+  }
+
+  const doEndMatch = async () => {
     const update = buildMatchUpdate({
       team1_score: match.team1_score,
       team2_score: match.team2_score,
@@ -338,6 +347,31 @@ export default function MatchTrackerPage() {
       >
         {t('match.endMatch')}
       </button>
+
+      {/* Early-end confirmation */}
+      {confirmEarlyEnd && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmEarlyEnd(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-2xl mb-3">⚠️</div>
+            <h2 className="text-lg font-bold mb-2">{t('match.earlyEndTitle')}</h2>
+            <p className="text-sm text-gray-400 mb-5">{t('match.earlyEndBody')}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmEarlyEnd(false)}
+                className="flex-1 py-2 bg-gray-700 rounded font-semibold hover:bg-gray-600"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => { setConfirmEarlyEnd(false); doEndMatch() }}
+                className="flex-1 py-2 bg-red-600 rounded font-semibold hover:bg-red-500"
+              >
+                {t('match.earlyEndConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dialogs */}
       {dialog === 'goal' && (

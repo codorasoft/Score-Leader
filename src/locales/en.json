@@ -68,7 +68,10 @@
     "penaltyTitle": "Penalty Shootout",
     "penaltyConfirm": "Confirm Penalty Result",
     "goalLimitReached": "Goal limit reached — end the match!",
-    "timeUp": "Time's up — end the match!"
+    "timeUp": "Time's up — end the match!",
+    "earlyEndTitle": "End match early?",
+    "earlyEndBody": "The goal limit and time limit haven't been reached yet.",
+    "earlyEndConfirm": "Yes, end it"
   },
   "goal": {
     "whoScored": "Who scored?",
