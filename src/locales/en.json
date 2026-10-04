@@ -121,7 +121,30 @@
     "openVote": "Open vote",
     "finishSession": "Finish Session",
     "saving": "Saving…",
-    "tied": "(tied)"
+    "tied": "(tied)",
+    "topScorers": "Top scorers",
+    "topAssists": "Top assists",
+    "goalsUnit_one": "goal",
+    "goalsUnit_other": "goals",
+    "assistsUnit_one": "assist",
+    "assistsUnit_other": "assists",
+    "nomineesHint": "Pick at least 2 nominees for the vote.",
+    "gkFirst": "Goalkeepers are listed first.",
+    "votesReady": "Votes are open",
+    "votesReadyBody": "Send these links to the group. Close each vote from the session’s history page when everyone has voted.",
+    "copyLink": "Copy link",
+    "copied": "Copied!",
+    "shareWhatsApp": "WhatsApp",
+    "done": "Done",
+    "votesTitle": "Votes",
+    "voteOpen": "Open",
+    "voteClosed": "Closed",
+    "votesCount_one": "{{count}} vote",
+    "votesCount_other": "{{count}} votes",
+    "closeVote": "Close vote",
+    "tiePick": "Tied — tap the winner to close the vote",
+    "winner": "Winner: {{name}}",
+    "noVotesYet": "No votes yet"
   },
   "history": {
     "title": "Session History",
@@ -167,7 +190,8 @@
     "notFound": "Vote not found",
     "awardType": {
       "mvp": "MVP",
-      "fair_play": "Well-Mannered Player"
+      "fair_play": "Well-Mannered Player",
+      "best_goalkeeper": "Best Goalkeeper"
     }
   },
   "live": {
@@ -231,5 +255,13 @@
     "show": "Timeline",
     "sessionProgress": "Session so far",
     "drawWinner": "Draw · {{team}} wins"
+  },
+  "standings": {
+    "title": "Team standings",
+    "rank": "Rank {{rank}}",
+    "record": "{{w}}W · {{d}}D · {{l}}L",
+    "goals": "Goals {{for}}–{{against}}",
+    "wins_one": "win",
+    "wins_other": "wins"
   }
 }

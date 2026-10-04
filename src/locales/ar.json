@@ -125,7 +125,42 @@
     "openVote": "تصويت مفتوح",
     "finishSession": "إنهاء الجلسة",
     "saving": "جار الحفظ…",
-    "tied": "(تعادل)"
+    "tied": "(تعادل)",
+    "topScorers": "أفضل الهدافين",
+    "topAssists": "أفضل الممررين",
+    "goalsUnit_zero": "هدف",
+    "goalsUnit_one": "هدف",
+    "goalsUnit_two": "هدفان",
+    "goalsUnit_few": "أهداف",
+    "goalsUnit_many": "هدفاً",
+    "goalsUnit_other": "هدف",
+    "assistsUnit_zero": "تمريرة",
+    "assistsUnit_one": "تمريرة",
+    "assistsUnit_two": "تمريرتان",
+    "assistsUnit_few": "تمريرات",
+    "assistsUnit_many": "تمريرة",
+    "assistsUnit_other": "تمريرة",
+    "nomineesHint": "اختر مرشحَين على الأقل للتصويت.",
+    "gkFirst": "حراس المرمى يظهرون أولاً.",
+    "votesReady": "التصويت مفتوح",
+    "votesReadyBody": "أرسل هذه الروابط إلى المجموعة. أغلق كل تصويت من صفحة سجل الجلسة عندما ينتهي الجميع من التصويت.",
+    "copyLink": "نسخ الرابط",
+    "copied": "تم النسخ!",
+    "shareWhatsApp": "واتساب",
+    "done": "تم",
+    "votesTitle": "التصويتات",
+    "voteOpen": "مفتوح",
+    "voteClosed": "مغلق",
+    "votesCount_zero": "{{count}} صوت",
+    "votesCount_one": "صوت واحد",
+    "votesCount_two": "صوتان",
+    "votesCount_few": "{{count}} أصوات",
+    "votesCount_many": "{{count}} صوتاً",
+    "votesCount_other": "{{count}} صوت",
+    "closeVote": "إغلاق التصويت",
+    "tiePick": "تعادل — اضغط على الفائز لإغلاق التصويت",
+    "winner": "الفائز: {{name}}",
+    "noVotesYet": "لا توجد أصوات بعد"
   },
   "history": {
     "title": "سجل الجلسات",
@@ -171,7 +206,8 @@
     "notFound": "التصويت غير موجود",
     "awardType": {
       "mvp": "أفضل لاعب",
-      "fair_play": "لاعب الفير بلاي"
+      "fair_play": "لاعب الفير بلاي",
+      "best_goalkeeper": "أفضل حارس مرمى"
     }
   },
   "live": {
@@ -215,7 +251,7 @@
       "goalLimit": "{{team}} كان أول من سجّل {{limit}} أهداف.",
       "timeUp": "{{team}} كان متقدماً عند انتهاء الـ{{minutes}} دقائق.",
       "endedEarly": "{{team}} كان متقدماً عندما أُنهيت المباراة مبكراً.",
-      "penalties": "{{team}} فاز بركلات الترجيح {{winnerPens}}–{{loserPens}}.",
+      "penalties": "{{team}} فاز بركلات الترجيح ⁦{{winnerPens}}–{{loserPens}}⁩.",
       "drawPreviousWinnerLoses": "تعادل. {{loser}} فاز في المباراة السابقة، لذلك يُحسب التعادل خسارة له. يبقى {{team}} في الملعب."
     },
     "next": "التالية: {{team1}} ضد {{team2}}",
@@ -235,5 +271,17 @@
     "show": "المجريات",
     "sessionProgress": "الجلسة حتى الآن",
     "drawWinner": "تعادل · فوز {{team}}"
+  },
+  "standings": {
+    "title": "ترتيب الفرق",
+    "rank": "المركز {{rank}}",
+    "record": "{{w}} فوز · {{d}} تعادل · {{l}} خسارة",
+    "goals": "الأهداف ⁦{{for}}–{{against}}⁩",
+    "wins_zero": "فوز",
+    "wins_one": "فوز",
+    "wins_two": "فوزان",
+    "wins_few": "انتصارات",
+    "wins_many": "انتصاراً",
+    "wins_other": "فوز"
   }
 }

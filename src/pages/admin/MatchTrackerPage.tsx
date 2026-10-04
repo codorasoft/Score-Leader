@@ -17,6 +17,8 @@ import { SuspensionCountdown } from '../../components/SuspensionCountdown'
 import { MatchResultDialog } from '../../components/MatchResultDialog'
 import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionMatchList } from '../../components/SessionMatchList'
+import { SessionStandings } from '../../components/SessionStandings'
+import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
 
 const colorBg: Record<string, string> = {
@@ -458,6 +460,8 @@ export default function MatchTrackerPage() {
       {sessionMatches.some((m) => m.status === 'completed') && (
         <div className="mt-8">
           <h2 className="text-sm font-semibold mb-3">{t('timeline.sessionProgress')}</h2>
+          <div className="mb-5"><SessionStandings teams={teams} matches={sessionMatches} /></div>
+          <div className="mb-5"><SessionTopPlayers players={players} events={sessionEvents} matches={sessionMatches} /></div>
           <SessionMatchList matches={sessionMatches} events={sessionEvents} teams={teams} players={players} />
         </div>
       )}

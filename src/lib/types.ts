@@ -69,7 +69,7 @@ export interface MatchEvent {
 export interface AwardVote {
   id: string
   session_id: string
-  award_type: 'mvp' | 'fair_play'
+  award_type: 'mvp' | 'fair_play' | 'best_goalkeeper'
   status: 'open' | 'closed'
   winner_player_id: string | null
   decided_by: 'admin_direct' | 'vote'

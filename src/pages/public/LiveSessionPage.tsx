@@ -6,6 +6,8 @@ import { useRealtime } from '../../hooks/useRealtime'
 import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
 import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionMatchList } from '../../components/SessionMatchList'
+import { SessionStandings } from '../../components/SessionStandings'
+import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import type { Session, Match, Team, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
 const colorBg: Record<string, string> = {
@@ -135,6 +137,8 @@ export default function LiveSessionPage() {
         </div>
       )}
 
+      <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
+      <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
       <SessionMatchList matches={matches} events={events} teams={teams} players={players} />
     </div>
   )

@@ -6,6 +6,9 @@ import { recomputeResult } from '../../utils/matchEdit'
 import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { MatchTimeline } from '../../components/MatchTimeline'
+import { SessionStandings } from '../../components/SessionStandings'
+import { SessionTopPlayers } from '../../components/SessionTopPlayers'
+import { SessionVotes } from '../../components/SessionVotes'
 import type { Match, Team, Session, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
 const colorDot: Record<string, string> = {
@@ -123,6 +126,10 @@ export default function SessionDetailPage() {
         <Link to="/admin" className="text-gray-400 hover:text-white text-sm">← {t('sessionDetail.back')}</Link>
         <h1 className="text-xl font-bold">{session?.date ?? '…'}</h1>
       </div>
+
+      <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
+      <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
+      {sessionId && <div className="mb-6"><SessionVotes sessionId={sessionId} /></div>}
 
       {completed.length === 0 && (
         <p className="text-gray-500 text-center py-8">{t('sessionDetail.noMatches')}</p>
