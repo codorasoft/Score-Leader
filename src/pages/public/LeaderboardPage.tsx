@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { computePlayerStats } from '../../utils/stats'
@@ -11,7 +12,7 @@ export default function LeaderboardPage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
-  const [teamPlayerMap, setTeamPlayerMap] = useState<Record<string, string>>({})
+  const [teamPlayerMap, setTeamPlayerMap] = useState<Record<string, string[]>>({})
   const [sortBy, setSortBy] = useState<SortKey>('goals')
 
   const load = useCallback(async () => {
@@ -24,8 +25,8 @@ export default function LeaderboardPage() {
     setPlayers((pData ?? []) as Player[])
     setMatches((mData ?? []) as Match[])
     setEvents((evData ?? []) as MatchEvent[])
-    const map: Record<string, string> = {}
-    for (const tp of (tpData ?? []) as TeamPlayer[]) map[tp.player_id] = tp.team_id
+    const map: Record<string, string[]> = {}
+    for (const tp of (tpData ?? []) as TeamPlayer[]) (map[tp.player_id] ??= []).push(tp.team_id)
     setTeamPlayerMap(map)
   }, [])
 
@@ -56,7 +57,7 @@ export default function LeaderboardPage() {
 
       <div className="space-y-2">
         {sorted.map((s, i) => (
-          <div key={s.player.id} className="flex items-center bg-gray-800 rounded-lg px-4 py-3 gap-3">
+          <Link key={s.player.id} to={`/players/${s.player.id}`} className="flex items-center bg-gray-800 hover:bg-gray-700 rounded-lg px-4 py-3 gap-3">
             <span className="w-6 text-gray-500 text-sm font-mono">{i + 1}</span>
             <span className="flex-1 font-semibold">{s.player.name}</span>
             <span className="text-xs text-gray-400">{s.player.position}</span>
@@ -65,7 +66,7 @@ export default function LeaderboardPage() {
               <span title="Assists" className="text-gray-400">{s.assists}A</span>
               {s.cleanSheets > 0 && <span title="Clean sheets" className="text-green-400">{s.cleanSheets}CS</span>}
             </div>
-          </div>
+          </Link>
         ))}
         {sorted.length === 0 && <p className="text-gray-500 text-center py-8">{t('common.noStats')}</p>}
       </div>

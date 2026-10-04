@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import type { Player, PlayerPosition } from '../../lib/types'
@@ -96,7 +97,7 @@ export default function PlayersPage() {
               <img src={p.photo_url} alt={p.name} className="w-10 h-10 rounded-full object-cover" />
             )}
             <div className="flex-1 min-w-0">
-              <div className="font-semibold truncate">{p.name}</div>
+              <Link to={`/players/${p.id}`} className="font-semibold truncate block hover:underline">{p.name}</Link>
               <div className="flex items-center gap-2 mt-1">
                 <PositionBadge position={p.position} />
                 <span className="text-yellow-400 text-sm">{'★'.repeat(p.skill_rating)}{'☆'.repeat(5 - p.skill_rating)}</span>

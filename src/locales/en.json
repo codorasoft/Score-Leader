@@ -171,5 +171,27 @@
     "network": "No connection — this change was not saved. Check your internet and try again.",
     "requestFailed": "Not saved: {{detail}}",
     "unknown": "unknown error"
+  },
+  "profile": {
+    "back": "Leaderboard",
+    "notFound": "Player not found",
+    "noSessions": "Hasn’t played a session yet",
+    "sessions": "Sessions",
+    "matches": "Matches",
+    "winRate": "Win rate",
+    "record": "{{w}}W · {{d}}D · {{l}}L",
+    "goals": "Goals",
+    "assists": "Assists",
+    "cleanSheets": "Clean sheets",
+    "cards": "Cards",
+    "awardsTitle": "Awards",
+    "chartTitle": "Goals & assists per session",
+    "historyTitle": "Session by session",
+    "date": "Date",
+    "played": "P",
+    "wdl": "W-D-L",
+    "g": "G",
+    "a": "A",
+    "tooltip": "{{goals}} goals · {{assists}} assists"
   }
 }
