@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { TeamColor } from '../lib/types'
+import type { Player, TeamColor } from '../lib/types'
 import { PositionBadge } from '../pages/admin/PlayersPage'
 import { movePlayer, swapPlayers, teamStars, type ThreeTeams } from '../utils/teamEdit'
 
@@ -15,10 +15,12 @@ const colorStyles: Record<TeamColor, string> = {
 interface Props {
   teams: ThreeTeams
   onChange: (teams: ThreeTeams) => void
+  // When given, team totals and player chips show this balancing strength instead of only stars
+  strengthOf?: (p: Player) => number
 }
 
 // Tap a player to select them, then tap a player on another team to swap, or "Move here".
-export function TeamSwapBoard({ teams, onChange }: Props) {
+export function TeamSwapBoard({ teams, onChange, strengthOf }: Props) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selectedTeam = selectedId ? teams.findIndex((team) => team.some((p) => p.id === selectedId)) : -1
@@ -51,7 +53,9 @@ export function TeamSwapBoard({ teams, onChange }: Props) {
               <div className="flex items-baseline justify-between mb-3">
                 <h2 className="font-bold">{t('common.teamName', { color: t(`common.teamColor.${color}`) })}</h2>
                 <span className="text-xs text-gray-300">
-                  {t('teamBuilder.teamSummary', { count: teams[idx].length, stars: teamStars(teams[idx]) })}
+                  {strengthOf
+                    ? t('teamBuilder.teamStrength', { count: teams[idx].length, power: teams[idx].reduce((n, p) => n + strengthOf(p), 0).toFixed(1) })
+                    : t('teamBuilder.teamSummary', { count: teams[idx].length, stars: teamStars(teams[idx]) })}
                 </span>
               </div>
 
@@ -73,6 +77,7 @@ export function TeamSwapBoard({ teams, onChange }: Props) {
                       <PositionBadge position={player.position} />
                       <span className="text-sm flex-1 truncate">{player.name}</span>
                       <span className="text-xs text-yellow-400" aria-hidden="true">{'★'.repeat(player.skill_rating)}</span>
+                      {strengthOf && <span className="text-xs text-gray-300 font-mono w-9 text-end">⚡{strengthOf(player).toFixed(1)}</span>}
                       {isTarget && <span className="text-blue-300" aria-hidden="true">⇄</span>}
                     </button>
                   )

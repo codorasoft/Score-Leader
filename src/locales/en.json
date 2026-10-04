@@ -63,7 +63,15 @@
     "firstMatch": "First match",
     "firstMatchRandom": "Random (coin flip)",
     "firstMatchPair": "{{team1}} vs {{team2}}",
-    "firstMatchWaits": "{{team}} waits"
+    "firstMatchWaits": "{{team}} waits",
+    "balanceBy": "Balance teams by",
+    "stars": "Stars",
+    "form": "Form",
+    "balanceMix": "{{stars}}% stars · {{form}}% form",
+    "formHelp_one": "Form = win rate and goals/assists over each player’s last session. New players use stars only.",
+    "formHelp_other": "Form = win rate and goals/assists over each player’s last {{count}} sessions. New players use stars only.",
+    "teamStrength_one": "{{count}} player · ⚡{{power}}",
+    "teamStrength_other": "{{count}} players · ⚡{{power}}"
   },
   "match": {
     "start": "▶ Start",
@@ -193,7 +201,8 @@
     "line": "{{p}}P · {{w}}W · {{g}}G · {{a}}A",
     "cs_one": "{{count}} clean sheet",
     "cs_other": "{{count}} clean sheets",
-    "empty": "No finished matches in this period"
+    "empty": "No finished matches in this period",
+    "sortPoints": "Points"
   },
   "vote": {
     "selectOne": "Select one player",
@@ -289,5 +298,35 @@
     "copy": "Copy text",
     "copied": "Copied! Paste it in Messenger.",
     "help": "Tap Share to Messenger and pick Messenger, or copy the text and paste it into your group chat."
+  },
+  "potm": {
+    "title": "Player of the Month",
+    "leading": "Leading Player of the Month",
+    "points_one": "{{count}} point",
+    "points_other": "{{count}} points",
+    "formula": "Points: goal 3 · assist 2 · win 1 · clean sheet 2 (goalkeepers)"
+  },
+  "badges": {
+    "title": "Badges",
+    "none": "No badges yet — keep playing!",
+    "next": "Next up",
+    "first_goal": "First goal",
+    "hat_trick": "Hat-trick",
+    "goals_one": "{{count}} goal",
+    "goals_other": "{{count}} goals",
+    "first_assist": "First assist",
+    "playmaker": "Playmaker",
+    "assists_one": "{{count}} assist",
+    "assists_other": "{{count}} assists",
+    "wins_one": "{{count}} win",
+    "wins_other": "{{count}} wins",
+    "sessions_one": "{{count}} session",
+    "sessions_other": "{{count}} sessions",
+    "unbeaten": "Unbeaten session",
+    "potm": "Player of the Month",
+    "mvp": "MVP",
+    "best_gk": "Best Goalkeeper",
+    "cleanSheets_one": "{{count}} clean sheet",
+    "cleanSheets_other": "{{count}} clean sheets"
   }
 }

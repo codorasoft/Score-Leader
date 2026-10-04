@@ -4,7 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { buildPlayerHistory } from '../../utils/playerHistory'
 import { PlayerFormChart } from '../../components/PlayerFormChart'
-import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team } from '../../lib/types'
+import { PlayerBadges } from '../../components/PlayerBadges'
+import { selectAll } from '../../lib/selectAll'
+import { careerFromHistory, computeBadges } from '../../utils/badges'
+import { monthsWonBy, type LeagueData } from '../../utils/playerOfMonth'
+import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team, TeamPlayer } from '../../lib/types'
 
 const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
 
@@ -23,6 +27,19 @@ interface ProfileData {
   matches: Match[]
   events: MatchEvent[]
   awards: SessionAward[]
+  // Everyone's results, needed to work out Player of the Month titles
+  league: LeagueData
+}
+
+async function loadLeague(): Promise<LeagueData> {
+  const [players, sessions, matches, events, teamPlayers] = await Promise.all([
+    selectAll<Player>((a, b) => supabase.from('players').select('*').range(a, b)),
+    selectAll<Session>((a, b) => supabase.from('sessions').select('*').range(a, b)),
+    selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('status', 'completed').range(a, b)),
+    selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').range(a, b)),
+    selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').range(a, b)),
+  ])
+  return { players, sessions, matches, events, teamPlayers }
 }
 
 export default function PlayerProfilePage() {
@@ -32,11 +49,12 @@ export default function PlayerProfilePage() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: player }, { data: tpRows }, { data: events }, { data: awards }] = await Promise.all([
+      const [{ data: player }, { data: tpRows }, { data: events }, { data: awards }, league] = await Promise.all([
         supabase.from('players').select('*').eq('id', playerId).maybeSingle(),
         supabase.from('team_players').select('team_id').eq('player_id', playerId),
         supabase.from('match_events').select('*').eq('player_id', playerId),
         supabase.from('session_awards').select('*').eq('winner_player_id', playerId),
+        loadLeague(),
       ])
       if (!player) { setData('missing'); return }
 
@@ -59,6 +77,7 @@ export default function PlayerProfilePage() {
         matches: (matches ?? []) as Match[],
         events: (events ?? []) as MatchEvent[],
         awards: (awards ?? []) as SessionAward[],
+        league,
       })
     }
     load()
@@ -71,6 +90,8 @@ export default function PlayerProfilePage() {
   const history = buildPlayerHistory({ position: player.position, ...data })
   const { totals, awardCounts } = history
   const winRate = totals.played ? Math.round((totals.wins / totals.played) * 100) : 0
+  const potmMonths = monthsWonBy(data.league, player.id)
+  const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length))
 
   const tiles = [
     { label: t('profile.sessions'), value: totals.sessions },
@@ -127,6 +148,8 @@ export default function PlayerProfilePage() {
               </div>
             </section>
           )}
+
+          <PlayerBadges earned={badges.earned} next={badges.next} potmMonths={potmMonths} />
 
           <section className="bg-gray-800 rounded-xl p-4 mb-6">
             <h2 className="text-sm font-semibold mb-3">{t('profile.chartTitle')}</h2>

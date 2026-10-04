@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { selectAll } from '../../lib/selectAll'
 import { availablePeriods, defaultPeriod, periodStats, type PeriodKey } from '../../utils/leaderboardPeriod'
+import { monthKey, playersOfMonth, potmPoints } from '../../utils/playerOfMonth'
 import type { Player, Match, MatchEvent, TeamPlayer, Session } from '../../lib/types'
 
-type SortKey = 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
+type SortKey = 'points' | 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
 
 const SORTS: { key: SortKey; labelKey: string }[] = [
+  { key: 'points', labelKey: 'leaderboard.sortPoints' },
   { key: 'goals', labelKey: 'leaderboard.sortGoals' },
   { key: 'assists', labelKey: 'leaderboard.sortAssists' },
   { key: 'matchesWon', labelKey: 'leaderboard.sortWins' },
@@ -27,7 +29,7 @@ export default function LeaderboardPage() {
   const { t, i18n } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData] = useState<Data | null>(null)
-  const [sortBy, setSortBy] = useState<SortKey>('goals')
+  const [sortBy, setSortBy] = useState<SortKey>('points')
 
   const load = useCallback(async () => {
     const [players, sessions, matches, events, teamPlayers] = await Promise.all([
@@ -56,8 +58,15 @@ export default function LeaderboardPage() {
   }
 
   const { stats, sessionCount, matchCount } = periodStats(data, period)
-  const sorted = [...stats].sort((a, b) => b[sortBy] - a[sortBy] || b.goals - a.goals || b.assists - a.assists)
-  const ranks = sorted.map((s) => s[sortBy])
+  const rows = stats.map((s) => ({ ...s, points: potmPoints(s) }))
+  // Same tie-break as Player of the Month: goals, then assists, then wins; only full ties share a rank
+  const compare = (a: (typeof rows)[number], b: (typeof rows)[number]) =>
+    b[sortBy] - a[sortBy] || b.goals - a.goals || b.assists - a.assists || b.matchesWon - a.matchesWon
+  const sorted = [...rows].sort(compare)
+  const ranks: number[] = []
+  sorted.forEach((s, i) => ranks.push(i > 0 && compare(sorted[i - 1], s) === 0 ? ranks[i - 1] : i + 1))
+  const potm = period.length === 7 ? playersOfMonth(data, period) : null
+  const monthOver = period < monthKey(new Date())
 
   return (
     <div className="max-w-lg mx-auto">
@@ -83,6 +92,21 @@ export default function LeaderboardPage() {
         {t('leaderboard.sessions', { count: sessionCount })} · {t('summary.matches', { count: matchCount })}
       </p>
 
+      {potm && (
+        <div className="mb-4 rounded-xl border border-yellow-500/60 bg-yellow-900/20 px-4 py-3 flex items-center gap-3">
+          <span className="text-3xl" aria-hidden="true">👑</span>
+          <span className="min-w-0">
+            <span className="block text-xs uppercase text-yellow-300">
+              {monthOver ? t('potm.title') : t('potm.leading')}
+            </span>
+            <span className="block font-bold truncate">
+              {potm.winners.map((w) => w.player.name).join(' & ')}
+            </span>
+            <span className="block text-xs text-gray-300">{t('potm.points', { count: potm.points })}</span>
+          </span>
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4 flex-wrap">
         {SORTS.map(({ key, labelKey }) => (
           <button key={key} onClick={() => setSortBy(key)} aria-pressed={sortBy === key}
@@ -95,7 +119,7 @@ export default function LeaderboardPage() {
       <div className="space-y-2">
         {sorted.map((s, i) => (
           <Link key={s.player.id} to={`/players/${s.player.id}`} className="flex items-center bg-gray-800 hover:bg-gray-700 rounded-lg px-4 py-3 gap-3">
-            <span className="w-6 text-gray-500 text-sm font-mono">{ranks.indexOf(ranks[i]) + 1}</span>
+            <span className="w-6 text-gray-500 text-sm font-mono">{ranks[i]}</span>
             <span className="flex-1 min-w-0">
               <span className="block font-semibold truncate">{s.player.name}</span>
               <span className="block text-xs text-gray-400">
@@ -107,6 +131,7 @@ export default function LeaderboardPage() {
           </Link>
         ))}
         {sorted.length === 0 && <p className="text-gray-500 text-center py-8">{t('leaderboard.empty')}</p>}
+        {sorted.length > 0 && sortBy === 'points' && <p className="text-[11px] text-gray-500 text-center pt-2">{t('potm.formula')}</p>}
       </div>
     </div>
   )

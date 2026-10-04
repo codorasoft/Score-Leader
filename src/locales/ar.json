@@ -67,7 +67,23 @@
     "firstMatch": "المباراة الأولى",
     "firstMatchRandom": "عشوائي (قرعة)",
     "firstMatchPair": "{{team1}} ضد {{team2}}",
-    "firstMatchWaits": "{{team}} ينتظر"
+    "firstMatchWaits": "{{team}} ينتظر",
+    "balanceBy": "توزيع الفرق حسب",
+    "stars": "النجوم",
+    "form": "المستوى",
+    "balanceMix": "{{stars}}% نجوم · {{form}}% مستوى",
+    "formHelp_zero": "المستوى = نسبة الفوز والأهداف والتمريرات في آخر {{count}} جلسات لكل لاعب. اللاعبون الجدد يُحسبون بالنجوم فقط.",
+    "formHelp_one": "المستوى = نسبة الفوز والأهداف والتمريرات في آخر جلسة لكل لاعب. اللاعبون الجدد يُحسبون بالنجوم فقط.",
+    "formHelp_two": "المستوى = نسبة الفوز والأهداف والتمريرات في آخر جلستين لكل لاعب. اللاعبون الجدد يُحسبون بالنجوم فقط.",
+    "formHelp_few": "المستوى = نسبة الفوز والأهداف والتمريرات في آخر {{count}} جلسات لكل لاعب. اللاعبون الجدد يُحسبون بالنجوم فقط.",
+    "formHelp_many": "المستوى = نسبة الفوز والأهداف والتمريرات في آخر {{count}} جلسة لكل لاعب. اللاعبون الجدد يُحسبون بالنجوم فقط.",
+    "formHelp_other": "المستوى = نسبة الفوز والأهداف والتمريرات في آخر {{count}} جلسة لكل لاعب. اللاعبون الجدد يُحسبون بالنجوم فقط.",
+    "teamStrength_zero": "{{count}} لاعب · ⚡{{power}}",
+    "teamStrength_one": "لاعب واحد · ⚡{{power}}",
+    "teamStrength_two": "لاعبان · ⚡{{power}}",
+    "teamStrength_few": "{{count}} لاعبين · ⚡{{power}}",
+    "teamStrength_many": "{{count}} لاعباً · ⚡{{power}}",
+    "teamStrength_other": "{{count}} لاعب · ⚡{{power}}"
   },
   "match": {
     "start": "▶ بدء",
@@ -217,7 +233,8 @@
     "cs_few": "{{count}} شباك نظيفة",
     "cs_many": "{{count}} شباك نظيفة",
     "cs_other": "{{count}} شباك نظيفة",
-    "empty": "لا توجد مباريات منتهية في هذه الفترة"
+    "empty": "لا توجد مباريات منتهية في هذه الفترة",
+    "sortPoints": "النقاط"
   },
   "vote": {
     "selectOne": "اختر لاعباً واحداً",
@@ -321,5 +338,44 @@
     "copy": "نسخ النص",
     "copied": "تم النسخ! الصقه في ماسنجر.",
     "help": "اضغط مشاركة في ماسنجر واختر ماسنجر، أو انسخ النص والصقه في محادثة المجموعة."
+  },
+  "potm": {
+    "title": "لاعب الشهر",
+    "leading": "المتصدر للاعب الشهر",
+    "points_zero": "{{count}} نقطة",
+    "points_one": "نقطة واحدة",
+    "points_two": "نقطتان",
+    "points_few": "{{count}} نقاط",
+    "points_many": "{{count}} نقطة",
+    "points_other": "{{count}} نقطة",
+    "formula": "النقاط: هدف 3 · تمريرة 2 · فوز 1 · شباك نظيفة 2 (حراس المرمى)"
+  },
+  "badges": {
+    "title": "الشارات",
+    "none": "لا توجد شارات بعد — استمر في اللعب!",
+    "next": "التالي",
+    "first_goal": "أول هدف",
+    "hat_trick": "هاتريك",
+    "goals_few": "{{count}} أهداف",
+    "goals_many": "{{count}} هدفاً",
+    "goals_other": "{{count}} هدف",
+    "first_assist": "أول تمريرة حاسمة",
+    "playmaker": "صانع ألعاب",
+    "assists_few": "{{count}} تمريرات",
+    "assists_many": "{{count}} تمريرة",
+    "assists_other": "{{count}} تمريرة",
+    "wins_few": "{{count}} انتصارات",
+    "wins_many": "{{count}} انتصاراً",
+    "wins_other": "{{count}} انتصار",
+    "sessions_few": "{{count}} جلسات",
+    "sessions_many": "{{count}} جلسة",
+    "sessions_other": "{{count}} جلسة",
+    "unbeaten": "جلسة بلا هزيمة",
+    "potm": "لاعب الشهر",
+    "mvp": "أفضل لاعب",
+    "best_gk": "أفضل حارس مرمى",
+    "cleanSheets_few": "{{count}} شباك نظيفة",
+    "cleanSheets_many": "{{count}} شباك نظيفة",
+    "cleanSheets_other": "{{count}} شباك نظيفة"
   }
 }
