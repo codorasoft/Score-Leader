@@ -54,7 +54,12 @@
     "shuffleAll": "Shuffle All",
     "noGkWarning": "Fewer than 3 goalkeepers — designate field players as GKs if needed.",
     "confirmAndStart": "Confirm Teams & Start",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "swapHint": "Tap a player, then tap a player on another team to swap them.",
+    "selectedHint": "{{name}} selected: tap a player on another team to swap, or Move here.",
+    "moveHere": "Move here",
+    "teamSummary_one": "{{count}} player · {{stars}}★",
+    "teamSummary_other": "{{count}} players · {{stars}}★"
   },
   "match": {
     "start": "▶ Start",

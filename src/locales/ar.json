@@ -54,7 +54,16 @@
     "shuffleAll": "خلط الفرق",
     "noGkWarning": "أقل من 3 حراس مرمى — حدد لاعبين ميدانيين كحراس إذا لزم الأمر.",
     "confirmAndStart": "تأكيد الفرق والبدء",
-    "saving": "جار الحفظ…"
+    "saving": "جار الحفظ…",
+    "swapHint": "اضغط على لاعب، ثم على لاعب من فريق آخر لتبديلهما.",
+    "selectedHint": "تم اختيار {{name}}: اضغط على لاعب من فريق آخر للتبديل، أو انقل إلى هنا.",
+    "moveHere": "انقل إلى هنا",
+    "teamSummary_zero": "{{count}} لاعب · {{stars}}★",
+    "teamSummary_one": "لاعب واحد · {{stars}}★",
+    "teamSummary_two": "لاعبان · {{stars}}★",
+    "teamSummary_few": "{{count}} لاعبين · {{stars}}★",
+    "teamSummary_many": "{{count}} لاعباً · {{stars}}★",
+    "teamSummary_other": "{{count}} لاعب · {{stars}}★"
   },
   "match": {
     "start": "▶ بدء",
