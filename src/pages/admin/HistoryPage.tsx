@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import type { Session } from '../../lib/types'
 
+const tile = 'min-h-[56px] rounded-lg bg-gray-700 hover:bg-gray-600 text-[11px] leading-tight font-semibold flex flex-col items-center justify-center gap-0.5 px-1 text-center'
+
 export default function HistoryPage() {
   const { t } = useTranslation()
   const [sessions, setSessions] = useState<Session[]>([])
@@ -70,66 +72,70 @@ export default function HistoryPage() {
 
       <div className="space-y-3">
         {sessions.map((s) => (
-          <div key={s.id} className="bg-gray-800 rounded-xl p-4">
-            {/* Date row */}
-            <div className="flex items-center justify-between mb-3">
-              {editingId === s.id ? (
-                <div className="flex items-center gap-2 flex-1">
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="bg-gray-700 border border-gray-500 rounded px-2 py-1 text-sm text-white"
-                  />
-                  <button onClick={saveEdit} className="px-3 py-1 bg-blue-600 rounded text-xs font-semibold hover:bg-blue-500">
-                    {t('common.save')}
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">
-                    {t('common.cancel')}
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <div className="font-semibold">{s.date}</div>
-                  <div className={`text-xs mt-0.5 ${
-                    s.status === 'completed' ? 'text-green-400' : s.status === 'active' ? 'text-yellow-400' : 'text-gray-400'
+          <div key={s.id} className="bg-gray-800 rounded-xl p-4 space-y-3">
+            {editingId === s.id ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="bg-gray-700 border border-gray-500 rounded px-2 py-1.5 text-sm text-white"
+                />
+                <button onClick={saveEdit} className="px-3 py-1.5 bg-blue-600 rounded text-sm font-semibold hover:bg-blue-500">
+                  {t('common.save')}
+                </button>
+                <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-gray-700 rounded text-sm hover:bg-gray-600">
+                  {t('common.cancel')}
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Row 1: date and status */}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold text-lg" dir="ltr">{s.date}</span>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    s.status === 'completed' ? 'bg-green-900/50 text-green-300'
+                      : s.status === 'active' ? 'bg-yellow-900/50 text-yellow-300'
+                      : 'bg-gray-700 text-gray-300'
                   }`}>
                     {t(`history.status.${s.status}` as const)}
-                  </div>
+                  </span>
                 </div>
-              )}
-              {editingId !== s.id && (
-                <div className="flex gap-1">
-                  <button onClick={() => startEdit(s)} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">
-                    {t('history.editDate')}
-                  </button>
-                  <button onClick={() => setConfirmDeleteId(s.id)} className="px-2 py-1 bg-red-900/60 rounded text-xs text-red-300 hover:bg-red-800">
-                    {t('history.deleteSession')}
-                  </button>
-                </div>
-              )}
-            </div>
 
-            {/* Action links */}
-            {editingId !== s.id && (
-              <div className="flex gap-2 flex-wrap">
-                <Link to={`/admin/sessions/${s.id}`} className="px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">
-                  {t('history.matches')}
-                </Link>
-                <Link to={`/s/${s.share_token}`} className="px-3 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600" target="_blank">
-                  {t('history.publicLink')}
-                </Link>
-                {s.status === 'active' && activeMatchMap[s.id] && (
-                  <Link to={`/admin/sessions/${s.id}/match/${activeMatchMap[s.id]}`} className="px-3 py-1 bg-green-600 rounded text-xs font-semibold hover:bg-green-500">
-                    {t('history.resume')}
-                  </Link>
-                )}
+                {/* Live-session actions get their own prominent row */}
                 {s.status === 'active' && (
-                  <Link to={`/admin/sessions/${s.id}/awards`} className="px-3 py-1 bg-blue-600 rounded text-xs hover:bg-blue-500">
-                    {t('history.awards')}
-                  </Link>
+                  <div className="grid grid-cols-2 gap-2">
+                    {activeMatchMap[s.id] ? (
+                      <Link to={`/admin/sessions/${s.id}/match/${activeMatchMap[s.id]}`} className="min-h-[44px] rounded-lg bg-green-600 hover:bg-green-500 text-sm font-semibold flex items-center justify-center gap-2">
+                        <span aria-hidden="true">▶</span> {t('history.resume')}
+                      </Link>
+                    ) : <span />}
+                    <Link to={`/admin/sessions/${s.id}/awards`} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
+                      <span aria-hidden="true">🏆</span> {t('history.awards')}
+                    </Link>
+                  </div>
                 )}
-              </div>
+
+                {/* Row 2: the four session buttons */}
+                <div className="grid grid-cols-4 gap-2">
+                  <Link to={`/admin/sessions/${s.id}`} className={tile}>
+                    <span className="text-lg" aria-hidden="true">📋</span>{t('history.matches')}
+                  </Link>
+                  <Link to={`/s/${s.share_token}`} target="_blank" className={tile}>
+                    <span className="text-lg" aria-hidden="true">🔗</span>{t('history.publicLink')}
+                  </Link>
+                  <button onClick={() => startEdit(s)} className={tile}>
+                    <span className="text-lg" aria-hidden="true">✏️</span>{t('history.editDate')}
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(s.id)}
+                    aria-label={t('history.deleteSession')}
+                    className={`${tile} !bg-red-900/40 border border-red-700/60 text-red-200 hover:!bg-red-900/70`}
+                  >
+                    <span className="text-lg" aria-hidden="true">🗑️</span>{t('history.deleteShort')}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         ))}

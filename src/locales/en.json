@@ -39,7 +39,12 @@
     "addPlayerTitle": "Add Player",
     "namePlaceholder": "Name",
     "skillRating": "Skill Rating: {{value}}",
-    "photoUrlPlaceholder": "Photo URL (optional)"
+    "photoUrlPlaceholder": "Photo URL (optional)",
+    "editNamed": "Edit {{name}}",
+    "removeNamed": "Remove {{name}}",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "They’ll be hidden from the player list and new sessions. Their stats and history are kept.",
+    "removeConfirm": "Yes, remove"
   },
   "session": {
     "title": "New Session",
@@ -168,7 +173,8 @@
       "active": "Active",
       "completed": "Completed",
       "draft": "Draft"
-    }
+    },
+    "deleteShort": "Delete"
   },
   "sessionDetail": {
     "back": "History",

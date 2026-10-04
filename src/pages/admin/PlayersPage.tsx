@@ -36,6 +36,7 @@ export default function PlayersPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [form, setForm] = useState<PlayerFormData>(defaultForm)
+  const [confirmRemove, setConfirmRemove] = useState<Player | null>(null)
 
   const fetchPlayers = async () => {
     const { data } = await supabase
@@ -76,7 +77,9 @@ export default function PlayersPage() {
     fetchPlayers()
   }
 
+  // Removing only hides the player (is_active = false); their stats and history are kept
   const handleDeactivate = async (id: string) => {
+    setConfirmRemove(null)
     await supabase.from('players').update({ is_active: false }).eq('id', id)
     fetchPlayers()
   }
@@ -92,28 +95,60 @@ export default function PlayersPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {players.map((p) => (
-          <div key={p.id} className="bg-gray-800 rounded-lg p-4 flex items-center gap-3">
-            {p.photo_url && (
-              <img src={p.photo_url} alt={p.name} className="w-10 h-10 rounded-full object-cover" />
-            )}
-            <div className="flex-1 min-w-0">
-              <Link to={`/players/${p.id}`} className="font-semibold truncate block hover:underline">{p.name}</Link>
-              <div className="flex items-center gap-2 mt-1">
-                <PositionBadge position={p.position} />
-                <span className="text-yellow-400 text-sm">{'★'.repeat(p.skill_rating)}{'☆'.repeat(5 - p.skill_rating)}</span>
+          <div key={p.id} className="bg-gray-800 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              {p.photo_url && (
+                <img src={p.photo_url} alt={p.name} className="w-10 h-10 rounded-full object-cover" />
+              )}
+              <div className="flex-1 min-w-0">
+                <Link to={`/players/${p.id}`} className="font-semibold truncate block hover:underline">{p.name}</Link>
+                <div className="flex items-center gap-2 mt-1">
+                  <PositionBadge position={p.position} />
+                  <span className="text-yellow-400 text-sm">{'★'.repeat(p.skill_rating)}{'☆'.repeat(5 - p.skill_rating)}</span>
+                </div>
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <button onClick={() => openEdit(p)} className="text-xs text-blue-400 hover:text-blue-300">{t('common.edit')}</button>
-              <button onClick={() => handleDeactivate(p.id)} className="text-xs text-red-400 hover:text-red-300">{t('common.remove')}</button>
+            <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-700">
+              <button
+                onClick={() => openEdit(p)}
+                aria-label={t('players.editNamed', { name: p.name })}
+                className="min-h-[44px] rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <span aria-hidden="true">✏️</span> {t('common.edit')}
+              </button>
+              <button
+                onClick={() => setConfirmRemove(p)}
+                aria-label={t('players.removeNamed', { name: p.name })}
+                className="min-h-[44px] rounded-lg bg-red-900/40 border border-red-700/60 text-red-200 hover:bg-red-900/70 text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <span aria-hidden="true">🗑️</span> {t('common.remove')}
+              </button>
             </div>
           </div>
         ))}
       </div>
 
+      {confirmRemove && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmRemove(null)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="remove-title" className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-3xl mb-2" aria-hidden="true">🗑️</div>
+            <h2 id="remove-title" className="text-lg font-bold mb-2">{t('players.removeTitle', { name: confirmRemove.name })}</h2>
+            <p className="text-sm text-gray-400 mb-5">{t('players.removeBody')}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmRemove(null)} className="flex-1 py-2 bg-gray-700 rounded font-semibold hover:bg-gray-600">
+                {t('common.cancel')}
+              </button>
+              <button onClick={() => handleDeactivate(confirmRemove.id)} className="flex-1 py-2 bg-red-600 rounded font-semibold hover:bg-red-500">
+                {t('players.removeConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {dialogOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setDialogOpen(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">{editingPlayer ? t('players.editPlayer') : t('players.addPlayerTitle')}</h2>
 
             <input
