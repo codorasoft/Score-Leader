@@ -1,14 +1,25 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Player } from '../lib/types'
+import type { Player, Team } from '../lib/types'
+
+interface TeamWithPlayers {
+  team: Team
+  players: Player[]
+}
 
 interface GoalDialogProps {
-  players: Player[]
+  teams: TeamWithPlayers[]
   onConfirm: (result: { scorerId: string; assisterId: string | null }) => void
   onClose: () => void
 }
 
-export function GoalDialog({ players, onConfirm, onClose }: GoalDialogProps) {
+const colorDot: Record<string, string> = {
+  red: 'bg-red-500',
+  blue: 'bg-blue-500',
+  yellow: 'bg-yellow-400',
+}
+
+export function GoalDialog({ teams, onConfirm, onClose }: GoalDialogProps) {
   const { t } = useTranslation()
   const [scorerId, setScorerId] = useState<string | null>(null)
   const [assisterId, setAssisterId] = useState<string | null | 'none'>('none')
@@ -17,41 +28,67 @@ export function GoalDialog({ players, onConfirm, onClose }: GoalDialogProps) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold mb-4">
           {step === 'scorer' ? t('goal.whoScored') : t('goal.assist')}
         </h2>
 
         {step === 'scorer' && (
-          <div className="space-y-2">
-            {players.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setScorerId(p.id)}
-                className="w-full text-left px-4 py-2 rounded bg-gray-700 hover:bg-gray-600"
-              >
-                {p.name}
-              </button>
+          <div className="space-y-4">
+            {teams.map(({ team, players }) => (
+              <div key={team.id}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${colorDot[team.color] ?? 'bg-gray-400'}`} />
+                  <span className="text-xs uppercase font-semibold text-gray-400 tracking-wide">
+                    {t('common.teamName', { color: t(`common.teamColor.${team.color}`) })}
+                  </span>
+                </div>
+                <div className="space-y-1 ps-4">
+                  {players.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setScorerId(p.id)}
+                      className="w-full text-left px-4 py-2 rounded bg-gray-700 hover:bg-gray-600"
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
 
         {step === 'assister' && (
           <>
-            <div className="space-y-2 mb-4">
-              {players
-                .filter((p) => p.id !== scorerId)
-                .map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setAssisterId(p.id)}
-                    className={`w-full text-left px-4 py-2 rounded ${
-                      assisterId === p.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
-                    }`}
-                  >
-                    {p.name}
-                  </button>
-                ))}
+            <div className="space-y-4 mb-4">
+              {teams.map(({ team, players }) => {
+                const eligible = players.filter((p) => p.id !== scorerId)
+                if (eligible.length === 0) return null
+                return (
+                  <div key={team.id}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${colorDot[team.color] ?? 'bg-gray-400'}`} />
+                      <span className="text-xs uppercase font-semibold text-gray-400 tracking-wide">
+                        {t('common.teamName', { color: t(`common.teamColor.${team.color}`) })}
+                      </span>
+                    </div>
+                    <div className="space-y-1 ps-4">
+                      {eligible.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setAssisterId(p.id)}
+                          className={`w-full text-left px-4 py-2 rounded ${
+                            assisterId === p.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+                          }`}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
               <button
                 onClick={() => setAssisterId(null)}
                 className={`w-full text-left px-4 py-2 rounded ${

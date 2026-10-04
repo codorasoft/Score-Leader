@@ -103,10 +103,15 @@ export default function MatchTrackerPage() {
 
   if (!team1 || !team2) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
-  const playingPlayerIds = teamPlayers
-    .filter((tp) => tp.team_id === match.team1_id || tp.team_id === match.team2_id)
-    .map((tp) => tp.player_id)
-  const playingPlayers = players.filter((p) => playingPlayerIds.includes(p.id))
+  const playingTeams = [team1, team2].map((team) => ({
+    team,
+    players: teamPlayers
+      .filter((tp) => tp.team_id === team.id)
+      .map((tp) => players.find((p) => p.id === tp.player_id)!)
+      .filter(Boolean),
+  }))
+
+  const playingPlayers = playingTeams.flatMap((t) => t.players)
 
   const activeSuspensions = events.filter(
     (e) => e.event_type === 'red_card' && !e.suspension_ended_at
@@ -336,7 +341,7 @@ export default function MatchTrackerPage() {
 
       {/* Dialogs */}
       {dialog === 'goal' && (
-        <GoalDialog players={playingPlayers} onConfirm={handleGoalConfirm} onClose={() => setDialog(null)} />
+        <GoalDialog teams={playingTeams} onConfirm={handleGoalConfirm} onClose={() => setDialog(null)} />
       )}
       {dialog === 'card' && (
         <CardDialog players={playingPlayers} onConfirm={handleCardConfirm} onClose={() => setDialog(null)} />
