@@ -113,6 +113,9 @@
     "matches": "Matches",
     "resume": "Resume",
     "awards": "Awards",
+    "editDate": "Edit date",
+    "deleteSession": "Delete session",
+    "confirmDeleteSession": "Delete this session and all its matches, events and awards? This cannot be undone.",
     "status": {
       "active": "Active",
       "completed": "Completed",
@@ -125,7 +128,14 @@
     "wins": "wins",
     "draw": "Draw",
     "resolvedPenalties": "Resolved by penalties",
-    "upcoming": "Upcoming"
+    "upcoming": "Upcoming",
+    "editMatch": "Edit",
+    "deleteMatch": "Delete",
+    "confirmDeleteMatch": "Delete this match and all its events?",
+    "editMatchTitle": "Edit Match",
+    "saveMatch": "Save",
+    "winner": "Winner",
+    "noWinner": "Draw"
   },
   "leaderboard": {
     "title": "Leaderboard"

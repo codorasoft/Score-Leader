@@ -113,6 +113,9 @@
     "matches": "المباريات",
     "resume": "استئناف",
     "awards": "الجوائز",
+    "editDate": "تعديل التاريخ",
+    "deleteSession": "حذف الجلسة",
+    "confirmDeleteSession": "هل تريد حذف هذه الجلسة وجميع مبارياتها وأحداثها وجوائزها؟ لا يمكن التراجع عن هذا.",
     "status": {
       "active": "نشطة",
       "completed": "مكتملة",
@@ -125,7 +128,14 @@
     "wins": "يفوز",
     "draw": "تعادل",
     "resolvedPenalties": "حُسم بركلات الترجيح",
-    "upcoming": "القادم"
+    "upcoming": "القادم",
+    "editMatch": "تعديل",
+    "deleteMatch": "حذف",
+    "confirmDeleteMatch": "هل تريد حذف هذه المباراة وجميع أحداثها؟",
+    "editMatchTitle": "تعديل المباراة",
+    "saveMatch": "حفظ",
+    "winner": "الفائز",
+    "noWinner": "تعادل"
   },
   "leaderboard": {
     "title": "قائمة المتصدرين"
