@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { balanceTeams } from '../../utils/teamBalancer'
 import { TeamSwapBoard } from '../../components/TeamSwapBoard'
+import { FirstMatchPicker } from '../../components/FirstMatchPicker'
+import { setupFirstMatch } from '../../utils/matchRotation'
 import type { Player, Team, TeamColor } from '../../lib/types'
 
-const COLORS: TeamColor[] = ['red', 'blue', 'yellow']
+const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
 
 export default function TeamBuilderPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -15,6 +17,7 @@ export default function TeamBuilderPage() {
   const [teams, setTeams] = useState<[Player[], Player[], Player[]]>([[], [], []])
   const [needsGk, setNeedsGk] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [firstWaiting, setFirstWaiting] = useState<TeamColor | null>(null)
 
   const loadAndBalance = async () => {
     if (!sessionId) return
@@ -48,22 +51,24 @@ export default function TeamBuilderPage() {
       .select()
     if (!teamRows) { setSaving(false); return }
 
-    const teamPlayerRows = (teamRows as Team[]).flatMap((team, idx) =>
-      teams[idx].map((p) => ({ team_id: team.id, player_id: p.id }))
+    // Match rows to board columns by colour; don't rely on the insert returning rows in order
+    const teamPlayerRows = (teamRows as Team[]).flatMap((team) =>
+      teams[COLORS.indexOf(team.color)].map((p) => ({ team_id: team.id, player_id: p.id }))
     )
     await supabase.from('team_players').insert(teamPlayerRows)
 
     await supabase.from('sessions').update({ status: 'active' }).eq('id', sessionId)
 
-    const shuffled = [...teamRows].sort(() => Math.random() - 0.5) as Team[]
+    const created = teamRows as Team[]
+    const first = setupFirstMatch(created, created.find((tm) => tm.color === firstWaiting)?.id)
     const { data: matchData } = await supabase
       .from('matches')
       .insert({
         session_id: sessionId,
         match_number: 1,
-        team1_id: shuffled[0].id,
-        team2_id: shuffled[1].id,
-        waiting_team_id: shuffled[2].id,
+        team1_id: first.team1Id,
+        team2_id: first.team2Id,
+        waiting_team_id: first.waitingTeamId,
         status: 'pending',
       })
       .select()
@@ -94,6 +99,8 @@ export default function TeamBuilderPage() {
       )}
 
       <TeamSwapBoard teams={teams} onChange={setTeams} />
+
+      <FirstMatchPicker waiting={firstWaiting} onChange={setFirstWaiting} />
 
       <div className="mt-6">
         <button

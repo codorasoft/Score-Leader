@@ -3,7 +3,7 @@ import { SessionMatchList } from './SessionMatchList'
 import type { Match, MatchEvent, Player, Team } from '../lib/types'
 
 const teams: Team[] = [
-  { id: 'red', session_id: 's', color: 'red', name: null },
+  { id: 'red', session_id: 's', color: 'green', name: null },
   { id: 'blue', session_id: 's', color: 'blue', name: null },
   { id: 'yellow', session_id: 's', color: 'yellow', name: null },
 ]
@@ -39,7 +39,7 @@ it('highlights the newest finished match with its timeline open and ignores unfi
 
 it('expands an earlier match to show its timeline with the logged time', () => {
   render(<SessionMatchList matches={matches} events={events} teams={teams} players={players} />)
-  fireEvent.click(screen.getByText('Red Team wins'))
+  fireEvent.click(screen.getByText('Green Team wins'))
   expect(screen.getByText('Ali')).toBeInTheDocument()
   expect(screen.getByText('01:35')).toBeInTheDocument()
 })

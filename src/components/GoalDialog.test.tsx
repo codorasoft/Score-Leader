@@ -5,7 +5,7 @@ import type { Player, Team } from '../lib/types'
 
 const mockTeams: { team: Team; players: Player[] }[] = [
   {
-    team: { id: 't1', session_id: 's1', color: 'red', name: null },
+    team: { id: 't1', session_id: 's1', color: 'green', name: null },
     players: [
       { id: 'p1', name: 'Player 1', position: 'ATT', skill_rating: 4, photo_url: null, is_active: true, created_at: '' },
     ],
@@ -38,6 +38,6 @@ it('calls onConfirm with both scorer and assister', () => {
 
 it('shows team group headers for scorer selection', () => {
   render(<GoalDialog teams={mockTeams} onConfirm={vi.fn()} onClose={vi.fn()} />)
-  expect(screen.getByText('Red Team')).toBeInTheDocument()
+  expect(screen.getByText('Green Team')).toBeInTheDocument()
   expect(screen.getByText('Blue Team')).toBeInTheDocument()
 })

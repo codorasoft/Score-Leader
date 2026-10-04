@@ -9,7 +9,7 @@ import { MatchTimeline } from '../../components/MatchTimeline'
 import type { Match, Team, Session, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
 const colorDot: Record<string, string> = {
-  red: 'bg-red-500',
+  green: 'bg-green-500',
   blue: 'bg-blue-500',
   yellow: 'bg-yellow-400',
 }

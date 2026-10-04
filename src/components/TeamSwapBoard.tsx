@@ -4,10 +4,10 @@ import type { TeamColor } from '../lib/types'
 import { PositionBadge } from '../pages/admin/PlayersPage'
 import { movePlayer, swapPlayers, teamStars, type ThreeTeams } from '../utils/teamEdit'
 
-const COLORS: TeamColor[] = ['red', 'blue', 'yellow']
+const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
 
 const colorStyles: Record<TeamColor, string> = {
-  red: 'border-red-500 bg-red-900/20',
+  green: 'border-green-500 bg-green-900/20',
   blue: 'border-blue-500 bg-blue-900/20',
   yellow: 'border-yellow-500 bg-yellow-900/20',
 }

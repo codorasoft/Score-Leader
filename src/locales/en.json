@@ -9,7 +9,7 @@
     "team": "Team",
     "teamName": "{{color}} Team",
     "teamColor": {
-      "red": "Red",
+      "green": "Green",
       "blue": "Blue",
       "yellow": "Yellow"
     },
@@ -59,7 +59,11 @@
     "selectedHint": "{{name}} selected: tap a player on another team to swap, or Move here.",
     "moveHere": "Move here",
     "teamSummary_one": "{{count}} player · {{stars}}★",
-    "teamSummary_other": "{{count}} players · {{stars}}★"
+    "teamSummary_other": "{{count}} players · {{stars}}★",
+    "firstMatch": "First match",
+    "firstMatchRandom": "Random (coin flip)",
+    "firstMatchPair": "{{team1}} vs {{team2}}",
+    "firstMatchWaits": "{{team}} waits"
   },
   "match": {
     "start": "▶ Start",

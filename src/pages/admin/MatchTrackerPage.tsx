@@ -20,7 +20,7 @@ import { SessionMatchList } from '../../components/SessionMatchList'
 import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
 
 const colorBg: Record<string, string> = {
-  red: 'bg-red-900/40 border-red-600',
+  green: 'bg-green-900/40 border-green-600',
   blue: 'bg-blue-900/40 border-blue-600',
   yellow: 'bg-yellow-900/40 border-yellow-600',
 }

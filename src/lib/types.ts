@@ -1,5 +1,5 @@
 export type PlayerPosition = 'GK' | 'DEF' | 'MID' | 'ATT'
-export type TeamColor = 'red' | 'blue' | 'yellow'
+export type TeamColor = 'green' | 'blue' | 'yellow'
 export type SessionStatus = 'draft' | 'active' | 'completed'
 export type MatchStatus = 'pending' | 'active' | 'completed'
 export type TimerStatus = 'running' | 'paused' | 'stopped'

@@ -9,7 +9,7 @@
     "team": "فريق",
     "teamName": "فريق {{color}}",
     "teamColor": {
-      "red": "أحمر",
+      "green": "أخضر",
       "blue": "أزرق",
       "yellow": "أصفر"
     },
@@ -63,7 +63,11 @@
     "teamSummary_two": "لاعبان · {{stars}}★",
     "teamSummary_few": "{{count}} لاعبين · {{stars}}★",
     "teamSummary_many": "{{count}} لاعباً · {{stars}}★",
-    "teamSummary_other": "{{count}} لاعب · {{stars}}★"
+    "teamSummary_other": "{{count}} لاعب · {{stars}}★",
+    "firstMatch": "المباراة الأولى",
+    "firstMatchRandom": "عشوائي (قرعة)",
+    "firstMatchPair": "{{team1}} ضد {{team2}}",
+    "firstMatchWaits": "{{team}} ينتظر"
   },
   "match": {
     "start": "▶ بدء",

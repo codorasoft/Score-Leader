@@ -6,7 +6,7 @@ import { buildPlayerHistory } from '../../utils/playerHistory'
 import { PlayerFormChart } from '../../components/PlayerFormChart'
 import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team } from '../../lib/types'
 
-const colorDot: Record<string, string> = { red: 'bg-red-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
 
 const AWARD_META: Record<AwardType, { icon: string; key: string }> = {
   mvp: { icon: '⭐', key: 'awards.mvp' },

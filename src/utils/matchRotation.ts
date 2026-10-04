@@ -35,16 +35,13 @@ export function decideResult(params: Pick<Match, 'team1_score' | 'team2_score' |
   return { is_draw: true, draw_resolved_by: 'late_team', winner_team_id: params.team2_id }
 }
 
-export function setupFirstMatch(teams: Team[]): { team1Id: string; team2Id: string; waitingTeamId: string } {
-  // Fisher-Yates shuffle
-  const arr = [...teams]
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return {
-    team1Id: arr[0].id,
-    team2Id: arr[1].id,
-    waitingTeamId: arr[2].id,
-  }
+// The admin may choose which team sits out the first match; otherwise it is a coin flip.
+export function setupFirstMatch(
+  teams: Team[],
+  waitingTeamId?: string,
+): { team1Id: string; team2Id: string; waitingTeamId: string } {
+  const waiting = teams.find((tm) => tm.id === waitingTeamId) ?? teams[Math.floor(Math.random() * teams.length)]
+  const playing = teams.filter((tm) => tm.id !== waiting.id)
+  if (Math.random() < 0.5) playing.reverse()
+  return { team1Id: playing[0].id, team2Id: playing[1].id, waitingTeamId: waiting.id }
 }

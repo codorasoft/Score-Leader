@@ -1,4 +1,4 @@
-import { resolveMatch, decideResult } from './matchRotation'
+import { resolveMatch, decideResult, setupFirstMatch } from './matchRotation'
 import type { Match } from '../lib/types'
 
 const base = (o: Partial<Match> = {}): Match => ({
@@ -52,4 +52,19 @@ it('blue wins cleanly: blue stays, yellow comes on, red waits', () => {
   expect(next.nextTeam1Id).toBe('blue')
   expect(next.nextTeam2Id).toBe('yellow')
   expect(next.nextWaitingTeamId).toBe('red')
+})
+
+describe('setupFirstMatch', () => {
+  const teams = (['green', 'blue', 'yellow'] as const).map((color) => ({ id: color, session_id: 's', color, name: null }))
+
+  it('uses the chosen waiting team and plays the other two', () => {
+    const first = setupFirstMatch(teams, 'yellow')
+    expect(first.waitingTeamId).toBe('yellow')
+    expect([first.team1Id, first.team2Id].sort()).toEqual(['blue', 'green'])
+  })
+
+  it('picks a random pairing of three distinct teams when no team is chosen', () => {
+    const first = setupFirstMatch(teams)
+    expect(new Set([first.team1Id, first.team2Id, first.waitingTeamId])).toEqual(new Set(['green', 'blue', 'yellow']))
+  })
 })

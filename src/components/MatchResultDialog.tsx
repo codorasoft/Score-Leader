@@ -4,7 +4,7 @@ import type { MatchOutcome } from '../utils/matchOutcome'
 import { GOAL_LIMIT, MATCH_DURATION_SECONDS } from '../utils/matchClock'
 
 const colorBg: Record<string, string> = {
-  red: 'bg-red-900/40 border-red-600',
+  green: 'bg-green-900/40 border-green-600',
   blue: 'bg-blue-900/40 border-blue-600',
   yellow: 'bg-yellow-900/40 border-yellow-600',
 }

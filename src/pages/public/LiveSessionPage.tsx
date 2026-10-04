@@ -9,7 +9,7 @@ import { SessionMatchList } from '../../components/SessionMatchList'
 import type { Session, Match, Team, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
 const colorBg: Record<string, string> = {
-  red: 'bg-red-900/40 border-red-600',
+  green: 'bg-green-900/40 border-green-600',
   blue: 'bg-blue-900/40 border-blue-600',
   yellow: 'bg-yellow-900/40 border-yellow-600',
 }
@@ -111,7 +111,7 @@ export default function LiveSessionPage() {
           </div>
 
           <div className="flex gap-4 mb-4">
-            <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1?.color ?? 'red']}`}>
+            <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1?.color ?? 'green']}`}>
               <div className="text-xs text-gray-400 uppercase mb-1">{teamName(team1)}</div>
               <div className="text-4xl font-bold">{match.team1_score}</div>
             </div>
