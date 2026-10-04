@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useMatchTimer } from '../../hooks/useMatchTimer'
+import { useEndAlert } from '../../hooks/useEndAlert'
+import { useWakeLock } from '../../hooks/useWakeLock'
+import { primeAlertAudio } from '../../utils/matchAlert'
 import { resolveMatch } from '../../utils/matchRotation'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
@@ -96,6 +99,17 @@ export default function MatchTrackerPage() {
 
   useEffect(() => { load() }, [matchId])
 
+  const reachedEnd = !!match && (
+    match.team1_score >= GOAL_LIMIT || match.team2_score >= GOAL_LIMIT || timer.elapsed >= MATCH_DURATION_SECONDS
+  )
+  useEndAlert(match?.id, reachedEnd)
+  useWakeLock(timer.timerStatus === 'running')
+
+  const handleStart = () => {
+    primeAlertAudio()
+    timer.start()
+  }
+
   if (!match) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
   const team1 = teams.find((tm) => tm.id === match.team1_id)
@@ -121,9 +135,8 @@ export default function MatchTrackerPage() {
   const mm = String(Math.floor(timer.elapsed / 60)).padStart(2, '0')
   const ss = String(timer.elapsed % 60).padStart(2, '0')
 
-  const isGoalLimitReached = match.team1_score >= GOAL_LIMIT || match.team2_score >= GOAL_LIMIT
   const isTimeUp = timer.elapsed >= MATCH_DURATION_SECONDS
-  const shouldEndMatch = isGoalLimitReached || isTimeUp
+  const shouldEndMatch = reachedEnd
 
   const handleGoalConfirm = async ({ scorerId, assisterId }: { scorerId: string; assisterId: string | null }) => {
     setDialog(null)
@@ -251,7 +264,7 @@ export default function MatchTrackerPage() {
         <div className="text-5xl font-mono font-bold">{mm}:{ss}</div>
         <div className="mt-2 flex justify-center gap-3">
           {timer.timerStatus !== 'running' ? (
-            <button onClick={timer.start} className="px-4 py-2 bg-green-600 rounded font-semibold">{t('match.start')}</button>
+            <button onClick={handleStart} className="px-4 py-2 bg-green-600 rounded font-semibold">{t('match.start')}</button>
           ) : (
             <button onClick={timer.pause} className="px-4 py-2 bg-yellow-600 rounded font-semibold">{t('match.pause')}</button>
           )}
