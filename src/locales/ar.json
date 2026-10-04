@@ -196,7 +196,28 @@
     "rotationNote": "تغيير هذه النتيجة لن يعيد ترتيب المباريات التي لُعبت بعدها."
   },
   "leaderboard": {
-    "title": "قائمة المتصدرين"
+    "title": "قائمة المتصدرين",
+    "period": "الفترة",
+    "allTime": "كل الأوقات",
+    "season": "موسم {{year}}",
+    "sessions_zero": "{{count}} جلسة",
+    "sessions_one": "جلسة واحدة",
+    "sessions_two": "جلستان",
+    "sessions_few": "{{count}} جلسات",
+    "sessions_many": "{{count}} جلسة",
+    "sessions_other": "{{count}} جلسة",
+    "sortGoals": "الأهداف",
+    "sortAssists": "التمريرات",
+    "sortWins": "الانتصارات",
+    "sortCleanSheets": "شباك نظيفة",
+    "line": "{{p}} لعب · {{w}} فوز · {{g}} هدف · {{a}} تمريرة",
+    "cs_zero": "{{count}} شباك نظيفة",
+    "cs_one": "شباك نظيفة واحدة",
+    "cs_two": "شباكان نظيفتان",
+    "cs_few": "{{count}} شباك نظيفة",
+    "cs_many": "{{count}} شباك نظيفة",
+    "cs_other": "{{count}} شباك نظيفة",
+    "empty": "لا توجد مباريات منتهية في هذه الفترة"
   },
   "vote": {
     "selectOne": "اختر لاعباً واحداً",

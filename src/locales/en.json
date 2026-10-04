@@ -180,7 +180,20 @@
     "rotationNote": "Changing this result won’t reshuffle matches played after it."
   },
   "leaderboard": {
-    "title": "Leaderboard"
+    "title": "Leaderboard",
+    "period": "Period",
+    "allTime": "All time",
+    "season": "Season {{year}}",
+    "sessions_one": "{{count}} session",
+    "sessions_other": "{{count}} sessions",
+    "sortGoals": "Goals",
+    "sortAssists": "Assists",
+    "sortWins": "Wins",
+    "sortCleanSheets": "Clean sheets",
+    "line": "{{p}}P · {{w}}W · {{g}}G · {{a}}A",
+    "cs_one": "{{count}} clean sheet",
+    "cs_other": "{{count}} clean sheets",
+    "empty": "No finished matches in this period"
   },
   "vote": {
     "selectOne": "Select one player",
