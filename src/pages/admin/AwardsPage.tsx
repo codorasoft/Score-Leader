@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { computePlayerStats, getAutoAwardWinner } from '../../utils/stats'
 import type { Player, Match, MatchEvent, TeamPlayer, SessionAward } from '../../lib/types'
-import { nanoid } from 'nanoid'
 
 type AwardDecision = 'admin_direct' | 'vote'
 
@@ -82,7 +81,7 @@ export default function AwardsPage() {
     if (mvpDecision === 'admin_direct' && mvpChoice) {
       awards.push({ session_id: sessionId!, award_type: 'mvp', winner_player_id: mvpChoice, decided_by: 'admin_direct', is_tied: false })
     } else if (mvpDecision === 'vote') {
-      const voteToken = nanoid(12)
+      const voteToken = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
       const { data: voteRow } = await supabase.from('award_votes').insert({
         session_id: sessionId, award_type: 'mvp', status: 'open', decided_by: 'vote', vote_token: voteToken,
       }).select().single()
@@ -97,7 +96,7 @@ export default function AwardsPage() {
     if (fairPlayDecision === 'admin_direct' && fairPlayChoice) {
       awards.push({ session_id: sessionId!, award_type: 'fair_play', winner_player_id: fairPlayChoice, decided_by: 'admin_direct', is_tied: false })
     } else if (fairPlayDecision === 'vote') {
-      const voteToken = nanoid(12)
+      const voteToken = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
       const { data: voteRow } = await supabase.from('award_votes').insert({
         session_id: sessionId, award_type: 'fair_play', status: 'open', decided_by: 'vote', vote_token: voteToken,
       }).select().single()
