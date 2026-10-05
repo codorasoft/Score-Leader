@@ -67,10 +67,6 @@ export default function HistoryPage() {
 
   return (
     <div className="max-w-lg mx-auto p-4">
-      <Link to="/admin/lineups" className="mb-5 w-full py-3 rounded-xl bg-gradient-to-r from-green-700 to-emerald-600 hover:from-green-600 hover:to-emerald-500 font-semibold flex items-center justify-center gap-2 shadow">
-        ⚽ {t('lineups.openBuilder')}
-      </Link>
-
       <h1 className="text-xl font-bold mb-4">{t('history.title')}</h1>
       {sessions.length === 0 && <p className="text-gray-500 text-center py-8">{t('history.noSessions')}</p>}
 

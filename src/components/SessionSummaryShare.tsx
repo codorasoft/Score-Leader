@@ -20,7 +20,7 @@ export function SessionSummaryShare({ parts }: { parts: SummaryParts }) {
   const shareImage = () => shareCanvas(
     drawSessionImage({
       title: parts.title, subtitle: parts.totals, rtl: i18n.dir() === 'rtl',
-      sections: parts.sections, footer: `ScoreLeader · ${window.location.host}`,
+      sections: parts.sections, footer: 'ScoreLeader',
     }),
     'scoreleader-session.png',
     parts.title,

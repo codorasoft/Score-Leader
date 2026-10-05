@@ -85,7 +85,7 @@ export default function LineupEditorPage() {
       title: name.trim() || t('lineups.untitled'),
       subtitle: t('lineups.playerCount', { count: onBoard.length }),
       players: onBoard.map((b) => ({ name: b.player.name, photo_url: b.player.photo_url, x: b.x, y: b.y })),
-      footer: `ScoreLeader · ${window.location.host}`,
+      footer: 'ScoreLeader',
     })
     await shareCanvas(canvas, 'scoreleader-lineup.png', name.trim() || t('lineups.untitled'))
   }

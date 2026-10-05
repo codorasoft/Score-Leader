@@ -13,12 +13,15 @@ const ICONS = {
   players: icon('M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'),
   newSession: icon('M12 8v8M8 12h8M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20'),
   history: icon('M12 7v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20'),
+  // A pitch: outline, halfway line and centre circle
+  lineup: icon('M4 3h16v18H4zM4 12h16M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5'),
   signOut: icon('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9'),
 }
 
 // History is home: /admin, /admin/history and everything inside an existing session
-function activeTab(path: string): 'players' | 'newSession' | 'history' {
+function activeTab(path: string): 'players' | 'newSession' | 'history' | 'lineup' {
   if (path.startsWith('/admin/players')) return 'players'
+  if (path.startsWith('/admin/lineups')) return 'lineup'
   if (path.startsWith('/admin/sessions/new')) return 'newSession'
   return 'history'
 }
@@ -33,6 +36,7 @@ export default function AdminLayout() {
     { key: 'players', to: '/admin/players', label: t('nav.players') },
     { key: 'newSession', to: '/admin/sessions/new', label: t('nav.newSession') },
     { key: 'history', to: '/admin/history', label: t('nav.history') },
+    { key: 'lineup', to: '/admin/lineups', label: t('nav.lineup') },
   ] as const
 
   return (
@@ -70,7 +74,7 @@ export default function AdminLayout() {
           </div>
         </div>
 
-        <nav className="sm:hidden grid grid-cols-3 border-t border-gray-800">
+        <nav className="sm:hidden grid grid-cols-4 border-t border-gray-800">
           {nav.map(({ key, to, label }) => (
             <Link
               key={key}

@@ -32,7 +32,8 @@
     "signOut": "Sign out",
     "leaderboard": "Leaderboard",
     "records": "Records",
-    "cards": "Cards"
+    "cards": "Cards",
+    "lineup": "Lineup"
   },
   "players": {
     "title": "Players",
@@ -391,8 +392,7 @@
     "record": "{{wins}}/{{matches}} wins"
   },
   "lineups": {
-    "openBuilder": "Lineup builder",
-    "title": "Lineups",
+    "title": "Lineup",
     "new": "New lineup",
     "empty": "No saved lineups yet. Tap “New lineup” to make one.",
     "playerCount_one": "{{count}} player",
