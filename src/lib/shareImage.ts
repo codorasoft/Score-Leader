@@ -190,3 +190,89 @@ export function drawSessionImage(data: SessionImageData): HTMLCanvasElement {
   ctx.fillText(data.footer, W / 2, canvas.height - 60)
   return canvas
 }
+
+// Full pitch from above with every player where the admin placed them.
+export async function drawBoardImage(data: {
+  title: string
+  subtitle: string
+  players: { name: string; photo_url: string | null; x: number; y: number }[]
+  footer: string
+}): Promise<HTMLCanvasElement> {
+  const W = 1080
+  const PITCH_X = 60
+  const PITCH_Y = 170
+  const PW = W - PITCH_X * 2
+  const PH = PW * 1.5
+  const H = PITCH_Y + PH + 90
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')!
+
+  ctx.fillStyle = '#0b1220'
+  ctx.fillRect(0, 0, W, H)
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#ffffff'
+  fitText(ctx, data.title, W - 120, 64, 900)
+  ctx.fillText(data.title, W / 2, 80)
+  ctx.font = `500 34px ${FONT}`
+  ctx.fillStyle = '#94a3b8'
+  ctx.fillText(data.subtitle, W / 2, 132)
+
+  // Grass stripes and markings, same 100 x 150 proportions as the on-screen pitch
+  const u = PW / 100
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = i % 2 ? '#15803d' : '#16a34a'
+    ctx.fillRect(PITCH_X, PITCH_Y + i * 15 * u, PW, 15 * u)
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+  ctx.lineWidth = 0.6 * u
+  const rect = (x: number, y: number, w: number, h: number) => ctx.strokeRect(PITCH_X + x * u, PITCH_Y + y * u, w * u, h * u)
+  rect(3, 3, 94, 144); rect(25, 3, 50, 20); rect(38, 3, 24, 7); rect(25, 127, 50, 20); rect(38, 140, 24, 7)
+  ctx.beginPath()
+  ctx.moveTo(PITCH_X + 3 * u, PITCH_Y + 75 * u)
+  ctx.lineTo(PITCH_X + 97 * u, PITCH_Y + 75 * u)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(PITCH_X + 50 * u, PITCH_Y + 75 * u, 11 * u, 0, Math.PI * 2)
+  ctx.stroke()
+
+  const photos = await Promise.all(data.players.map((p) => loadPhoto(p.photo_url)))
+  data.players.forEach((p, i) => {
+    const cx = PITCH_X + p.x * PW
+    const cy = PITCH_Y + p.y * PH
+    const r = 46
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fillStyle = '#1f2937'
+    ctx.fill()
+    if (photos[i]) {
+      ctx.save()
+      ctx.clip()
+      ctx.drawImage(photos[i]!, cx - r, cy - r, r * 2, r * 2)
+      ctx.restore()
+    } else {
+      ctx.fillStyle = '#ffffff'
+      ctx.font = `800 44px ${FONT}`
+      ctx.fillText(p.name.charAt(0).toUpperCase(), cx, cy + 16)
+    }
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.lineWidth = 7
+    ctx.strokeStyle = '#ffffff'
+    ctx.stroke()
+
+    fitText(ctx, p.name, 200, 28, 800)
+    const labelW = Math.min(210, ctx.measureText(p.name).width + 20)
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'
+    roundRect(ctx, cx - labelW / 2, cy + r + 6, labelW, 40, 10)
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(p.name, cx, cy + r + 35)
+  })
+
+  ctx.fillStyle = '#64748b'
+  ctx.font = `600 28px ${FONT}`
+  ctx.fillText(data.footer, W / 2, H - 30)
+  return canvas
+}

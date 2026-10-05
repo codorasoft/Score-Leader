@@ -389,5 +389,33 @@
     "none_one": "Appears after {{count}} match together with a teammate.",
     "none_other": "Appears after {{count}} matches together with a teammate.",
     "record": "{{wins}}/{{matches}} wins"
+  },
+  "lineups": {
+    "openBuilder": "Lineup builder",
+    "title": "Lineups",
+    "new": "New lineup",
+    "empty": "No saved lineups yet. Tap “New lineup” to make one.",
+    "playerCount_one": "{{count}} player",
+    "playerCount_other": "{{count}} players",
+    "edited": "edited {{date}}",
+    "nameLabel": "Lineup name",
+    "namePlaceholder": "Lineup name, e.g. Friday 5-a-side",
+    "untitled": "Lineup",
+    "emptyBoard": "Tap “Add players”, then drag them into place on the pitch.",
+    "addPlayers": "Add players",
+    "addSelected_one": "Add {{count}} player",
+    "addSelected_other": "Add {{count}} players",
+    "search": "Search players",
+    "noneLeft": "Every player is already on the pitch.",
+    "onBoard": "Players on the pitch",
+    "removeNamed": "Take {{name}} off the pitch",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "share": "Share image",
+    "nameNeeded": "Give the lineup a name to save it.",
+    "unsaved": "You have unsaved changes.",
+    "delete": "Delete lineup",
+    "confirmDelete": "Delete “{{name}}”?"
   }
 }

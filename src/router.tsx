@@ -11,6 +11,8 @@ import MatchTrackerPage from './pages/admin/MatchTrackerPage'
 import AwardsPage from './pages/admin/AwardsPage'
 import SessionDetailPage from './pages/admin/SessionDetailPage'
 import HistoryPage from './pages/admin/HistoryPage'
+import LineupsPage from './pages/admin/LineupsPage'
+import LineupEditorPage from './pages/admin/LineupEditorPage'
 
 import LiveSessionPage from './pages/public/LiveSessionPage'
 import VotePage from './pages/public/VotePage'
@@ -42,6 +44,9 @@ export const router = createBrowserRouter([
           { path: 'sessions/:sessionId/match/:matchId', element: <MatchTrackerPage /> },
           { path: 'sessions/:sessionId/awards', element: <AwardsPage /> },
           { path: 'history', element: <HistoryPage /> },
+          { path: 'lineups', element: <LineupsPage /> },
+          { path: 'lineups/new', element: <LineupEditorPage /> },
+          { path: 'lineups/:lineupId', element: <LineupEditorPage /> },
         ],
       },
     ],
