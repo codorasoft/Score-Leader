@@ -32,3 +32,10 @@ it('ignores auth requests so the login page keeps its own error message', async 
   await createReportingFetch(base, report)(AUTH_URL, { method: 'POST' })
   expect(report).not.toHaveBeenCalled()
 })
+
+it('also reports failed photo uploads to storage', async () => {
+  const report = vi.fn()
+  const base = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Payload too large' }), { status: 413 }))
+  await createReportingFetch(base, report)('https://x.supabase.co/storage/v1/object/player-photos/players/p1.jpg', { method: 'POST' })
+  expect(report).toHaveBeenCalledWith('requestFailed', 'Payload too large')
+})

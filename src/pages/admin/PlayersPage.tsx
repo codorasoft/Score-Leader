@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
+import { PlayerAvatar } from '../../components/PlayerAvatar'
+import { deletePlayerPhoto, uploadPlayerPhoto } from '../../lib/playerPhoto'
 import type { Player, PlayerPosition } from '../../lib/types'
 
 const positionColors: Record<PlayerPosition, string> = {
@@ -37,6 +39,13 @@ export default function PlayersPage() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [form, setForm] = useState<PlayerFormData>(defaultForm)
   const [confirmRemove, setConfirmRemove] = useState<Player | null>(null)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [removePhoto, setRemovePhoto] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const newPhotoUrl = useMemo(() => (photoFile ? URL.createObjectURL(photoFile) : null), [photoFile])
+  useEffect(() => () => { if (newPhotoUrl) URL.revokeObjectURL(newPhotoUrl) }, [newPhotoUrl])
+  const previewUrl = newPhotoUrl ?? (removePhoto ? null : form.photo_url || null)
 
   const fetchPlayers = async () => {
     const { data } = await supabase
@@ -49,30 +58,40 @@ export default function PlayersPage() {
 
   useEffect(() => { fetchPlayers() }, [])
 
+  const resetPhoto = () => { setPhotoFile(null); setRemovePhoto(false) }
+
   const openAdd = () => {
+    resetPhoto()
     setEditingPlayer(null)
     setForm(defaultForm)
     setDialogOpen(true)
   }
 
   const openEdit = (p: Player) => {
+    resetPhoto()
     setEditingPlayer(p)
     setForm({ name: p.name, position: p.position, skill_rating: p.skill_rating, photo_url: p.photo_url ?? '' })
     setDialogOpen(true)
   }
 
   const handleSave = async () => {
-    const payload = {
-      name: form.name,
-      position: form.position,
-      skill_rating: form.skill_rating,
-      photo_url: form.photo_url || null,
+    setSaving(true)
+    // New players get their id here so their photo can be uploaded before the row exists
+    const id = editingPlayer?.id ?? crypto.randomUUID()
+    const oldPhoto = editingPlayer?.photo_url ?? null
+    let photoUrl: string | null = removePhoto ? null : form.photo_url || null
+    if (photoFile) {
+      const uploaded = await uploadPlayerPhoto(id, photoFile).catch(() => null)
+      // Upload failed (an error message is shown): keep the previous photo rather than losing it
+      if (uploaded) photoUrl = uploaded
     }
-    if (editingPlayer) {
-      await supabase.from('players').update(payload).eq('id', editingPlayer.id)
-    } else {
-      await supabase.from('players').insert(payload)
-    }
+    const payload = { name: form.name, position: form.position, skill_rating: form.skill_rating, photo_url: photoUrl }
+    const { error } = editingPlayer
+      ? await supabase.from('players').update(payload).eq('id', id)
+      : await supabase.from('players').insert({ id, ...payload })
+    if (!error && oldPhoto && oldPhoto !== photoUrl) await deletePlayerPhoto(oldPhoto)
+    setSaving(false)
+    if (error) return
     setDialogOpen(false)
     fetchPlayers()
   }
@@ -97,9 +116,7 @@ export default function PlayersPage() {
         {players.map((p) => (
           <div key={p.id} className="bg-gray-800 rounded-lg p-4">
             <div className="flex items-center gap-3">
-              {p.photo_url && (
-                <img src={p.photo_url} alt={p.name} className="w-10 h-10 rounded-full object-cover" />
-              )}
+              <PlayerAvatar player={p} />
               <div className="flex-1 min-w-0">
                 <Link to={`/players/${p.id}`} className="font-semibold truncate block hover:underline">{p.name}</Link>
                 <div className="flex items-center gap-2 mt-1">
@@ -151,6 +168,38 @@ export default function PlayersPage() {
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">{editingPlayer ? t('players.editPlayer') : t('players.addPlayerTitle')}</h2>
 
+            <div className="flex items-center gap-4">
+              {previewUrl ? (
+                <img src={previewUrl} alt="" className="w-20 h-20 rounded-full object-cover bg-gray-700 shrink-0" />
+              ) : (
+                <PlayerAvatar player={{ name: form.name || '?', photo_url: null }} size="lg" />
+              )}
+              <div className="flex flex-col gap-2 min-w-0">
+                <label className="px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold cursor-pointer text-center">
+                  📷 {previewUrl ? t('players.changePhoto') : t('players.choosePhoto')}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) { setPhotoFile(file); setRemovePhoto(false) }
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                {previewUrl && (
+                  <button
+                    type="button"
+                    onClick={() => { setPhotoFile(null); setRemovePhoto(true) }}
+                    className="px-3 py-1.5 rounded-lg text-xs text-red-300 hover:bg-red-900/40"
+                  >
+                    {t('players.removePhoto')}
+                  </button>
+                )}
+              </div>
+            </div>
+
             <input
               placeholder={t('players.namePlaceholder')}
               value={form.name}
@@ -180,16 +229,11 @@ export default function PlayersPage() {
               />
             </div>
 
-            <input
-              placeholder={t('players.photoUrlPlaceholder')}
-              value={form.photo_url}
-              onChange={(e) => setForm({ ...form, photo_url: e.target.value })}
-              className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
-            />
-
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDialogOpen(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white">{t('common.cancel')}</button>
-              <button onClick={handleSave} disabled={!form.name} className="px-4 py-2 bg-blue-600 rounded text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">{t('common.save')}</button>
+              <button onClick={handleSave} disabled={!form.name || saving} className="px-4 py-2 bg-blue-600 rounded text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                {saving ? t('players.saving') : t('common.save')}
+              </button>
             </div>
           </div>
         </div>

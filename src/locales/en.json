@@ -41,12 +41,15 @@
     "addPlayerTitle": "Add Player",
     "namePlaceholder": "Name",
     "skillRating": "Skill Rating: {{value}}",
-    "photoUrlPlaceholder": "Photo URL (optional)",
     "editNamed": "Edit {{name}}",
     "removeNamed": "Remove {{name}}",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "They’ll be hidden from the player list and new sessions. Their stats and history are kept.",
-    "removeConfirm": "Yes, remove"
+    "removeConfirm": "Yes, remove",
+    "choosePhoto": "Choose photo",
+    "changePhoto": "Change photo",
+    "removePhoto": "Remove photo",
+    "saving": "Saving…"
   },
   "session": {
     "title": "New Session",

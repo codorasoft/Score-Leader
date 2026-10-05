@@ -44,7 +44,18 @@ const fitText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, 
   do { ctx.font = `${weight} ${s}px ${FONT}`; s -= 2 } while (ctx.measureText(text).width > maxWidth && s > 12)
 }
 
-export function drawPlayerCard(player: Player, card: PlayerCard): HTMLCanvasElement {
+// Photos come from our own storage, which allows cross-origin use; anything else falls back to the initial
+const loadPhoto = (url: string | null) => new Promise<HTMLImageElement | null>((resolve) => {
+  if (!url) return resolve(null)
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => resolve(img)
+  img.onerror = () => resolve(null)
+  img.src = url
+})
+
+export async function drawPlayerCard(player: Player, card: PlayerCard): Promise<HTMLCanvasElement> {
+  const photo = await loadPhoto(player.photo_url)
   const W = 600
   const H = 840
   const canvas = document.createElement('canvas')
@@ -70,15 +81,22 @@ export function drawPlayerCard(player: Player, card: PlayerCard): HTMLCanvasElem
   ctx.font = `800 48px ${FONT}`
   ctx.fillText(player.position, 86, 270)
 
-  // Initial in a circle (photos from other sites can't be drawn into a shareable image)
   ctx.beginPath()
   ctx.arc(W - 160, 170, 95, 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(0,0,0,0.15)'
   ctx.fill()
+  if (photo) {
+    ctx.save()
+    ctx.clip()
+    ctx.drawImage(photo, W - 255, 75, 190, 190)
+    ctx.restore()
+  }
   ctx.fillStyle = style.ink
   ctx.textAlign = 'center'
-  ctx.font = `900 110px ${FONT}`
-  ctx.fillText(player.name.charAt(0).toUpperCase(), W - 160, 208)
+  if (!photo) {
+    ctx.font = `900 110px ${FONT}`
+    ctx.fillText(player.name.charAt(0).toUpperCase(), W - 160, 208)
+  }
 
   fitText(ctx, player.name, W - 140, 56)
   ctx.fillText(player.name, W / 2, 380)

@@ -2,8 +2,8 @@ import type { ToastKind } from './toast'
 
 type Report = (kind: ToastKind, detail?: string) => void
 
-// Only database calls are reported; auth errors are shown by the login form itself.
-const isDataRequest = (url: string) => url.includes('/rest/v1/')
+// Database and photo-storage calls are reported; auth errors are shown by the login form itself.
+const isDataRequest = (url: string) => url.includes('/rest/v1/') || url.includes('/storage/v1/')
 
 export function createReportingFetch(baseFetch: typeof fetch, report: Report): typeof fetch {
   return async (input, init) => {

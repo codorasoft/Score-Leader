@@ -41,12 +41,15 @@
     "addPlayerTitle": "إضافة لاعب",
     "namePlaceholder": "الاسم",
     "skillRating": "تقييم المهارة: {{value}}",
-    "photoUrlPlaceholder": "رابط الصورة (اختياري)",
     "editNamed": "تعديل {{name}}",
     "removeNamed": "حذف {{name}}",
     "removeTitle": "حذف {{name}}؟",
     "removeBody": "سيتم إخفاؤه من قائمة اللاعبين والجلسات الجديدة. تبقى إحصائياته وسجله محفوظة.",
-    "removeConfirm": "نعم، احذف"
+    "removeConfirm": "نعم، احذف",
+    "choosePhoto": "اختر صورة",
+    "changePhoto": "تغيير الصورة",
+    "removePhoto": "إزالة الصورة",
+    "saving": "جارٍ الحفظ…"
   },
   "session": {
     "title": "جلسة جديدة",

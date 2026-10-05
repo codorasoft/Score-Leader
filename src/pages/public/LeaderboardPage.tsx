@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { selectAll } from '../../lib/selectAll'
 import { availablePeriods, defaultPeriod, periodStats, type PeriodKey } from '../../utils/leaderboardPeriod'
 import { monthKey, playersOfMonth, potmPoints } from '../../utils/playerOfMonth'
+import { PlayerAvatar } from '../../components/PlayerAvatar'
 import type { Player, Match, MatchEvent, TeamPlayer, Session } from '../../lib/types'
 
 type SortKey = 'points' | 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
@@ -120,6 +121,7 @@ export default function LeaderboardPage() {
         {sorted.map((s, i) => (
           <Link key={s.player.id} to={`/players/${s.player.id}`} className="flex items-center bg-gray-800 hover:bg-gray-700 rounded-lg px-4 py-3 gap-3">
             <span className="w-6 text-gray-500 text-sm font-mono">{ranks[i]}</span>
+            <PlayerAvatar player={s.player} size="sm" />
             <span className="flex-1 min-w-0">
               <span className="block font-semibold truncate">{s.player.name}</span>
               <span className="block text-xs text-gray-400">

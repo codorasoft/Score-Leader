@@ -90,7 +90,7 @@ export default function PlayerProfilePage() {
   const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
   const partners = partnersOf(partnerships(data.league), player.id, PARTNER_MIN_MATCHES)
   const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
-  const shareCard = () => shareCanvas(drawPlayerCard(player, card), `${player.name}-card.png`, player.name)
+  const shareCard = async () => shareCanvas(await drawPlayerCard(player, card), `${player.name}-card.png`, player.name)
 
   const tiles = [
     { label: t('profile.sessions'), value: totals.sessions },
