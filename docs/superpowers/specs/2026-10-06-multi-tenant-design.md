@@ -119,7 +119,9 @@ Exposes what public pages need without exposing `admin_profiles`: `id, slug, nam
 - Deleting a league cascades to all its rows.
 
 ### Storage
-- `player-photos` (existing bucket): new uploads go to `<league_id>/players/<player_id>-<ts>.jpg`. Existing photos stay at `players/...` with unchanged URLs.
+One bucket per file type; every file lives under a folder named after its league's id (a folder is just a path prefix — nothing is created in advance).
+
+- `player-photos` (existing bucket): `<league_id>/players/<player_id>-<ts>.jpg`. Existing photos at `players/...` are moved into the legacy league's folder during rollout (Section 11), so no file is left outside a league folder.
 - `league-logos` (new public bucket, 2 MB, jpeg/png/webp): `<league_id>/logo-<ts>.jpg`.
 
 ---
@@ -135,7 +137,7 @@ Helper functions (SECURITY DEFINER, stable):
 | Table | Read | Write |
 |---|---|---|
 | `admin_profiles` | Own row; superadmin all | Superadmin only (insert done by Edge Function) |
-| `leagues` | Owner; superadmin | Insert/update: owner (limit + immutability by trigger). Delete: superadmin only |
+| `leagues` | Owner; superadmin | Insert/update: owner (limit + immutability by trigger). Delete: superadmin only, done through the `delete-league` Edge Function |
 | League data tables (all except lineups) | `anon`/`authenticated`: `league_is_available(league_id)`; owner and superadmin always | Owner only (`owns_league`) |
 | `lineups`, `lineup_players` | Owner only | Owner only, and `league_has_feature(league_id,'coach_board')` |
 | `award_votes` | As league data | Owner, and `league_has_feature(league_id,'voting')` for insert |
@@ -144,7 +146,7 @@ Helper functions (SECURITY DEFINER, stable):
 The old policies (`"public read"`, `"admin write"`, `"admin all"`, `"public vote"`) are dropped and replaced.
 
 **Storage rules:**
-- `player-photos` insert/update/delete: first folder is a league the caller owns and that league has `photos`. Legacy `players/...` objects: delete/update allowed when a player in a league the caller owns has a `photo_url` pointing at that object.
+- `player-photos` insert/update/delete: first folder is a league the caller owns and that league has `photos`. No exception for files outside league folders — after the move there are none.
 - `league-logos` insert/update/delete: first folder is a league the caller owns. Reads stay public.
 
 **Realtime:** the live page's subscriptions to `matches` and `match_events` go through the same read rules.
@@ -153,10 +155,11 @@ The old policies (`"public read"`, `"admin write"`, `"admin all"`, `"public vote
 
 ## 6. Edge Functions
 
-Two Supabase Edge Functions hold the service-role key server-side. Each verifies the caller's JWT, checks `is_superadmin()`, validates input, then acts:
+Three Supabase Edge Functions hold the service-role key server-side. Each verifies the caller's JWT, checks `is_superadmin()`, validates input, then acts:
 
 - `create-admin` — input: `email, password (≥ 8), display_name, max_leagues, features`. Creates the auth user with email confirmed, then inserts the `admin_profiles` row; deletes the auth user again if the profile insert fails.
 - `reset-admin-password` — input: `user_id, password`. Refuses to reset the superadmin's own password through this path.
+- `delete-league` — input: `league_id, confirm_name` (must equal the league's name). Deletes every file under `<league_id>/` in `player-photos` and `league-logos` (listing page by page until empty), then deletes the `leagues` row, which cascades to all its database rows. If a file deletion fails, the row is not deleted and the call can be retried.
 
 Disable/enable, features and limit are plain updates to `admin_profiles` from the superadmin dashboard (allowed by RLS).
 
@@ -190,7 +193,7 @@ Mobile-first, Arabic/English, same look as the admin area.
 
 - **Admins list** (`/super`): each admin's name, email, `leagues used / max`, feature count, Active/Disabled. "+ New" button. Tabs: Admins / Leagues.
 - **New admin**: name, email, password, max leagues, feature checklist with Select all / none and automatic dependency ticking. On success the account can sign in immediately; the superadmin hands over the credentials.
-- **Admin details**: edit features and max leagues (Save); Disable/Enable; Reset password; list of their leagues (logo, name, public link, session count) with **Delete league** requiring the league name to be typed to confirm.
+- **Admin details**: edit features and max leagues (Save); Disable/Enable; Reset password; list of their leagues (logo, name, public link, session count) with **Delete league** requiring the league name to be typed to confirm (calls `delete-league`, which removes the league's files and data).
 - **All leagues** (`/super/leagues`): logo, name, owner, created date, session count, public link.
 
 ---
@@ -253,15 +256,23 @@ Each migration is a separate SQL file in `supabase/migrations/`, run in a transa
 
 **Migration 2: remove the temporary defaults** on `players`, `sessions` and `lineups` — run after the new app is live.
 
-**Rollout order:**
-1. Full backup of the live database: `supabase db dump` (schema) and `supabase db dump --data-only` (data), saved outside the repo.
+**Photo move script** (one-off Node script in `scripts/`, uses the service-role key from the environment, never committed). For each player whose `photo_url` points at a `player-photos` object outside a league folder:
+1. **Copy** the object to `<player's league_id>/players/<same file name>` (server-side copy, no re-upload; an existing target is treated as already copied).
+2. **Update** the player's `photo_url` to the new public URL.
+3. **Delete** the old object — only after steps 1 and 2 succeeded.
+
+It is safe to stop and run again at any point: until step 2, the player still uses the old file. At the end it prints a report and checks that every player's `photo_url` returns HTTP 200 and that no object remains outside a league folder. Old-path objects no player points at are listed in the report and left untouched for the user to decide.
+
+**Rollout order** — Claude runs every step, including the backup, migrations, Edge Function deploys and the photo move:
+1. Full backup of the live database: `supabase db dump` (schema) and `supabase db dump --data-only` (data), plus a download of every `player-photos` object, saved outside the repo.
 2. Rehearse on a local Supabase loaded with the backup: run Migration 1; compare the row count of every table before and after; check that no `league_id` is NULL.
 3. Apply Migration 1 to the live database via the linked CLI.
-4. Deploy the Edge Functions; create the superadmin account (one-off, via the Auth admin API) and insert its `superadmin` profile.
-5. Deploy the new app to Vercel.
-6. Apply Migration 2.
+4. Run the photo move script against the live project and check its report.
+5. Deploy the Edge Functions; create the superadmin account (one-off, via the Auth admin API) and insert its `superadmin` profile.
+6. Deploy the new app to Vercel.
+7. Apply Migration 2.
 
-**Rollback:** before step 5 the old app still works against the migrated database. If Migration 1 itself fails, its transaction rolls back with no change. The backup from step 1 is the last resort.
+**Rollback:** before step 6 the old app still works against the migrated database (it shows photos from whatever `photo_url` says, old or new). If Migration 1 itself fails, its transaction rolls back with no change. The database and photo backups from step 1 are the last resort.
 
 ---
 
@@ -284,8 +295,9 @@ Each migration is a separate SQL file in `supabase/migrations/`, run in a transa
    - Child-table inserts without `league_id` get the parent's league; a cross-league `player_id` is rejected.
 2. **Migration rehearsal:** per-table row counts identical before/after; zero NULL `league_id`.
 3. **App tests** (vitest, alongside existing tests): feature dependency helper; slug validation and suggestion; `useFeature` gating of admin menu, match tracker buttons and public menu; league switcher limit state; redirects from old URLs; `loadLeague` filters by league.
-4. **Edge Functions:** non-superadmin caller is refused; create-admin cleans up the auth user when the profile insert fails.
-5. **Browser check** with three accounts — superadmin, an admin with all features, an admin with few features — through every screen in Sections 8–10.
+4. **Edge Functions:** non-superadmin caller is refused by all three; create-admin cleans up the auth user when the profile insert fails; delete-league refuses a wrong `confirm_name` and, on a test league, leaves no rows and no files under its folder.
+5. **Photo move script** (on the local rehearsal copy first): every moved photo URL returns 200; running it a second time changes nothing; a run interrupted after the copy step completes correctly on re-run.
+6. **Browser check** with three accounts — superadmin, an admin with all features, an admin with few features — through every screen in Sections 8–10.
 
 ---
 
