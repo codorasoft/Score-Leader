@@ -32,7 +32,7 @@ it('creates a lineup with the chosen players at their starting spots', async () 
       </Routes>
     </MemoryRouter>,
   )
-  fireEvent.change(await screen.findByLabelText('Lineup name'), { target: { value: '  Friday 5s  ' } })
+  fireEvent.change(await screen.findByLabelText('Board name'), { target: { value: '  Friday 5s  ' } })
   fireEvent.click(screen.getByRole('button', { name: /Add players/ }))
 
   // Removed (inactive) players can't be picked
@@ -57,5 +57,5 @@ it('creates a lineup with the chosen players at their starting spots', async () 
 it('will not save a lineup without a name', async () => {
   render(<MemoryRouter initialEntries={['/admin/lineups/new']}><Routes><Route path="/admin/lineups/new" element={<LineupEditorPage />} /></Routes></MemoryRouter>)
   expect(await screen.findByRole('button', { name: /Save/ })).toBeDisabled()
-  expect(screen.getByText('Give the lineup a name to save it.')).toBeInTheDocument()
+  expect(screen.getByText('Give the board a name to save it.')).toBeInTheDocument()
 })

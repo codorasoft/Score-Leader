@@ -33,7 +33,7 @@
     "leaderboard": "Leaderboard",
     "records": "Records",
     "cards": "Cards",
-    "lineup": "Lineup"
+    "lineup": "Coach Board"
   },
   "players": {
     "title": "Players",
@@ -392,15 +392,15 @@
     "record": "{{wins}}/{{matches}} wins"
   },
   "lineups": {
-    "title": "Lineup",
-    "new": "New lineup",
-    "empty": "No saved lineups yet. Tap “New lineup” to make one.",
+    "title": "Coach Board",
+    "new": "New board",
+    "empty": "No saved boards yet. Tap “New board” to make one.",
     "playerCount_one": "{{count}} player",
     "playerCount_other": "{{count}} players",
     "edited": "edited {{date}}",
-    "nameLabel": "Lineup name",
-    "namePlaceholder": "Lineup name, e.g. Friday 5-a-side",
-    "untitled": "Lineup",
+    "nameLabel": "Board name",
+    "namePlaceholder": "Board name, e.g. Friday 5-a-side",
+    "untitled": "Coach Board",
     "emptyBoard": "Tap “Add players”, then drag them into place on the pitch.",
     "addPlayers": "Add players",
     "addSelected_one": "Add {{count}} player",
@@ -413,9 +413,9 @@
     "saving": "Saving…",
     "saved": "Saved",
     "share": "Share image",
-    "nameNeeded": "Give the lineup a name to save it.",
+    "nameNeeded": "Give the board a name to save it.",
     "unsaved": "You have unsaved changes.",
-    "delete": "Delete lineup",
+    "delete": "Delete board",
     "confirmDelete": "Delete “{{name}}”?"
   },
   "photo": {

@@ -33,7 +33,7 @@
     "leaderboard": "قائمة المتصدرين",
     "records": "الأرقام القياسية",
     "cards": "البطاقات",
-    "lineup": "التشكيلة"
+    "lineup": "لوحة المدرب"
   },
   "players": {
     "title": "اللاعبون",
@@ -461,9 +461,9 @@
     "record": "{{wins}}/{{matches}} فوز"
   },
   "lineups": {
-    "title": "التشكيلة",
-    "new": "تشكيلة جديدة",
-    "empty": "لا توجد تشكيلات محفوظة بعد. اضغط «تشكيلة جديدة» لإنشاء واحدة.",
+    "title": "لوحة المدرب",
+    "new": "لوحة جديدة",
+    "empty": "لا توجد لوحات محفوظة بعد. اضغط «لوحة جديدة» لإنشاء واحدة.",
     "playerCount_zero": "{{count}} لاعب",
     "playerCount_one": "لاعب واحد",
     "playerCount_two": "لاعبان",
@@ -471,9 +471,9 @@
     "playerCount_many": "{{count}} لاعباً",
     "playerCount_other": "{{count}} لاعب",
     "edited": "عُدّلت {{date}}",
-    "nameLabel": "اسم التشكيلة",
-    "namePlaceholder": "اسم التشكيلة، مثل خماسي الجمعة",
-    "untitled": "تشكيلة",
+    "nameLabel": "اسم اللوحة",
+    "namePlaceholder": "اسم اللوحة، مثل خماسي الجمعة",
+    "untitled": "لوحة المدرب",
     "emptyBoard": "اضغط «إضافة لاعبين» ثم اسحبهم إلى أماكنهم في الملعب.",
     "addPlayers": "إضافة لاعبين",
     "addSelected_zero": "إضافة",
@@ -490,9 +490,9 @@
     "saving": "جارٍ الحفظ…",
     "saved": "تم الحفظ",
     "share": "مشاركة الصورة",
-    "nameNeeded": "اكتب اسماً للتشكيلة لحفظها.",
+    "nameNeeded": "اكتب اسماً للوحة لحفظها.",
     "unsaved": "لديك تغييرات غير محفوظة.",
-    "delete": "حذف التشكيلة",
+    "delete": "حذف اللوحة",
     "confirmDelete": "حذف «{{name}}»؟"
   },
   "photo": {
