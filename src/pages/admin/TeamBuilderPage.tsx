@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { selectAll } from '../../lib/selectAll'
 import { balanceTeams } from '../../utils/teamBalancer'
 import { blendStrength, formRatings, DEFAULT_FORM_SESSIONS } from '../../utils/playerForm'
+import { partnerships, type Pair } from '../../utils/playerMatches'
 import { TeamSwapBoard } from '../../components/TeamSwapBoard'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
 import { setupFirstMatch } from '../../utils/matchRotation'
@@ -12,6 +13,14 @@ import type { Match, MatchEvent, Player, Session, Team, TeamColor, TeamPlayer } 
 
 const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
 const WEIGHT_KEY = 'balanceFormWeight'
+const SPLIT_DUOS_KEY = 'balanceSplitDuos'
+const DUO_MIN_MATCHES = 5
+// A duo winning 80% together adds 0.6 strength to their team, so the balancer prefers to split them
+const DUO_SCALE = 2
+
+const readSplitDuos = () => {
+  try { return localStorage.getItem(SPLIT_DUOS_KEY) !== 'false' } catch { return true }
+}
 
 const readWeight = () => {
   try {
@@ -30,6 +39,8 @@ export default function TeamBuilderPage() {
   const [attendees, setAttendees] = useState<Player[]>([])
   const [form, setForm] = useState<Map<string, number>>(new Map())
   const [formPercent, setFormPercent] = useState(readWeight)
+  const [pairs, setPairs] = useState<Pair[]>([])
+  const [splitDuos, setSplitDuos] = useState(readSplitDuos)
   const [teams, setTeams] = useState<[Player[], Player[], Player[]]>([[], [], []])
   const [needsGk, setNeedsGk] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -40,11 +51,18 @@ export default function TeamBuilderPage() {
     [form, formPercent],
   )
 
+  const synergy = useCallback((a: Player, b: Player) => {
+    if (!splitDuos) return 0
+    const pair = pairs.find((p) => (p.a === a.id && p.b === b.id) || (p.a === b.id && p.b === a.id))
+    if (!pair || pair.matches < DUO_MIN_MATCHES) return 0
+    return Math.max(0, (pair.wins / pair.matches - 0.5) * DUO_SCALE)
+  }, [pairs, splitDuos])
+
   const rebalance = useCallback(() => {
-    const result = balanceTeams(attendees, strengthOf)
+    const result = balanceTeams(attendees, strengthOf, synergy)
     setTeams(result.teams)
     setNeedsGk(result.needsGkAssignment)
-  }, [attendees, strengthOf])
+  }, [attendees, strengthOf, synergy])
 
   useEffect(() => {
     const load = async () => {
@@ -60,6 +78,7 @@ export default function TeamBuilderPage() {
         selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').in('player_id', playerIds).range(a, b)),
       ])
       setForm(formRatings({ sessions, matches, events, teamPlayers }, DEFAULT_FORM_SESSIONS))
+      setPairs(partnerships({ sessions, matches, events, teamPlayers }))
       setAttendees((playerRows ?? []) as Player[])
     }
     load()
@@ -67,6 +86,11 @@ export default function TeamBuilderPage() {
 
   // Rebalance when attendees and form arrive, and whenever the stars/form mix changes
   useEffect(() => { if (attendees.length > 0) rebalance() }, [rebalance, attendees.length])
+
+  const changeSplitDuos = (value: boolean) => {
+    setSplitDuos(value)
+    try { localStorage.setItem(SPLIT_DUOS_KEY, String(value)) } catch { /* not remembered, still applied */ }
+  }
 
   const changeWeight = (value: number) => {
     setFormPercent(value)
@@ -147,6 +171,10 @@ export default function TeamBuilderPage() {
           <span aria-hidden="true">📈 {t('teamBuilder.form')}</span>
         </div>
         <p className="text-[11px] text-gray-500 mt-2">{t('teamBuilder.formHelp', { count: DEFAULT_FORM_SESSIONS })}</p>
+        <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
+          <input type="checkbox" checked={splitDuos} onChange={(e) => changeSplitDuos(e.target.checked)} className="w-4 h-4 accent-blue-500" />
+          <span>🤝 {t('teamBuilder.splitDuos')}</span>
+        </label>
       </section>
 
       {needsGk && (

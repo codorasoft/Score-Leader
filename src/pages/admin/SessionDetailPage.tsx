@@ -10,7 +10,7 @@ import { SessionStandings } from '../../components/SessionStandings'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { SessionVotes } from '../../components/SessionVotes'
 import { SessionSummaryShare } from '../../components/SessionSummaryShare'
-import { buildSessionSummary } from '../../utils/sessionSummary'
+import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 
 const colorDot: Record<string, string> = {
@@ -135,7 +135,7 @@ export default function SessionDetailPage() {
       {session && completed.length > 0 && (
         <div className="mb-6">
           <SessionSummaryShare
-            text={buildSessionSummary({
+            parts={buildSummaryParts({
               t, date: session.date, teams, players, matches, events, awards,
               url: `${window.location.origin}/s/${session.share_token}`,
             })}

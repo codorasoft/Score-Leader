@@ -20,8 +20,13 @@ const byStrength = (players: Player[], strength: (p: Player) => number) =>
   shuffle(players).sort((a, b) => strength(b) - strength(a))
 
 // One goalkeeper per team, then each player (strongest first) joins the weakest team
-// that still has room. Team sizes differ by at most one.
-export function balanceTeams(players: Player[], strength: (p: Player) => number = (p) => p.skill_rating): BalanceResult {
+// that still has room. Team sizes differ by at most one. `synergy` adds extra strength for
+// pairs that win a lot together, so strong duos tend to be split across teams.
+export function balanceTeams(
+  players: Player[],
+  strength: (p: Player) => number = (p) => p.skill_rating,
+  synergy: (a: Player, b: Player) => number = () => 0,
+): BalanceResult {
   const allGks = byStrength(players.filter((p) => p.position === 'GK'), strength)
   const gks = allGks.slice(0, 3)
   const field = byStrength([...allGks.slice(3), ...players.filter((p) => p.position !== 'GK')], strength)
@@ -29,14 +34,48 @@ export function balanceTeams(players: Player[], strength: (p: Player) => number 
   const caps = [0, 1, 2].map((i) => Math.floor(players.length / 3) + (i < players.length % 3 ? 1 : 0))
   const teams: [Player[], Player[], Player[]] = [[], [], []]
   const totals = [0, 0, 0]
-  const add = (idx: number, p: Player) => { teams[idx].push(p); totals[idx] += strength(p) }
+  const gain = (idx: number, p: Player) => strength(p) + teams[idx].reduce((n, q) => n + synergy(p, q), 0)
+  const add = (idx: number, p: Player) => { totals[idx] += gain(idx, p); teams[idx].push(p) }
 
   gks.forEach((gk, i) => add(i, gk))
   for (const p of field) {
     const open = [0, 1, 2].filter((i) => teams[i].length < caps[i])
-    const target = open.sort((a, b) => totals[a] - totals[b] || teams[a].length - teams[b].length || a - b)[0]
+    const after = (i: number) => totals[i] + gain(i, p)
+    const target = open.sort((a, b) => after(a) - after(b) || teams[a].length - teams[b].length || a - b)[0]
     add(target, p)
   }
 
+  improveBySwaps(teams, strength, synergy)
   return { teams, needsGkAssignment: gks.length < 3 }
+}
+
+const MAX_SWAP_ROUNDS = 50
+
+// Placing players one at a time can leave the last ones no choice (team sizes are fixed), so
+// afterwards swap outfield players between teams while that narrows the gap between teams.
+function improveBySwaps(teams: Player[][], strength: (p: Player) => number, synergy: (a: Player, b: Player) => number) {
+  const teamTotal = (team: Player[]) =>
+    team.reduce((n, p, i) => n + strength(p) + team.slice(i + 1).reduce((m, q) => m + synergy(p, q), 0), 0)
+  const spread = () => {
+    const totals = teams.map(teamTotal)
+    return Math.max(...totals) - Math.min(...totals)
+  }
+  for (let round = 0; round < MAX_SWAP_ROUNDS; round++) {
+    let current = spread()
+    let improved = false
+    for (let a = 0; a < 3; a++) {
+      for (let b = a + 1; b < 3; b++) {
+        for (let i = 0; i < teams[a].length; i++) {
+          for (let j = 0; j < teams[b].length; j++) {
+            if (teams[a][i].position === 'GK' || teams[b][j].position === 'GK') continue
+            ;[teams[a][i], teams[b][j]] = [teams[b][j], teams[a][i]]
+            const next = spread()
+            if (next < current - 1e-9) { current = next; improved = true }
+            else [teams[a][i], teams[b][j]] = [teams[b][j], teams[a][i]]
+          }
+        }
+      }
+    }
+    if (!improved) return
+  }
 }

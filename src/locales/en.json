@@ -30,7 +30,9 @@
     "newSession": "New Session",
     "history": "History",
     "signOut": "Sign out",
-    "leaderboard": "Leaderboard"
+    "leaderboard": "Leaderboard",
+    "records": "Records",
+    "cards": "Cards"
   },
   "players": {
     "title": "Players",
@@ -76,7 +78,8 @@
     "formHelp_one": "Form = win rate and goals/assists over each player’s last session. New players use stars only.",
     "formHelp_other": "Form = win rate and goals/assists over each player’s last {{count}} sessions. New players use stars only.",
     "teamStrength_one": "{{count}} player · ⚡{{power}}",
-    "teamStrength_other": "{{count}} players · ⚡{{power}}"
+    "teamStrength_other": "{{count}} players · ⚡{{power}}",
+    "splitDuos": "Split duos who win a lot together"
   },
   "match": {
     "start": "▶ Start",
@@ -304,7 +307,8 @@
     "share": "Share to Messenger",
     "copy": "Copy text",
     "copied": "Copied! Paste it in Messenger.",
-    "help": "Tap Share to Messenger and pick Messenger, or copy the text and paste it into your group chat."
+    "help": "Tap Share to Messenger and pick Messenger, or copy the text and paste it into your group chat.",
+    "shareImage": "Share as image"
   },
   "potm": {
     "title": "Player of the Month",
@@ -343,5 +347,44 @@
     "saved_other": "{{count}} changes saved on this phone — they will be sent automatically.",
     "retry": "Try now",
     "endBlocked": "Waiting for signal: the saved changes must be sent before this match can end."
+  },
+  "records": {
+    "title": "Records",
+    "subtitle": "The best ever moments — beat them!",
+    "none": "No records yet — play some matches first.",
+    "biggest_win": "Biggest win",
+    "most_goals_match": "Most goals in a match",
+    "fastest_goal": "Fastest goal",
+    "session_goals": "Most goals in one session",
+    "session_assists": "Most assists in one session",
+    "session_contributions": "Most goals + assists in one session",
+    "win_streak": "Longest winning streak",
+    "unbeaten_streak": "Longest unbeaten streak",
+    "most_sessions": "Most sessions played",
+    "session_clean_sheets": "Most clean sheets in one session",
+    "best_duo": "Best duo (win rate together)",
+    "margin_one": "+{{count}} goal",
+    "margin_other": "+{{count}} goals",
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches",
+    "contributions_one": "{{count}} contribution",
+    "contributions_other": "{{count}} contributions",
+    "duoRecord": "{{wins}} wins / {{matches}} together",
+    "more": "+{{count}} more"
+  },
+  "cards": {
+    "title": "Player cards",
+    "subtitle": "Ratings from real results: shooting, passing, winning, form and experience. Updated after every session.",
+    "aria": "{{name}}, rating {{overall}}",
+    "share": "Share card",
+    "new": "NEW"
+  },
+  "partners": {
+    "title": "Partnerships",
+    "best": "Best partners",
+    "worst": "Toughest pairings",
+    "none_one": "Appears after {{count}} match together with a teammate.",
+    "none_other": "Appears after {{count}} matches together with a teammate.",
+    "record": "{{wins}}/{{matches}} wins"
   }
 }

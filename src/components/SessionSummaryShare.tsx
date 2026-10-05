@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { copyText, shareToMessenger } from '../lib/messengerShare'
+import { drawSessionImage, shareCanvas } from '../lib/shareImage'
+import { buildSessionSummaryText, type SummaryParts } from '../utils/sessionSummary'
 
-export function SessionSummaryShare({ text }: { text: string }) {
-  const { t } = useTranslation()
+export function SessionSummaryShare({ parts }: { parts: SummaryParts }) {
+  const { t, i18n } = useTranslation()
+  const text = buildSessionSummaryText(parts)
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -13,6 +16,15 @@ export function SessionSummaryShare({ text }: { text: string }) {
       setTimeout(() => setCopied(false), 3000)
     }
   }
+
+  const shareImage = () => shareCanvas(
+    drawSessionImage({
+      title: parts.title, subtitle: parts.totals, rtl: i18n.dir() === 'rtl',
+      sections: parts.sections, footer: `ScoreLeader · ${window.location.host}`,
+    }),
+    'scoreleader-session.png',
+    parts.title,
+  )
 
   const share = async () => {
     if ((await shareToMessenger(text)) === 'copied') {
@@ -45,6 +57,9 @@ export function SessionSummaryShare({ text }: { text: string }) {
             </div>
             <pre className="flex-1 overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm bg-gray-900/70 rounded-lg p-3 mb-3">{text}</pre>
             <p className="text-xs text-gray-400 mb-3">{t('summary.help')}</p>
+            <button onClick={shareImage} className="w-full mb-2 py-3 rounded-xl bg-purple-700 hover:bg-purple-600 font-semibold text-sm">
+              🖼️ {t('summary.shareImage')}
+            </button>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={copy} className="py-3 rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold text-sm">
                 {copied ? t('summary.copied') : t('summary.copy')}

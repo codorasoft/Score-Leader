@@ -16,10 +16,14 @@ import LiveSessionPage from './pages/public/LiveSessionPage'
 import VotePage from './pages/public/VotePage'
 import LeaderboardPage from './pages/public/LeaderboardPage'
 import PlayerProfilePage from './pages/public/PlayerProfilePage'
+import RecordsPage from './pages/public/RecordsPage'
+import CardsPage from './pages/public/CardsPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/leaderboard', element: <PublicLayout />, children: [{ index: true, element: <LeaderboardPage /> }] },
+  { path: '/records', element: <PublicLayout />, children: [{ index: true, element: <RecordsPage /> }] },
+  { path: '/cards', element: <PublicLayout />, children: [{ index: true, element: <CardsPage /> }] },
   { path: '/players/:playerId', element: <PublicLayout />, children: [{ index: true, element: <PlayerProfilePage /> }] },
   { path: '/s/vote/:voteToken', element: <PublicLayout />, children: [{ index: true, element: <VotePage /> }] },
   { path: '/s/:token', element: <PublicLayout />, children: [{ index: true, element: <LiveSessionPage /> }] },

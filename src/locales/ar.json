@@ -30,7 +30,9 @@
     "newSession": "جلسة جديدة",
     "history": "السجل",
     "signOut": "تسجيل الخروج",
-    "leaderboard": "قائمة المتصدرين"
+    "leaderboard": "قائمة المتصدرين",
+    "records": "الأرقام القياسية",
+    "cards": "البطاقات"
   },
   "players": {
     "title": "اللاعبون",
@@ -88,7 +90,8 @@
     "teamStrength_two": "لاعبان · ⚡{{power}}",
     "teamStrength_few": "{{count}} لاعبين · ⚡{{power}}",
     "teamStrength_many": "{{count}} لاعباً · ⚡{{power}}",
-    "teamStrength_other": "{{count}} لاعب · ⚡{{power}}"
+    "teamStrength_other": "{{count}} لاعب · ⚡{{power}}",
+    "splitDuos": "فصل الثنائيات التي تفوز كثيراً معاً"
   },
   "match": {
     "start": "▶ بدء",
@@ -344,7 +347,8 @@
     "share": "مشاركة في ماسنجر",
     "copy": "نسخ النص",
     "copied": "تم النسخ! الصقه في ماسنجر.",
-    "help": "اضغط مشاركة في ماسنجر واختر ماسنجر، أو انسخ النص والصقه في محادثة المجموعة."
+    "help": "اضغط مشاركة في ماسنجر واختر ماسنجر، أو انسخ النص والصقه في محادثة المجموعة.",
+    "shareImage": "مشاركة كصورة"
   },
   "potm": {
     "title": "لاعب الشهر",
@@ -396,5 +400,60 @@
     "saved_other": "{{count}} تغيير محفوظ على هذا الهاتف — ستُرسل تلقائياً.",
     "retry": "حاول الآن",
     "endBlocked": "بانتظار الاتصال: يجب إرسال التغييرات المحفوظة قبل إنهاء المباراة."
+  },
+  "records": {
+    "title": "الأرقام القياسية",
+    "subtitle": "أفضل اللحظات على الإطلاق — حاول كسرها!",
+    "none": "لا توجد أرقام بعد — العبوا بعض المباريات أولاً.",
+    "biggest_win": "أكبر فوز",
+    "most_goals_match": "أكثر أهداف في مباراة",
+    "fastest_goal": "أسرع هدف",
+    "session_goals": "أكثر أهداف في جلسة واحدة",
+    "session_assists": "أكثر تمريرات حاسمة في جلسة واحدة",
+    "session_contributions": "أكثر أهداف وتمريرات في جلسة واحدة",
+    "win_streak": "أطول سلسلة انتصارات",
+    "unbeaten_streak": "أطول سلسلة بلا هزيمة",
+    "most_sessions": "أكثر جلسات حضوراً",
+    "session_clean_sheets": "أكثر شباك نظيفة في جلسة واحدة",
+    "best_duo": "أفضل ثنائي (نسبة الفوز معاً)",
+    "margin_zero": "+{{count}} هدف",
+    "margin_one": "+هدف واحد",
+    "margin_two": "+هدفان",
+    "margin_few": "+{{count}} أهداف",
+    "margin_many": "+{{count}} هدفاً",
+    "margin_other": "+{{count}} هدف",
+    "matches_zero": "{{count}} مباراة",
+    "matches_one": "مباراة واحدة",
+    "matches_two": "مباراتان",
+    "matches_few": "{{count}} مباريات",
+    "matches_many": "{{count}} مباراة",
+    "matches_other": "{{count}} مباراة",
+    "contributions_zero": "{{count}} مساهمة",
+    "contributions_one": "مساهمة واحدة",
+    "contributions_two": "مساهمتان",
+    "contributions_few": "{{count}} مساهمات",
+    "contributions_many": "{{count}} مساهمة",
+    "contributions_other": "{{count}} مساهمة",
+    "duoRecord": "{{wins}} فوز من {{matches}} معاً",
+    "more": "+{{count}} آخرون"
+  },
+  "cards": {
+    "title": "بطاقات اللاعبين",
+    "subtitle": "تقييمات من النتائج الحقيقية: التسديد والتمرير والفوز والمستوى والخبرة. تتحدث بعد كل جلسة.",
+    "aria": "{{name}}، التقييم {{overall}}",
+    "share": "مشاركة البطاقة",
+    "new": "جديد"
+  },
+  "partners": {
+    "title": "الشراكات",
+    "best": "أفضل الشركاء",
+    "worst": "أصعب الثنائيات",
+    "none_zero": "تظهر بعد {{count}} مباريات مع زميل.",
+    "none_one": "تظهر بعد مباراة واحدة مع زميل.",
+    "none_two": "تظهر بعد مباراتين مع زميل.",
+    "none_few": "تظهر بعد {{count}} مباريات مع زميل.",
+    "none_many": "تظهر بعد {{count}} مباراة مع زميل.",
+    "none_other": "تظهر بعد {{count}} مباراة مع زميل.",
+    "record": "{{wins}}/{{matches}} فوز"
   }
 }

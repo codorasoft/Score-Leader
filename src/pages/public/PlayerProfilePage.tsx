@@ -5,10 +5,16 @@ import { supabase } from '../../lib/supabase'
 import { buildPlayerHistory } from '../../utils/playerHistory'
 import { PlayerFormChart } from '../../components/PlayerFormChart'
 import { PlayerBadges } from '../../components/PlayerBadges'
-import { selectAll } from '../../lib/selectAll'
+import { loadLeague } from '../../lib/league'
 import { careerFromHistory, computeBadges } from '../../utils/badges'
 import { monthsWonBy, type LeagueData } from '../../utils/playerOfMonth'
-import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team, TeamPlayer } from '../../lib/types'
+import { PlayerCardView } from '../../components/PlayerCardView'
+import { cardsForLeague } from '../../utils/leagueCards'
+import { partnerships, partnersOf, type Partner } from '../../utils/playerMatches'
+import { drawPlayerCard, shareCanvas } from '../../lib/shareImage'
+
+const PARTNER_MIN_MATCHES = 5
+import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team } from '../../lib/types'
 
 const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
 
@@ -29,17 +35,6 @@ interface ProfileData {
   awards: SessionAward[]
   // Everyone's results, needed to work out Player of the Month titles
   league: LeagueData
-}
-
-async function loadLeague(): Promise<LeagueData> {
-  const [players, sessions, matches, events, teamPlayers] = await Promise.all([
-    selectAll<Player>((a, b) => supabase.from('players').select('*').range(a, b)),
-    selectAll<Session>((a, b) => supabase.from('sessions').select('*').range(a, b)),
-    selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('status', 'completed').range(a, b)),
-    selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').range(a, b)),
-    selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').range(a, b)),
-  ])
-  return { players, sessions, matches, events, teamPlayers }
 }
 
 export default function PlayerProfilePage() {
@@ -92,6 +87,10 @@ export default function PlayerProfilePage() {
   const winRate = totals.played ? Math.round((totals.wins / totals.played) * 100) : 0
   const potmMonths = monthsWonBy(data.league, player.id)
   const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length))
+  const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
+  const partners = partnersOf(partnerships(data.league), player.id, PARTNER_MIN_MATCHES)
+  const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
+  const shareCard = () => shareCanvas(drawPlayerCard(player, card), `${player.name}-card.png`, player.name)
 
   const tiles = [
     { label: t('profile.sessions'), value: totals.sessions },
@@ -108,18 +107,12 @@ export default function PlayerProfilePage() {
     <div className="max-w-lg mx-auto">
       <Link to="/leaderboard" className="text-gray-400 hover:text-white text-sm">← {t('profile.back')}</Link>
 
-      <div className="flex items-center gap-4 mt-4 mb-6">
-        {player.photo_url ? (
-          <img src={player.photo_url} alt={player.name} className="w-16 h-16 rounded-full object-cover" />
-        ) : (
-          <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center text-2xl font-bold">
-            {player.name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold truncate">{player.name}</h1>
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">{player.position}</span>
-        </div>
+      <h1 className="sr-only">{player.name}</h1>
+      <div className="flex flex-col items-center gap-3 mt-4 mb-6">
+        <PlayerCardView player={player} card={card} />
+        <button onClick={shareCard} className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-sm font-semibold">
+          🖼️ {t('cards.share')}
+        </button>
       </div>
 
       {totals.sessions === 0 ? (
@@ -150,6 +143,18 @@ export default function PlayerProfilePage() {
           )}
 
           <PlayerBadges earned={badges.earned} next={badges.next} potmMonths={potmMonths} />
+
+          <section className="mb-6" aria-labelledby="partners-title">
+            <h2 id="partners-title" className="text-xs uppercase text-gray-400 mb-2">🤝 {t('partners.title')}</h2>
+            {partners.best.length === 0 ? (
+              <p className="text-sm text-gray-500">{t('partners.none', { count: PARTNER_MIN_MATCHES })}</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <PartnerList title={t('partners.best')} rows={partners.best} nameOf={nameOf} good />
+                <PartnerList title={t('partners.worst')} rows={partners.worst} nameOf={nameOf} />
+              </div>
+            )}
+          </section>
 
           <section className="bg-gray-800 rounded-xl p-4 mb-6">
             <h2 className="text-sm font-semibold mb-3">{t('profile.chartTitle')}</h2>
@@ -198,6 +203,26 @@ export default function PlayerProfilePage() {
           </section>
         </>
       )}
+    </div>
+  )
+}
+
+function PartnerList({ title, rows, nameOf, good = false }: { title: string; rows: Partner[]; nameOf: (id: string) => string; good?: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <div className="bg-gray-800 rounded-xl p-3">
+      <h3 className="text-xs text-gray-400 mb-2">{title}</h3>
+      <ul className="space-y-1.5">
+        {rows.map((r) => (
+          <li key={r.partnerId} className="flex items-center justify-between gap-2 text-sm">
+            <Link to={`/players/${r.partnerId}`} className="font-semibold truncate hover:underline">{nameOf(r.partnerId)}</Link>
+            <span className="shrink-0 text-xs text-gray-400">
+              {t('partners.record', { wins: r.wins, matches: r.matches })}
+              <span className={`ms-2 font-bold ${good ? 'text-green-400' : 'text-red-300'}`}>{Math.round(r.winRate * 100)}%</span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

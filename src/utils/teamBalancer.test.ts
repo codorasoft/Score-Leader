@@ -60,6 +60,21 @@ it('balances on the given strength instead of stars, goalkeeper strength include
   expect(Math.max(...sums) - Math.min(...sums)).toBeLessThanOrEqual(2)
 })
 
+it('splits up a duo that wins a lot together when told about partnerships', () => {
+  const players = [
+    // Without partnerships Omar (weak) often joins Ali (strong) to even out the totals
+    p('gk1', 'GK', 3), p('gk2', 'GK', 3), p('gk3', 'GK', 3),
+    p('ali', 'MID', 5), p('b', 'MID', 5), p('c', 'MID', 5),
+    p('omar', 'MID', 1), p('d', 'MID', 1), p('e', 'MID', 1),
+  ]
+  const synergy = (a: Player, b: Player) => ([a.id, b.id].sort().join() === 'ali,omar' ? 3 : 0)
+  for (let run = 0; run < 30; run++) {
+    const { teams } = balanceTeams(players, undefined, synergy)
+    const aliTeam = teams.findIndex((t) => t.some((pl) => pl.id === 'ali'))
+    expect(teams[aliTeam].some((pl) => pl.id === 'omar')).toBe(false)
+  }
+})
+
 it('handles 9 players (3 per team)', () => {
   const players = Array.from({ length: 9 }, (_, i) =>
     p(`p${i}`, i < 3 ? 'GK' : 'MID', 3))
