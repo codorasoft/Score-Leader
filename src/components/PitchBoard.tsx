@@ -57,7 +57,8 @@ export function ShapeView({ shape, onErase, eraseLabel }: { shape: Shape; onEras
 }
 
 interface Props {
-  players: { player: Player; x: number; y: number }[]
+  // Guests are typed names (not in the Players list) and get a dashed grey ring
+  players: { player: Pick<Player, 'id' | 'name' | 'photo_url'>; x: number; y: number; guest?: boolean }[]
   onMove: (playerId: string, spot: BoardSpot) => void
   tool?: DrawTool
   color?: DrawColor
@@ -100,14 +101,14 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
         {preview && <ShapeView shape={preview} />}
       </svg>
 
-      {players.map(({ player, x, y }) => {
+      {players.map(({ player, x, y, guest }) => {
         const isDragged = dragging?.playerId === player.id
         const spot = isDragged ? dragging.spot : { x, y }
         return (
           <button
             key={player.id}
             type="button"
-            aria-label={player.name}
+            aria-label={guest ? t('lineups.guestLabel', { name: player.name }) : player.name}
             className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none touch-none transition-transform ${isDragged ? 'z-20 scale-110' : 'z-10'} ${tool !== 'move' ? 'pointer-events-none' : ''}`}
             style={{ left: `${spot.x * 100}%`, top: `${spot.y * 100}%` }}
             onPointerDown={(e) => {
@@ -122,7 +123,7 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
             }}
             onPointerCancel={() => setDrag(null)}
           >
-            <span className="w-11 h-11 rounded-full border-[3px] border-white bg-gray-800 overflow-hidden flex items-center justify-center font-bold text-white shadow-lg cursor-grab">
+            <span className={`w-11 h-11 rounded-full border-[3px] overflow-hidden flex items-center justify-center font-bold text-white shadow-lg cursor-grab ${guest ? 'border-dashed border-gray-300 bg-gray-600' : 'border-white bg-gray-800'}`}>
               {player.photo_url
                 ? <img src={player.photo_url} alt="" draggable={false} className="w-full h-full object-cover" />
                 : player.name.charAt(0).toUpperCase()}

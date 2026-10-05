@@ -33,3 +33,24 @@ export function lineupChanges(lineupId: string, savedPlayerIds: string[], curren
     upsert: current.map((p) => ({ lineup_id: lineupId, player_id: p.playerId, x: p.x, y: p.y })),
   }
 }
+
+// Guests are typed names (not in the Players list), stored with the board itself.
+export interface Guest { id: string; name: string; x: number; y: number }
+
+export const GUEST_NAME_MAX = 40
+
+export function makeGuest(name: string, spot: BoardSpot, id: string): Guest | null {
+  const trimmed = name.trim().slice(0, GUEST_NAME_MAX)
+  return trimmed ? { id, name: trimmed, ...spot } : null
+}
+
+const unit = (v: unknown) => typeof v === 'number' && v >= 0 && v <= 1
+
+export function parseGuests(raw: unknown): Guest[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((g): g is Guest => {
+    if (!g || typeof g !== 'object') return false
+    const o = g as Record<string, unknown>
+    return typeof o.id === 'string' && typeof o.name === 'string' && o.name.trim().length > 0 && unit(o.x) && unit(o.y)
+  })
+}

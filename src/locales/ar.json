@@ -493,7 +493,13 @@
     "nameNeeded": "اكتب اسماً للوحة لحفظها.",
     "unsaved": "لديك تغييرات غير محفوظة.",
     "delete": "حذف اللوحة",
-    "confirmDelete": "حذف «{{name}}»؟"
+    "confirmDelete": "حذف «{{name}}»؟",
+    "guestLabel": "{{name}} (ضيف)",
+    "guestTitle": "لاعب ضيف",
+    "guestHint": "لشخص غير موجود في قائمة اللاعبين.",
+    "guestPlaceholder": "اسم الضيف",
+    "addGuest": "إضافة ضيف",
+    "guestTag": "ضيف"
   },
   "photo": {
     "adjust": "ضبط",

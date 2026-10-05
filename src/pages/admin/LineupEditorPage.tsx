@@ -7,7 +7,7 @@ import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { BoardToolbar } from '../../components/BoardToolbar'
 import { parseDrawings, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
 import { drawBoardImage, shareCanvas } from '../../lib/shareImage'
-import { lineupChanges, spotForNewPlayer, type BoardPlayer, type BoardSpot } from '../../utils/board'
+import { GUEST_NAME_MAX, lineupChanges, makeGuest, parseGuests, spotForNewPlayer, type BoardPlayer, type BoardSpot, type Guest } from '../../utils/board'
 import type { Player } from '../../lib/types'
 
 export default function LineupEditorPage() {
@@ -28,6 +28,7 @@ export default function LineupEditorPage() {
   const [tool, setTool] = useState<DrawTool>('move')
   const [color, setColor] = useState<DrawColor>('yellow')
   const [confirmClear, setConfirmClear] = useState(false)
+  const [guests, setGuests] = useState<Guest[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -43,6 +44,7 @@ export default function LineupEditorPage() {
         const rows = (spots ?? []) as { player_id: string; x: number; y: number }[]
         setName((lineup as { name: string }).name)
         setDrawings(parseDrawings((lineup as { drawings?: unknown }).drawings))
+        setGuests(parseGuests((lineup as { guests?: unknown }).guests))
         setBoard(rows.map((r) => ({ playerId: r.player_id, x: r.x, y: r.y })))
         setSavedIds(rows.map((r) => r.player_id))
       }
@@ -55,14 +57,31 @@ export default function LineupEditorPage() {
   const onBoard = board.map((b) => ({ ...b, player: byId.get(b.playerId) })).filter((b): b is BoardPlayer & { player: Player } => !!b.player)
 
   const change = (next: BoardPlayer[]) => { setBoard(next); setDirty(true) }
-  const move = (playerId: string, spot: BoardSpot) => change(board.map((b) => (b.playerId === playerId ? { ...b, ...spot } : b)))
+  const changeGuests = (next: Guest[]) => { setGuests(next); setDirty(true) }
+  // Guest ids are fresh UUIDs, so they never clash with a player's id
+  const move = (id: string, spot: BoardSpot) => {
+    if (guests.some((g) => g.id === id)) changeGuests(guests.map((g) => (g.id === id ? { ...g, ...spot } : g)))
+    else change(board.map((b) => (b.playerId === id ? { ...b, ...spot } : b)))
+  }
   const remove = (playerId: string) => change(board.filter((b) => b.playerId !== playerId))
   const draw = (next: Shape[]) => { setDrawings(next); setDirty(true) }
 
   const add = (ids: string[]) => {
-    change([...board, ...ids.map((playerId, i) => ({ playerId, ...spotForNewPlayer(board.length + i) }))])
+    change([...board, ...ids.map((playerId, i) => ({ playerId, ...spotForNewPlayer(board.length + guests.length + i) }))])
     setPicking(false)
   }
+
+  const addGuest = (guestName: string) => {
+    const guest = makeGuest(guestName, spotForNewPlayer(board.length + guests.length), crypto.randomUUID())
+    if (!guest) return
+    changeGuests([...guests, guest])
+    setPicking(false)
+  }
+
+  const pitchPlayers = [
+    ...onBoard,
+    ...guests.map((g) => ({ player: { id: g.id, name: g.name, photo_url: null }, x: g.x, y: g.y, guest: true })),
+  ]
 
   const save = async () => {
     const trimmed = name.trim()
@@ -70,8 +89,8 @@ export default function LineupEditorPage() {
     setSaving(true)
     const id = lineupId ?? crypto.randomUUID()
     const { error } = isNew
-      ? await supabase.from('lineups').insert({ id, name: trimmed, drawings })
-      : await supabase.from('lineups').update({ name: trimmed, drawings, updated_at: new Date().toISOString() }).eq('id', id)
+      ? await supabase.from('lineups').insert({ id, name: trimmed, drawings, guests })
+      : await supabase.from('lineups').update({ name: trimmed, drawings, guests, updated_at: new Date().toISOString() }).eq('id', id)
     if (!error) {
       const { remove: gone, upsert } = lineupChanges(id, savedIds, board)
       const removed = gone.length
@@ -92,8 +111,8 @@ export default function LineupEditorPage() {
   const share = async () => {
     const canvas = await drawBoardImage({
       title: name.trim() || t('lineups.untitled'),
-      subtitle: t('lineups.playerCount', { count: onBoard.length }),
-      players: onBoard.map((b) => ({ name: b.player.name, photo_url: b.player.photo_url, x: b.x, y: b.y })),
+      subtitle: t('lineups.playerCount', { count: pitchPlayers.length }),
+      players: pitchPlayers.map((b) => ({ name: b.player.name, photo_url: b.player.photo_url, x: b.x, y: b.y, guest: 'guest' in b })),
       drawings,
       footer: 'ScoreLeader',
     })
@@ -124,7 +143,7 @@ export default function LineupEditorPage() {
       />
 
       <PitchBoard
-        players={onBoard}
+        players={pitchPlayers}
         onMove={move}
         tool={tool}
         color={color}
@@ -141,19 +160,30 @@ export default function LineupEditorPage() {
         onUndo={() => draw(drawings.slice(0, -1))}
         onClear={() => setConfirmClear(true)}
       />
-      {onBoard.length === 0 && <p className="text-sm text-gray-400 text-center mt-2">{t('lineups.emptyBoard')}</p>}
+      {pitchPlayers.length === 0 && <p className="text-sm text-gray-400 text-center mt-2">{t('lineups.emptyBoard')}</p>}
 
       <button onClick={() => setPicking(true)} className="w-full mt-3 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold">
         ＋ {t('lineups.addPlayers')}
       </button>
 
-      {onBoard.length > 0 && (
+      {pitchPlayers.length > 0 && (
         <ul className="flex flex-wrap gap-2 mt-3" aria-label={t('lineups.onBoard')}>
           {onBoard.map((b) => (
             <li key={b.playerId} className="flex items-center gap-1.5 bg-gray-800 rounded-full ps-1 pe-1 py-1">
               <PlayerAvatar player={b.player} size="sm" />
               <span className="text-sm max-w-[110px] truncate">{b.player.name}</span>
               <button onClick={() => remove(b.playerId)} aria-label={t('lineups.removeNamed', { name: b.player.name })}
+                className="w-7 h-7 rounded-full text-red-300 hover:bg-red-900/50">✕</button>
+            </li>
+          ))}
+          {guests.map((g) => (
+            <li key={g.id} className="flex items-center gap-1.5 bg-gray-800 rounded-full ps-1 pe-1 py-1">
+              <span className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 bg-gray-600 flex items-center justify-center text-xs font-bold" aria-hidden="true">
+                {g.name.charAt(0).toUpperCase()}
+              </span>
+              <span className="text-sm max-w-[110px] truncate">{g.name}</span>
+              <span className="text-[10px] font-semibold uppercase text-gray-300 bg-gray-700 rounded px-1.5 py-0.5">{t('lineups.guestTag')}</span>
+              <button onClick={() => changeGuests(guests.filter((x) => x.id !== g.id))} aria-label={t('lineups.removeNamed', { name: g.name })}
                 className="w-7 h-7 rounded-full text-red-300 hover:bg-red-900/50">✕</button>
             </li>
           ))}
@@ -164,7 +194,7 @@ export default function LineupEditorPage() {
         <button onClick={save} disabled={saving || !name.trim()} className="py-3 rounded-xl bg-green-600 hover:bg-green-500 font-semibold disabled:opacity-50">
           {saving ? t('lineups.saving') : dirty || isNew ? `💾 ${t('lineups.save')}` : `✓ ${t('lineups.saved')}`}
         </button>
-        <button onClick={share} disabled={onBoard.length === 0 && drawings.length === 0} className="py-3 rounded-xl bg-[#0866FF] hover:bg-[#0756d6] font-semibold disabled:opacity-50">
+        <button onClick={share} disabled={pitchPlayers.length === 0 && drawings.length === 0} className="py-3 rounded-xl bg-[#0866FF] hover:bg-[#0756d6] font-semibold disabled:opacity-50">
           📤 {t('lineups.share')}
         </button>
       </div>
@@ -177,7 +207,7 @@ export default function LineupEditorPage() {
         </button>
       )}
 
-      {picking && <PlayerPicker players={available} onAdd={add} onClose={() => setPicking(false)} />}
+      {picking && <PlayerPicker players={available} onAdd={add} onAddGuest={addGuest} onClose={() => setPicking(false)} />}
 
       {confirmClear && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmClear(false)}>
@@ -206,9 +236,15 @@ export default function LineupEditorPage() {
   )
 }
 
-function PlayerPicker({ players, onAdd, onClose }: { players: Player[]; onAdd: (ids: string[]) => void; onClose: () => void }) {
+function PlayerPicker({ players, onAdd, onAddGuest, onClose }: {
+  players: Player[]
+  onAdd: (ids: string[]) => void
+  onAddGuest: (name: string) => void
+  onClose: () => void
+}) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
+  const [guestName, setGuestName] = useState('')
   const [chosen, setChosen] = useState<Set<string>>(new Set())
   const shown = players.filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase()))
   const toggle = (id: string) => setChosen((s) => {
@@ -239,6 +275,20 @@ function PlayerPicker({ players, onAdd, onClose }: { players: Player[]; onAdd: (
             </li>
           ))}
         </ul>
+        <form
+          className="mt-3 pt-3 border-t border-gray-700"
+          onSubmit={(e) => { e.preventDefault(); onAddGuest(guestName) }}
+        >
+          <p className="text-sm font-semibold">👤 {t('lineups.guestTitle')}</p>
+          <p className="text-xs text-gray-400 mb-2">{t('lineups.guestHint')}</p>
+          <div className="flex gap-2">
+            <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t('lineups.guestPlaceholder')}
+              maxLength={GUEST_NAME_MAX} className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-gray-700 border border-gray-600" />
+            <button type="submit" disabled={!guestName.trim()} className="px-3 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 font-semibold disabled:opacity-50">
+              {t('lineups.addGuest')}
+            </button>
+          </div>
+        </form>
         <div className="grid grid-cols-2 gap-2 mt-3">
           <button onClick={onClose} className="py-2.5 rounded-lg bg-gray-700 font-semibold">{t('common.cancel')}</button>
           <button onClick={() => onAdd([...chosen])} disabled={chosen.size === 0} className="py-2.5 rounded-lg bg-blue-600 font-semibold disabled:opacity-50">

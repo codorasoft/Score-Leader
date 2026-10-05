@@ -83,3 +83,26 @@ it('saves arrows drawn on the board', async () => {
     expect.objectContaining({ kind: 'arrow', dashed: false, color: 'yellow', x1: 0.2, y1: 0.8, x2: 0.8, y2: 0.2 }),
   ])
 })
+
+it('adds a guest by name, shows them on the pitch and saves them with the board', async () => {
+  insert.mockClear()
+  render(
+    <MemoryRouter initialEntries={['/admin/lineups/new']}>
+      <Routes>
+        <Route path="/admin/lineups/new" element={<LineupEditorPage />} />
+        <Route path="/admin/lineups/:lineupId" element={<p>saved page</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  fireEvent.change(await screen.findByLabelText('Board name'), { target: { value: 'With guests' } })
+  fireEvent.click(screen.getByRole('button', { name: /Add players/ }))
+  fireEvent.change(screen.getByPlaceholderText('Guest name'), { target: { value: '  Khalil ' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Add guest' }))
+
+  expect(screen.getByRole('button', { name: 'Khalil (guest)' })).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /Save/ }))
+  await waitFor(() => expect(insert).toHaveBeenCalled())
+  expect(insert.mock.calls[0][0].guests).toEqual([
+    expect.objectContaining({ name: 'Khalil', x: 0.2, y: 0.85 }),
+  ])
+})

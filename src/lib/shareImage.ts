@@ -196,7 +196,7 @@ export function drawSessionImage(data: SessionImageData): HTMLCanvasElement {
 export async function drawBoardImage(data: {
   title: string
   subtitle: string
-  players: { name: string; photo_url: string | null; x: number; y: number }[]
+  players: { name: string; photo_url: string | null; x: number; y: number; guest?: boolean }[]
   drawings?: Shape[]
   footer: string
 }): Promise<HTMLCanvasElement> {
@@ -284,7 +284,7 @@ export async function drawBoardImage(data: {
     const r = 46
     ctx.beginPath()
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
-    ctx.fillStyle = '#1f2937'
+    ctx.fillStyle = p.guest ? '#4b5563' : '#1f2937'
     ctx.fill()
     if (photos[i]) {
       ctx.save()
@@ -299,8 +299,10 @@ export async function drawBoardImage(data: {
     ctx.beginPath()
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
     ctx.lineWidth = 7
-    ctx.strokeStyle = '#ffffff'
+    ctx.strokeStyle = p.guest ? '#d1d5db' : '#ffffff'
+    ctx.setLineDash(p.guest ? [14, 9] : [])
     ctx.stroke()
+    ctx.setLineDash([])
 
     fitText(ctx, p.name, 200, 28, 800)
     const labelW = Math.min(210, ctx.measureText(p.name).width + 20)

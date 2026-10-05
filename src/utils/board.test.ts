@@ -1,4 +1,4 @@
-import { spotForNewPlayer, clampSpot, lineupChanges } from './board'
+import { spotForNewPlayer, clampSpot, lineupChanges, makeGuest, parseGuests } from './board'
 
 describe('spotForNewPlayer', () => {
   it('fills rows of four from the bottom of the pitch upwards', () => {
@@ -33,4 +33,22 @@ it('works out which players to remove and which spots to save', () => {
     { lineup_id: 'L1', player_id: 'ali', x: 0.5, y: 0.5 },
     { lineup_id: 'L1', player_id: 'hadi', x: 0.2, y: 0.8 },
   ])
+})
+
+describe('guests', () => {
+  it('makes a guest from a typed name, trimmed and length-limited', () => {
+    expect(makeGuest('  Khalil  ', { x: 0.2, y: 0.85 }, 'g1')).toEqual({ id: 'g1', name: 'Khalil', x: 0.2, y: 0.85 })
+    expect(makeGuest('x'.repeat(60), { x: 0.2, y: 0.85 }, 'g2')!.name).toHaveLength(40)
+    expect(makeGuest('   ', { x: 0.2, y: 0.85 }, 'g3')).toBeNull()
+  })
+
+  it('reads saved guests back and drops anything malformed', () => {
+    expect(parseGuests([
+      { id: 'a', name: 'Khalil', x: 0.3, y: 0.4 },
+      { id: 'b', name: '', x: 0.3, y: 0.4 },
+      { id: 'c', name: 'Off pitch', x: 3, y: 0.4 },
+      'nonsense',
+    ])).toEqual([{ id: 'a', name: 'Khalil', x: 0.3, y: 0.4 }])
+    expect(parseGuests(undefined)).toEqual([])
+  })
 })

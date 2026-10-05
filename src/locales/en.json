@@ -416,7 +416,13 @@
     "nameNeeded": "Give the board a name to save it.",
     "unsaved": "You have unsaved changes.",
     "delete": "Delete board",
-    "confirmDelete": "Delete “{{name}}”?"
+    "confirmDelete": "Delete “{{name}}”?",
+    "guestLabel": "{{name}} (guest)",
+    "guestTitle": "Guest player",
+    "guestHint": "For someone who is not in your Players list.",
+    "guestPlaceholder": "Guest name",
+    "addGuest": "Add guest",
+    "guestTag": "Guest"
   },
   "photo": {
     "adjust": "Adjust",

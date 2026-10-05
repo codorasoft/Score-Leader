@@ -94,3 +94,10 @@ describe('fast gestures (press, move and release before the screen updates)', ()
     expect(onMove).toHaveBeenCalledWith('ali', { x: 0.75, y: 0.1 })
   })
 })
+
+it('marks guests so they stand apart from regular players', () => {
+  const guest = { id: 'g1', name: 'Khalil', photo_url: null } as Player
+  render(<PitchBoard players={[{ player: ali, x: 0.2, y: 0.8 }, { player: guest, x: 0.5, y: 0.5, guest: true }]} onMove={vi.fn()} />)
+  expect(screen.getByRole('button', { name: 'Khalil (guest)' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Ali' })).toBeInTheDocument()
+})
