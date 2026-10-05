@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
+import { PhotoCropper } from '../../components/PhotoCropper'
 import { deletePlayerPhoto, uploadPlayerPhoto } from '../../lib/playerPhoto'
 import type { Player, PlayerPosition } from '../../lib/types'
 
@@ -39,7 +40,10 @@ export default function PlayersPage() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [form, setForm] = useState<PlayerFormData>(defaultForm)
   const [confirmRemove, setConfirmRemove] = useState<Player | null>(null)
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoFile, setPhotoFile] = useState<Blob | null>(null)
+  // Photo being framed in the adjuster: a newly picked file (object URL) or the saved photo
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [pickedUrl, setPickedUrl] = useState<string | null>(null)
   const [removePhoto, setRemovePhoto] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -58,7 +62,13 @@ export default function PlayersPage() {
 
   useEffect(() => { fetchPlayers() }, [])
 
-  const resetPhoto = () => { setPhotoFile(null); setRemovePhoto(false) }
+  const resetPhoto = () => {
+    setPhotoFile(null)
+    setRemovePhoto(false)
+    setCropSrc(null)
+    if (pickedUrl) URL.revokeObjectURL(pickedUrl)
+    setPickedUrl(null)
+  }
 
   const openAdd = () => {
     resetPhoto()
@@ -145,6 +155,14 @@ export default function PlayersPage() {
         ))}
       </div>
 
+      {cropSrc && (
+        <PhotoCropper
+          src={cropSrc}
+          onCancel={() => setCropSrc(null)}
+          onDone={(photo) => { setPhotoFile(photo); setRemovePhoto(false); setCropSrc(null) }}
+        />
+      )}
+
       {confirmRemove && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmRemove(null)}>
           <div role="dialog" aria-modal="true" aria-labelledby="remove-title" className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
@@ -183,11 +201,25 @@ export default function PlayersPage() {
                     className="sr-only"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
-                      if (file) { setPhotoFile(file); setRemovePhoto(false) }
+                      if (file) {
+                        if (pickedUrl) URL.revokeObjectURL(pickedUrl)
+                        const url = URL.createObjectURL(file)
+                        setPickedUrl(url)
+                        setCropSrc(url)
+                      }
                       e.target.value = ''
                     }}
                   />
                 </label>
+                {previewUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setCropSrc(pickedUrl ?? form.photo_url)}
+                    className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-xs font-semibold"
+                  >
+                    ✂️ {t('photo.adjust')}
+                  </button>
+                )}
                 {previewUrl && (
                   <button
                     type="button"

@@ -24,6 +24,13 @@ vi.mock('../../lib/playerPhoto', () => ({
   deletePlayerPhoto: (...a: unknown[]) => deletePlayerPhoto(...a),
 }))
 
+// The real adjuster needs a loaded image; this stand-in returns a finished photo
+const CROPPED = new Blob(['cropped'], { type: 'image/jpeg' })
+vi.mock('../../components/PhotoCropper', () => ({
+  PhotoCropper: ({ src, onDone }: { src: string; onDone: (b: Blob) => void }) =>
+    <button onClick={() => onDone(CROPPED)}>adjusting {src}</button>,
+}))
+
 import PlayersPage from './PlayersPage'
 
 beforeAll(() => {
@@ -31,18 +38,19 @@ beforeAll(() => {
   URL.revokeObjectURL = vi.fn()
 })
 
-it('uploads a chosen photo, saves it on the player and deletes the old photo file', async () => {
+it('opens the adjuster for a chosen photo, uploads the adjusted photo and deletes the old file', async () => {
   render(<MemoryRouter><PlayersPage /></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Ali' }))
 
   const file = new File(['x'], 'me.jpg', { type: 'image/jpeg' })
   fireEvent.change(screen.getByLabelText(/Change photo/), { target: { files: [file] } })
+  fireEvent.click(screen.getByRole('button', { name: 'adjusting blob:preview' }))
   // The preview is decorative (alt=""), so look it up by its source
   expect(document.querySelector('img[src="blob:preview"]')).not.toBeNull()
 
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ photo_url: NEW })))
-  expect(uploadPlayerPhoto).toHaveBeenCalledWith('p1', file)
+  expect(uploadPlayerPhoto).toHaveBeenCalledWith('p1', CROPPED)
   expect(deletePlayerPhoto).toHaveBeenCalledWith(OLD)
 })
 
@@ -55,4 +63,11 @@ it('removes a photo and deletes its file', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ photo_url: null })))
   expect(deletePlayerPhoto).toHaveBeenCalledWith(OLD)
+})
+
+it('re-opens the saved photo in the adjuster', async () => {
+  render(<MemoryRouter><PlayersPage /></MemoryRouter>)
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Ali' }))
+  fireEvent.click(screen.getByRole('button', { name: /Adjust/ }))
+  expect(screen.getByRole('button', { name: `adjusting ${OLD}` })).toBeInTheDocument()
 })

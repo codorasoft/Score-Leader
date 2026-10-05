@@ -1,13 +1,4 @@
-import { squareCrop, photoPath, storagePathFromUrl } from './playerPhoto'
-
-describe('squareCrop', () => {
-  it('takes the centre square of a portrait photo', () => {
-    expect(squareCrop(1000, 1600)).toEqual({ sx: 0, sy: 300, size: 1000 })
-  })
-  it('takes the centre square of a landscape photo', () => {
-    expect(squareCrop(1600, 900)).toEqual({ sx: 350, sy: 0, size: 900 })
-  })
-})
+import { photoPath, storagePathFromUrl } from './playerPhoto'
 
 it('names uploads per player with a timestamp so a new photo never shows a cached old one', () => {
   expect(photoPath('p1', 1700000000000)).toBe('players/p1-1700000000000.jpg')

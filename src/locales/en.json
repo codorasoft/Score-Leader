@@ -417,5 +417,16 @@
     "unsaved": "You have unsaved changes.",
     "delete": "Delete lineup",
     "confirmDelete": "Delete “{{name}}”?"
+  },
+  "photo": {
+    "adjust": "Adjust",
+    "adjustTitle": "Adjust photo",
+    "adjustHelp": "Drag to move. Pinch, scroll or use the slider to zoom.",
+    "zoom": "Zoom",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "reset": "Reset",
+    "use": "Use photo",
+    "loadFailed": "This photo could not be opened. Choose another one."
   }
 }
