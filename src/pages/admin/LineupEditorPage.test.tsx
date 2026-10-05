@@ -59,3 +59,27 @@ it('will not save a lineup without a name', async () => {
   expect(await screen.findByRole('button', { name: /Save/ })).toBeDisabled()
   expect(screen.getByText('Give the board a name to save it.')).toBeInTheDocument()
 })
+
+it('saves arrows drawn on the board', async () => {
+  insert.mockClear()
+  HTMLElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 300, right: 200, bottom: 300, x: 0, y: 0, toJSON: () => ({}) })
+  HTMLElement.prototype.setPointerCapture = () => {}
+  render(
+    <MemoryRouter initialEntries={['/admin/lineups/new']}>
+      <Routes>
+        <Route path="/admin/lineups/new" element={<LineupEditorPage />} />
+        <Route path="/admin/lineups/:lineupId" element={<p>saved page</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+  fireEvent.change(await screen.findByLabelText('Board name'), { target: { value: 'Tactics' } })
+  fireEvent.click(screen.getByRole('button', { name: /Pass/ }))
+  const area = screen.getByLabelText('Drawing area')
+  fireEvent.pointerDown(area, { pointerId: 1, clientX: 40, clientY: 240 })
+  fireEvent.pointerUp(area, { pointerId: 1, clientX: 160, clientY: 60 })
+  fireEvent.click(screen.getByRole('button', { name: /Save/ }))
+  await waitFor(() => expect(insert).toHaveBeenCalled())
+  expect(insert.mock.calls[0][0].drawings).toEqual([
+    expect.objectContaining({ kind: 'arrow', dashed: false, color: 'yellow', x1: 0.2, y1: 0.8, x2: 0.8, y2: 0.2 }),
+  ])
+})

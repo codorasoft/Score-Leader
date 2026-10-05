@@ -428,5 +428,32 @@
     "reset": "Reset",
     "use": "Use photo",
     "loadFailed": "This photo could not be opened. Choose another one."
+  },
+  "board": {
+    "drawingArea": "Drawing area",
+    "removeDrawing": "Remove drawing",
+    "tools": "Board tools",
+    "move": "Move",
+    "pass": "Pass",
+    "run": "Run",
+    "zone": "Zone",
+    "erase": "Eraser",
+    "undo": "Undo",
+    "clear": "Clear",
+    "colour": "Colour",
+    "colours": {
+      "white": "White",
+      "yellow": "Yellow",
+      "red": "Red",
+      "blue": "Blue"
+    },
+    "hint": {
+      "move": "Drag players to place them.",
+      "pass": "Drag on the pitch to draw a pass (solid arrow).",
+      "run": "Drag on the pitch to draw a run (dashed arrow).",
+      "zone": "Drag from the centre outwards to mark a zone.",
+      "erase": "Tap an arrow or zone to remove it."
+    },
+    "confirmClear": "Remove all arrows and zones?"
   }
 }

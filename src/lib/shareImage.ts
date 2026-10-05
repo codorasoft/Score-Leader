@@ -1,6 +1,7 @@
 import type { Player } from './types'
 import type { PlayerCard } from '../utils/playerCard'
 import { TIER_STYLE } from '../components/PlayerCardView'
+import { DRAW_COLORS, type Shape } from '../utils/boardDrawings'
 
 const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Arabic", sans-serif'
 
@@ -196,6 +197,7 @@ export async function drawBoardImage(data: {
   title: string
   subtitle: string
   players: { name: string; photo_url: string | null; x: number; y: number }[]
+  drawings?: Shape[]
   footer: string
 }): Promise<HTMLCanvasElement> {
   const W = 1080
@@ -236,6 +238,44 @@ export async function drawBoardImage(data: {
   ctx.beginPath()
   ctx.arc(PITCH_X + 50 * u, PITCH_Y + 75 * u, 11 * u, 0, Math.PI * 2)
   ctx.stroke()
+
+  // Arrows and zones go under the players, the same as on screen (sizes in pitch units, u)
+  for (const shape of data.drawings ?? []) {
+    const color = DRAW_COLORS[shape.color]
+    if (shape.kind === 'zone') {
+      ctx.beginPath()
+      ctx.arc(PITCH_X + shape.cx * PW, PITCH_Y + shape.cy * PH, shape.r * PW, 0, Math.PI * 2)
+      ctx.globalAlpha = 0.22
+      ctx.fillStyle = color
+      ctx.fill()
+      ctx.globalAlpha = 0.9
+      ctx.lineWidth = 0.7 * u
+      ctx.strokeStyle = color
+      ctx.stroke()
+      ctx.globalAlpha = 1
+      continue
+    }
+    const x1 = PITCH_X + shape.x1 * PW, y1 = PITCH_Y + shape.y1 * PH
+    const x2 = PITCH_X + shape.x2 * PW, y2 = PITCH_Y + shape.y2 * PH
+    const angle = Math.atan2(y2 - y1, x2 - x1)
+    const head = 4.5 * u
+    ctx.strokeStyle = color
+    ctx.fillStyle = color
+    ctx.lineWidth = 1.3 * u
+    ctx.lineCap = 'round'
+    ctx.setLineDash(shape.dashed ? [3 * u, 2.2 * u] : [])
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2 - head * 0.7 * Math.cos(angle), y2 - head * 0.7 * Math.sin(angle))
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.moveTo(x2, y2)
+    ctx.lineTo(x2 - head * Math.cos(angle - 0.45), y2 - head * Math.sin(angle - 0.45))
+    ctx.lineTo(x2 - head * Math.cos(angle + 0.45), y2 - head * Math.sin(angle + 0.45))
+    ctx.closePath()
+    ctx.fill()
+  }
 
   const photos = await Promise.all(data.players.map((p) => loadPhoto(p.photo_url)))
   data.players.forEach((p, i) => {

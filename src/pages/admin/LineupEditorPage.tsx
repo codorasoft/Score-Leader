@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { PitchBoard } from '../../components/PitchBoard'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
+import { BoardToolbar } from '../../components/BoardToolbar'
+import { parseDrawings, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
 import { drawBoardImage, shareCanvas } from '../../lib/shareImage'
 import { lineupChanges, spotForNewPlayer, type BoardPlayer, type BoardSpot } from '../../utils/board'
 import type { Player } from '../../lib/types'
@@ -22,6 +24,10 @@ export default function LineupEditorPage() {
   const [saving, setSaving] = useState(false)
   const [picking, setPicking] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [drawings, setDrawings] = useState<Shape[]>([])
+  const [tool, setTool] = useState<DrawTool>('move')
+  const [color, setColor] = useState<DrawColor>('yellow')
+  const [confirmClear, setConfirmClear] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +42,7 @@ export default function LineupEditorPage() {
         if (!lineup) { navigate('/admin/lineups', { replace: true }); return }
         const rows = (spots ?? []) as { player_id: string; x: number; y: number }[]
         setName((lineup as { name: string }).name)
+        setDrawings(parseDrawings((lineup as { drawings?: unknown }).drawings))
         setBoard(rows.map((r) => ({ playerId: r.player_id, x: r.x, y: r.y })))
         setSavedIds(rows.map((r) => r.player_id))
       }
@@ -50,6 +57,8 @@ export default function LineupEditorPage() {
   const change = (next: BoardPlayer[]) => { setBoard(next); setDirty(true) }
   const move = (playerId: string, spot: BoardSpot) => change(board.map((b) => (b.playerId === playerId ? { ...b, ...spot } : b)))
   const remove = (playerId: string) => change(board.filter((b) => b.playerId !== playerId))
+  const draw = (next: Shape[]) => { setDrawings(next); setDirty(true) }
+
   const add = (ids: string[]) => {
     change([...board, ...ids.map((playerId, i) => ({ playerId, ...spotForNewPlayer(board.length + i) }))])
     setPicking(false)
@@ -61,8 +70,8 @@ export default function LineupEditorPage() {
     setSaving(true)
     const id = lineupId ?? crypto.randomUUID()
     const { error } = isNew
-      ? await supabase.from('lineups').insert({ id, name: trimmed })
-      : await supabase.from('lineups').update({ name: trimmed, updated_at: new Date().toISOString() }).eq('id', id)
+      ? await supabase.from('lineups').insert({ id, name: trimmed, drawings })
+      : await supabase.from('lineups').update({ name: trimmed, drawings, updated_at: new Date().toISOString() }).eq('id', id)
     if (!error) {
       const { remove: gone, upsert } = lineupChanges(id, savedIds, board)
       const removed = gone.length
@@ -85,6 +94,7 @@ export default function LineupEditorPage() {
       title: name.trim() || t('lineups.untitled'),
       subtitle: t('lineups.playerCount', { count: onBoard.length }),
       players: onBoard.map((b) => ({ name: b.player.name, photo_url: b.player.photo_url, x: b.x, y: b.y })),
+      drawings,
       footer: 'ScoreLeader',
     })
     await shareCanvas(canvas, 'scoreleader-lineup.png', name.trim() || t('lineups.untitled'))
@@ -113,7 +123,24 @@ export default function LineupEditorPage() {
         className="w-full mt-3 mb-3 px-3 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-lg font-semibold"
       />
 
-      <PitchBoard players={onBoard} onMove={move} />
+      <PitchBoard
+        players={onBoard}
+        onMove={move}
+        tool={tool}
+        color={color}
+        drawings={drawings}
+        onAddShape={(shape) => draw([...drawings, shape])}
+        onEraseShape={(shapeId) => draw(drawings.filter((d) => d.id !== shapeId))}
+      />
+      <BoardToolbar
+        tool={tool}
+        onTool={setTool}
+        color={color}
+        onColor={setColor}
+        canUndo={drawings.length > 0}
+        onUndo={() => draw(drawings.slice(0, -1))}
+        onClear={() => setConfirmClear(true)}
+      />
       {onBoard.length === 0 && <p className="text-sm text-gray-400 text-center mt-2">{t('lineups.emptyBoard')}</p>}
 
       <button onClick={() => setPicking(true)} className="w-full mt-3 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold">
@@ -137,7 +164,7 @@ export default function LineupEditorPage() {
         <button onClick={save} disabled={saving || !name.trim()} className="py-3 rounded-xl bg-green-600 hover:bg-green-500 font-semibold disabled:opacity-50">
           {saving ? t('lineups.saving') : dirty || isNew ? `💾 ${t('lineups.save')}` : `✓ ${t('lineups.saved')}`}
         </button>
-        <button onClick={share} disabled={onBoard.length === 0} className="py-3 rounded-xl bg-[#0866FF] hover:bg-[#0756d6] font-semibold disabled:opacity-50">
+        <button onClick={share} disabled={onBoard.length === 0 && drawings.length === 0} className="py-3 rounded-xl bg-[#0866FF] hover:bg-[#0756d6] font-semibold disabled:opacity-50">
           📤 {t('lineups.share')}
         </button>
       </div>
@@ -151,6 +178,18 @@ export default function LineupEditorPage() {
       )}
 
       {picking && <PlayerPicker players={available} onAdd={add} onClose={() => setPicking(false)} />}
+
+      {confirmClear && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmClear(false)}>
+          <div role="dialog" aria-modal="true" className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="font-bold mb-5">{t('board.confirmClear')}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmClear(false)} className="flex-1 py-2 bg-gray-700 rounded font-semibold">{t('common.cancel')}</button>
+              <button onClick={() => { draw([]); setConfirmClear(false) }} className="flex-1 py-2 bg-red-600 rounded font-semibold">{t('board.clear')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(false)}>
