@@ -190,3 +190,100 @@ export function drawSessionImage(data: SessionImageData): HTMLCanvasElement {
   ctx.fillText(data.footer, W / 2, canvas.height - 60)
   return canvas
 }
+
+export interface LineupImageTeam {
+  name: string
+  hex: string
+  players: { name: string; photo_url: string | null; px: number; py: number }[]
+}
+
+// Full pitch from above with both lineups, plus a line for the waiting team.
+export async function drawLineupImage(data: { title: string; subtitle: string; top: LineupImageTeam; bottom: LineupImageTeam; footer: string }): Promise<HTMLCanvasElement> {
+  const W = 1080
+  const PITCH_X = 60
+  const PITCH_Y = 190
+  const PW = W - PITCH_X * 2
+  const PH = PW * 1.5
+  const H = PITCH_Y + PH + 130
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')!
+
+  ctx.fillStyle = '#0b1220'
+  ctx.fillRect(0, 0, W, H)
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#ffffff'
+  fitText(ctx, data.title, W - 120, 64, 900)
+  ctx.fillText(data.title, W / 2, 72)
+  ctx.font = `500 34px ${FONT}`
+  ctx.fillStyle = '#94a3b8'
+  ctx.fillText(data.subtitle, W / 2, 122)
+
+  // Grass stripes and markings (same proportions as the on-screen pitch: 100 x 150 units)
+  const u = PW / 100
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = i % 2 ? '#15803d' : '#16a34a'
+    ctx.fillRect(PITCH_X, PITCH_Y + i * 15 * u, PW, 15 * u)
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+  ctx.lineWidth = 0.6 * u
+  const rect = (x: number, y: number, w: number, h: number) => ctx.strokeRect(PITCH_X + x * u, PITCH_Y + y * u, w * u, h * u)
+  rect(3, 3, 94, 144); rect(25, 3, 50, 20); rect(38, 3, 24, 7); rect(25, 127, 50, 20); rect(38, 140, 24, 7)
+  ctx.beginPath()
+  ctx.moveTo(PITCH_X + 3 * u, PITCH_Y + 75 * u)
+  ctx.lineTo(PITCH_X + 97 * u, PITCH_Y + 75 * u)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(PITCH_X + 50 * u, PITCH_Y + 75 * u, 11 * u, 0, Math.PI * 2)
+  ctx.stroke()
+
+  const photos = await Promise.all([...data.top.players, ...data.bottom.players].map((p) => loadPhoto(p.photo_url)))
+  let k = 0
+  for (const team of [data.top, data.bottom]) {
+    for (const p of team.players) {
+      const photo = photos[k++]
+      const cx = PITCH_X + p.px * PW
+      const cy = PITCH_Y + p.py * PH
+      const r = 46
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.fillStyle = '#1f2937'
+      ctx.fill()
+      if (photo) {
+        ctx.save()
+        ctx.clip()
+        ctx.drawImage(photo, cx - r, cy - r, r * 2, r * 2)
+        ctx.restore()
+      } else {
+        ctx.fillStyle = '#ffffff'
+        ctx.font = `800 44px ${FONT}`
+        ctx.fillText(p.name.charAt(0).toUpperCase(), cx, cy + 16)
+      }
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.lineWidth = 8
+      ctx.strokeStyle = team.hex
+      ctx.stroke()
+
+      fitText(ctx, p.name, 200, 28, 800)
+      const labelW = Math.min(210, ctx.measureText(p.name).width + 20)
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'
+      roundRect(ctx, cx - labelW / 2, cy + r + 6, labelW, 40, 10)
+      ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(p.name, cx, cy + r + 35)
+    }
+  }
+
+  // Team names at each end
+  ctx.font = `800 36px ${FONT}`
+  for (const [team, y] of [[data.top, PITCH_Y - 20], [data.bottom, PITCH_Y + PH + 52]] as const) {
+    ctx.fillStyle = team.hex
+    ctx.fillText(team.name, W / 2, y)
+  }
+  ctx.fillStyle = '#64748b'
+  ctx.font = `600 28px ${FONT}`
+  ctx.fillText(data.footer, W / 2, H - 30)
+  return canvas
+}

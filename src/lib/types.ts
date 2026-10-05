@@ -102,4 +102,7 @@ export interface SessionAward {
 export interface TeamPlayer {
   team_id: string
   player_id: string
+  // Lineup spot in the team's own half (0..1); null/absent = default formation
+  pos_x?: number | null
+  pos_y?: number | null
 }

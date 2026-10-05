@@ -132,6 +132,10 @@ export default function SessionDetailPage() {
         <h1 className="text-xl font-bold">{session?.date ?? '…'}</h1>
       </div>
 
+      <Link to={`/admin/sessions/${sessionId}/lineup`} className="mb-3 w-full py-3 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold flex items-center justify-center gap-2">
+        ⚽ {t('lineup.link')}
+      </Link>
+
       {session && completed.length > 0 && (
         <div className="mb-6">
           <SessionSummaryShare

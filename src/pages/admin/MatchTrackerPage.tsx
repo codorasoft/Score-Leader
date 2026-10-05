@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useMatchTimer } from '../../hooks/useMatchTimer'
@@ -302,6 +302,12 @@ export default function MatchTrackerPage() {
 
   return (
     <div>
+      <div className="flex justify-end mb-2">
+        <Link to={`/admin/sessions/${sessionId}/lineup`} className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs font-semibold">
+          ⚽ {t('lineup.link')}
+        </Link>
+      </div>
+
       {/* Timer */}
       <div className="text-center mb-6">
         <div className="text-5xl font-mono font-bold">

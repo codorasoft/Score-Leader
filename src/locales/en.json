@@ -389,5 +389,16 @@
     "none_one": "Appears after {{count}} match together with a teammate.",
     "none_other": "Appears after {{count}} matches together with a teammate.",
     "record": "{{wins}}/{{matches}} wins"
+  },
+  "lineup": {
+    "link": "Lineup",
+    "title": "Lineup",
+    "help": "Drag players to place them. Positions are saved automatically.",
+    "vs": "{{team1}} vs {{team2}}",
+    "flip": "Flip sides",
+    "waiting": "{{team}} waits: {{players}}",
+    "reset": "Reset {{team}}",
+    "share": "Share lineup image",
+    "imageTitle": "{{team1}} vs {{team2}}"
   }
 }
