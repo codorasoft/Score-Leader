@@ -10,7 +10,6 @@ import TeamBuilderPage from './pages/admin/TeamBuilderPage'
 import MatchTrackerPage from './pages/admin/MatchTrackerPage'
 import AwardsPage from './pages/admin/AwardsPage'
 import SessionDetailPage from './pages/admin/SessionDetailPage'
-import LineupPage from './pages/admin/LineupPage'
 import HistoryPage from './pages/admin/HistoryPage'
 
 import LiveSessionPage from './pages/public/LiveSessionPage'
@@ -42,7 +41,6 @@ export const router = createBrowserRouter([
           { path: 'sessions/:sessionId/teams', element: <TeamBuilderPage /> },
           { path: 'sessions/:sessionId/match/:matchId', element: <MatchTrackerPage /> },
           { path: 'sessions/:sessionId/awards', element: <AwardsPage /> },
-          { path: 'sessions/:sessionId/lineup', element: <LineupPage /> },
           { path: 'history', element: <HistoryPage /> },
         ],
       },
