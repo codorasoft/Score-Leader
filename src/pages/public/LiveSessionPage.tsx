@@ -8,6 +8,8 @@ import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionMatchList } from '../../components/SessionMatchList'
 import { SessionStandings } from '../../components/SessionStandings'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
+import LoadFailed from '../../components/LoadFailed'
+import NotAvailablePage from '../NotAvailablePage'
 import type { Session, Match, Team, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 
 const colorBg: Record<string, string> = {
@@ -25,10 +27,14 @@ export default function LiveSessionPage() {
   const [events, setEvents] = useState<MatchEvent[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [elapsed, setElapsed] = useState(0)
+  const [status, setStatus] = useState<'loading' | 'missing' | 'failed' | 'ready'>('loading')
 
   const load = useCallback(async () => {
-    const { data: sess } = await supabase.from('sessions').select('*').eq('share_token', token).single()
-    if (!sess) return
+    const { data: sess, error } = await supabase.from('sessions').select('*').eq('share_token', token).maybeSingle()
+    // A failed live refresh keeps what is on screen; only a failed first load needs the retry screen
+    if (error) { setStatus((s) => (s === 'ready' ? s : 'failed')); return }
+    if (!sess) { setStatus('missing'); return }
+    setStatus('ready')
     const sessionId = (sess as Session).id
     setSession(sess as Session)
 
@@ -82,6 +88,8 @@ export default function LiveSessionPage() {
   useRealtime('matches', { column: 'session_id', value: session?.id ?? '' }, load)
   useRealtime('match_events', { column: 'match_id', value: match?.id ?? '' }, load)
 
+  if (status === 'failed') return <LoadFailed onRetry={() => { setStatus('loading'); load() }} />
+  if (status === 'missing') return <NotAvailablePage kind="page" embedded />
   if (!session) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
   const teamName = (team: Team | undefined) =>

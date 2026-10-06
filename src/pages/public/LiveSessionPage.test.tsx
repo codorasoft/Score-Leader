@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
-import { resetDb } from '../../test/fakeSupabase'
+import { db, resetDb } from '../../test/fakeSupabase'
 import { event, finishedLeague, match, session } from '../../test/fixtures'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
@@ -40,4 +41,24 @@ it('shows the day and results when no match is being played', async () => {
   expect(await screen.findByText('No active match')).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: '2026-09-20' })).toBeInTheDocument()
   expect(screen.getAllByText('Omar').length).toBeGreaterThan(0)
+})
+
+it('says the page is not found when the link is unknown', async () => {
+  resetDb()
+  renderPage()
+  expect(await screen.findByText('Page not found')).toBeInTheDocument()
+  expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+})
+
+it('offers a retry when the session cannot be loaded', async () => {
+  resetDb(finishedLeague())
+  db.errors.sessions = { message: 'Failed to fetch' }
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+
+  delete db.errors.sessions
+  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(await screen.findByText('No active match')).toBeInTheDocument()
 })

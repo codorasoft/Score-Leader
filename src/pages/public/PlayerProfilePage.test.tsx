@@ -35,7 +35,7 @@ it("shows a player's career totals and session history", async () => {
 
 it('does not show a player from another league', async () => {
   renderPage('px')
-  expect(await screen.findByText(/not available|no longer available|not found/i)).toBeInTheDocument()
+  expect(await screen.findByText('Page not found')).toBeInTheDocument()
   expect(screen.queryByText('Stranger')).not.toBeInTheDocument()
 })
 
