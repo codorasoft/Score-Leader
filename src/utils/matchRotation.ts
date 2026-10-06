@@ -10,12 +10,15 @@ export interface NextMatch {
 
 // Winner stays, the first waiting team comes on, the loser joins the back of the queue
 // (draws are decided by decideResult first). With nobody waiting (2 teams) the same two play again.
+// Teams waiting during a match, in order; matches saved before queues existed only have their waiting team
+export const waitingQueue = (match: Pick<Match, 'queue' | 'waiting_team_id'>): string[] =>
+  match.queue?.length ? match.queue : match.waiting_team_id ? [match.waiting_team_id] : []
+
 export function resolveMatch(match: Match): NextMatch {
   const { team1_id, team2_id, winner_team_id } = match
   if (!winner_team_id) throw new Error('Cannot resolve match without a winner')
   const loser = winner_team_id === team1_id ? team2_id : team1_id
-  // Matches saved before queues existed only have their waiting team
-  const waiting = match.queue?.length ? match.queue : match.waiting_team_id ? [match.waiting_team_id] : []
+  const waiting = waitingQueue(match)
   if (waiting.length === 0) return { team1Id: winner_team_id, team2Id: loser, queue: [] }
   return { team1Id: winner_team_id, team2Id: waiting[0], queue: [...waiting.slice(1), loser] }
 }

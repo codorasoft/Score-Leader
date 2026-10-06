@@ -7,7 +7,8 @@ import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
-import { resolveMatch, decideResult, matchRowFields } from '../../utils/matchRotation'
+import { resolveMatch, decideResult, matchRowFields, waitingQueue } from '../../utils/matchRotation'
+import { NextUp } from '../../components/NextUp'
 import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
 import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
@@ -52,7 +53,7 @@ export default function MatchTrackerPage() {
   const [result, setResult] = useState<{
     outcome: MatchOutcome
     nextMatchId: string | null
-    next: { team1Id: string; team2Id: string; waitingTeamId: string }
+    next: { team1Id: string; team2Id: string; queue: string[] }
   } | null>(null)
   // Clock reading captured when Goal/Card is tapped, not after the scorer is picked
   const [eventClock, setEventClock] = useState(0)
@@ -130,7 +131,6 @@ export default function MatchTrackerPage() {
 
   const team1 = teams.find((tm) => tm.id === match.team1_id)
   const team2 = teams.find((tm) => tm.id === match.team2_id)
-  const waitingTeam = teams.find((tm) => tm.id === match.waiting_team_id)
 
   if (!team1 || !team2) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
@@ -276,7 +276,7 @@ export default function MatchTrackerPage() {
     setResult({
       outcome: describeOutcome({ ...completedMatch, winner_team_id: update.winner_team_id, elapsedSeconds: timer.elapsed, penalties }),
       nextMatchId: nextMatch ? (nextMatch as Match).id : null,
-      next: { team1Id: next.team1Id, team2Id: next.team2Id, waitingTeamId: next.queue[0] ?? '' },
+      next,
     })
   }
 
@@ -347,11 +347,7 @@ export default function MatchTrackerPage() {
         </div>
       </div>
 
-      {waitingTeam && (
-        <div className="text-center text-sm text-gray-400 mb-6">
-          {t('common.waiting')}: <span className="font-semibold text-gray-300">{t('common.teamName', { color: t(`common.teamColor.${waitingTeam.color}`) })}</span>
-        </div>
-      )}
+      <NextUp queue={waitingQueue(match)} teams={teams} className="text-center text-sm text-gray-400 mb-6" />
 
       {/* Suspensions */}
       {cards && activeSuspensions.length > 0 && (
@@ -496,7 +492,7 @@ export default function MatchTrackerPage() {
           next={{
             team1: teams.find((tm) => tm.id === result.next.team1Id),
             team2: teams.find((tm) => tm.id === result.next.team2Id),
-            waiting: teams.find((tm) => tm.id === result.next.waitingTeamId),
+            queue: result.next.queue.map((id) => teams.find((tm) => tm.id === id)).filter((tm): tm is Team => !!tm),
           }}
           onContinue={continueAfterResult}
         />

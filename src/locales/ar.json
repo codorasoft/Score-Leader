@@ -126,7 +126,9 @@
     "undoConfirm": "نعم، تراجع",
     "startFirst": "اضغط بدء لتسجيل الأهداف والبطاقات",
     "log": "سجل المباراة",
-    "undoSwap": "↔ تبديل — {{a}} ⇄ {{b}}"
+    "undoSwap": "↔ تبديل — {{a}} ⇄ {{b}}",
+    "nextUp": "التالي: {{team}}",
+    "nextUpThen": "التالي: {{team}}، ثم {{rest}}"
   },
   "goal": {
     "whoScored": "من سجّل؟",
@@ -313,7 +315,6 @@
       "drawPreviousWinnerLoses": "تعادل. {{loser}} فاز في المباراة السابقة، لذلك يُحسب التعادل خسارة له. يبقى {{team}} في الملعب."
     },
     "next": "التالية: {{team1}} ضد {{team2}}",
-    "waits": "{{team}} ينتظر",
     "continue": "متابعة"
   },
   "timeline": {

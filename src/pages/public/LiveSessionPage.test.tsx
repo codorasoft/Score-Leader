@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb } from '../../test/fakeSupabase'
-import { event, finishedLeague, match, session } from '../../test/fixtures'
+import { event, finishedLeague, match, session, team } from '../../test/fixtures'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -22,7 +22,7 @@ it('shows the match being played: clock, score, waiting team and goals', async (
     ...league,
     sessions: [{ ...session, status: 'active' }],
     matches: [...league.matches, match('m3', {
-      match_number: 3, team1_id: 'ty', team2_id: 'tb', waiting_team_id: 'tg', status: 'active',
+      match_number: 3, team1_id: 'ty', team2_id: 'tb', waiting_team_id: 'tg', queue: ['tg'], status: 'active',
       team1_score: 1, team2_score: 0, timer_status: 'paused', timer_elapsed_seconds: 125,
     })],
     match_events: [...league.match_events, event('e9', 'm3', 'p6', 'ty', 'goal', { minute: 1, elapsed_seconds: 100 })],
@@ -31,7 +31,7 @@ it('shows the match being played: clock, score, waiting team and goals', async (
   expect(await screen.findByText('Match #3')).toBeInTheDocument()
   expect(await screen.findByText('02:05')).toBeInTheDocument()
   expect(screen.getByText('Paused')).toBeInTheDocument()
-  expect(screen.getByText(/Waiting/).textContent).toContain('Green Team')
+  expect(screen.getByText('Next up: Green Team')).toBeInTheDocument()
   expect(screen.getAllByText('Nour').length).toBeGreaterThan(0)
 })
 
@@ -61,4 +61,18 @@ it('offers a retry when the session cannot be loaded', async () => {
   delete db.errors.sessions
   await user.click(screen.getByRole('button', { name: 'Retry' }))
   expect(await screen.findByText('No active match')).toBeInTheDocument()
+})
+
+it('four teams: shows who comes on next, in order', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    teams: [...league.teams, team('to', 's1', 'orange')],
+    sessions: [{ ...session, status: 'active', team_count: 4 }],
+    matches: [...league.matches, match('m3', {
+      match_number: 3, team1_id: 'ty', team2_id: 'tg', waiting_team_id: 'to', queue: ['to', 'tb'], status: 'active', timer_status: 'paused',
+    })],
+  })
+  renderPage()
+  expect(await screen.findByText('Next up: Orange Team, then Blue Team')).toBeInTheDocument()
 })

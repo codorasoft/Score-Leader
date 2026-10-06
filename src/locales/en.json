@@ -114,7 +114,9 @@
     "undoConfirm": "Yes, undo",
     "startFirst": "Press Start to record goals and cards",
     "log": "Match log",
-    "undoSwap": "↔ Swap — {{a}} ⇄ {{b}}"
+    "undoSwap": "↔ Swap — {{a}} ⇄ {{b}}",
+    "nextUp": "Next up: {{team}}",
+    "nextUpThen": "Next up: {{team}}, then {{rest}}"
   },
   "goal": {
     "whoScored": "Who scored?",
@@ -281,7 +283,6 @@
       "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on."
     },
     "next": "Next: {{team1}} vs {{team2}}",
-    "waits": "{{team}} waits",
     "continue": "Continue"
   },
   "timeline": {

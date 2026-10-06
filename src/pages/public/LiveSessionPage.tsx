@@ -9,6 +9,8 @@ import { SessionMatchList } from '../../components/SessionMatchList'
 import { SessionStandings } from '../../components/SessionStandings'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import LoadFailed from '../../components/LoadFailed'
+import { NextUp } from '../../components/NextUp'
+import { waitingQueue } from '../../utils/matchRotation'
 import NotAvailablePage from '../NotAvailablePage'
 import type { Session, Match, Team, MatchEvent, Player, TeamPlayer } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
@@ -93,7 +95,6 @@ export default function LiveSessionPage() {
     team ? t('common.teamName', { color: t(`common.teamColor.${team.color}`) }) : ''
   const team1 = teams.find((tm) => tm.id === match?.team1_id)
   const team2 = teams.find((tm) => tm.id === match?.team2_id)
-  const waitingTeam = teams.find((tm) => tm.id === match?.waiting_team_id)
 
   return (
     <div className="max-w-lg mx-auto">
@@ -129,11 +130,7 @@ export default function LiveSessionPage() {
             </div>
           </div>
 
-          {waitingTeam && (
-            <p className="text-center text-sm text-gray-400 mb-4">
-              {t('common.waiting')}: <span className="font-semibold text-gray-300">{teamName(waitingTeam)}</span>
-            </p>
-          )}
+          <NextUp queue={waitingQueue(match)} teams={teams} className="text-center text-sm text-gray-400 mb-4" />
 
           <section className="bg-gray-800 rounded-xl p-3">
             <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>

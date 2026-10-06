@@ -13,7 +13,7 @@ import { SessionVotes } from '../../components/SessionVotes'
 import { SessionSummaryShare } from '../../components/SessionSummaryShare'
 import LoadFailed from '../../components/LoadFailed'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
-import { matchRowFields, nextMatchToStart } from '../../utils/matchRotation'
+import { matchRowFields, nextMatchToStart, waitingQueue } from '../../utils/matchRotation'
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
@@ -223,7 +223,8 @@ export default function SessionDetailPage() {
         {completed.map((m) => {
           const t1 = teamById[m.team1_id]
           const t2 = teamById[m.team2_id]
-          const waiting = m.waiting_team_id ? teamById[m.waiting_team_id] : undefined
+          // Everyone who sat out this match, in queue order
+          const waiting = waitingQueue(m).map((id) => teamById[id]).filter(Boolean)
           const winner = m.winner_team_id ? teamById[m.winner_team_id] : null
           const isEditing = editingId === m.id
           const matchEvents = events.filter((e) => e.match_id === m.id)
@@ -353,9 +354,9 @@ export default function SessionDetailPage() {
                 </div>
               )}
 
-              {!isEditing && waiting && (
+              {!isEditing && waiting.length > 0 && (
                 <p className="text-xs text-gray-500 mt-2 text-center">
-                  {t('common.waiting')}: {teamLabel(waiting)}
+                  {t('common.waiting')}: {waiting.map(teamLabel).join(', ')}
                 </p>
               )}
               {!isEditing && m.is_draw && m.draw_resolved_by === 'penalties' && (

@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { resetDb, rows } from '../../test/fakeSupabase'
-import { finishedLeague, players, session, teamPlayers, teams } from '../../test/fixtures'
+import { finishedLeague, players, session, team, teamPlayers, teams } from '../../test/fixtures'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -58,4 +58,16 @@ it('offers nothing to start once the session is finished', async () => {
   renderPage()
   expect(await screen.findByText('Match #2')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Start match/ })).not.toBeInTheDocument()
+})
+
+it('four teams with all matches deleted: pick two to start, the other two queue', async () => {
+  resetDb({ players, teams: [...teams, team('to', 's1', 'orange')], team_players: teamPlayers, sessions: [{ ...session, status: 'active', team_count: 4 }], matches: [] })
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'Blue Team' }))
+  await user.click(screen.getByRole('button', { name: 'Orange Team' }))
+  await user.click(screen.getByRole('button', { name: 'Start match 1' }))
+  await waitFor(() => expect(screen.getByText(/^tracker/)).toBeInTheDocument())
+  expect([newMatch().team1_id, newMatch().team2_id].sort()).toEqual(['tb', 'to'])
+  expect(newMatch()).toMatchObject({ queue: ['tg', 'ty'], waiting_team_id: 'tg' })
 })

@@ -6,7 +6,7 @@ import type { Team } from '../lib/types'
 const red: Team = { id: 'red', session_id: 's', color: 'green', name: null }
 const blue: Team = { id: 'blue', session_id: 's', color: 'blue', name: null }
 const yellow: Team = { id: 'yellow', session_id: 's', color: 'yellow', name: null }
-const next = { team1: red, team2: yellow, waiting: blue }
+const next = { team1: red, team2: yellow, queue: [blue] }
 
 it('names the winner, explains why, and continues on the button', () => {
   const onContinue = vi.fn()
@@ -20,6 +20,7 @@ it('names the winner, explains why, and continues on the button', () => {
   expect(screen.getByRole('heading')).toHaveTextContent('Green Team wins!')
   expect(screen.getByText('Green Team was first to score 2 goals.')).toBeInTheDocument()
   expect(screen.getByText(/Next: Green Team vs Yellow Team/)).toBeInTheDocument()
+  expect(screen.getByText('Next up: Blue Team')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
   expect(onContinue).toHaveBeenCalledTimes(1)
 })
@@ -45,4 +46,15 @@ it('names the challenger as winner of a later-match draw and explains the previo
   )
   expect(screen.getByRole('heading')).toHaveTextContent('Blue Team wins!')
   expect(screen.getByText('Draw. Green Team won the last match, so a draw counts as a loss for them. Blue Team stays on.')).toBeInTheDocument()
+})
+
+it('shows nobody waiting with two teams', () => {
+  render(
+    <MatchResultDialog
+      outcome={{ isDraw: false, winnerTeamId: 'red', reason: 'goalLimit' }}
+      team1={{ team: red, score: 2 }} team2={{ team: blue, score: 1 }}
+      next={{ team1: red, team2: blue, queue: [] }} onContinue={vi.fn()}
+    />,
+  )
+  expect(screen.queryByText(/Next up/)).not.toBeInTheDocument()
 })
