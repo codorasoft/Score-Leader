@@ -11,7 +11,14 @@ import { copyText, shareToMessenger } from '../../lib/messengerShare'
 const input = 'w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white'
 const button = 'px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold disabled:opacity-50'
 
+// The page stays mounted when the admin switches league from the header, so the form is keyed by
+// league: switching starts it fresh (name box, messages, an unfinished logo crop).
 export default function LeagueSettingsPage() {
+  const league = useLeague()
+  return <LeagueSettingsForm key={league.id} />
+}
+
+function LeagueSettingsForm() {
   const { t } = useTranslation()
   const league = useLeague()
   const { refresh } = useMyLeagues()

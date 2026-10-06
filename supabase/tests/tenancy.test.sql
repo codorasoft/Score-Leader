@@ -7,7 +7,7 @@
 --   prefix bbbbbbbb = admin B (all features), league b-league
 --   prefix cccccccc = superadmin S
 --   prefix dddddddd = admin D (disabled; d-league is created in the security rules tests)
---   prefix eeeeeeee = rows the Eagles admin inserts without league_id (old app)
+--   (prefix eeeeeeee is no longer used)
 --   suffix ...0001 user, ...0002 league, ...0003 / ...0004 players, ...0005 session,
 --          ...0006 / ...0007 / ...0008 teams (green / blue / yellow), ...0009 match
 --          (team 1 vs team 2, team 3 waiting), ...0010 match event, ...0011 open vote,
@@ -59,14 +59,13 @@ BEGIN
   END IF;
 END $$;
 
--- ===== Backfill (checked before the fixture adds rows in other leagues)
+-- ===== Every row belongs to a league (checked before the fixture adds rows)
 
 DO $$
 DECLARE
   t text;
   eagles uuid := (SELECT id FROM public.leagues WHERE slug = 'eagles');
   nulls bigint;
-  elsewhere bigint;
 BEGIN
   PERFORM pg_temp.expect(eagles IS NOT NULL, 'league eagles exists');
   FOREACH t IN ARRAY ARRAY[
@@ -74,27 +73,21 @@ BEGIN
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
     'lineups', 'lineup_players'
   ] LOOP
-    EXECUTE format('SELECT count(*) FILTER (WHERE league_id IS NULL),
-                           count(*) FILTER (WHERE league_id IS DISTINCT FROM $1)
-                    FROM public.%I', t)
-      INTO nulls, elsewhere USING eagles;
+    EXECUTE format('SELECT count(*) FILTER (WHERE league_id IS NULL) FROM public.%I', t) INTO nulls;
     PERFORM pg_temp.expect(nulls = 0, t || ': no NULL league_id');
-    PERFORM pg_temp.expect(elsewhere = 0, t || ': every existing row is in eagles');
   END LOOP;
 END $$;
 
 SELECT pg_temp.expect(
-  (SELECT p.role = 'admin' AND cardinality(p.features) = 14 AND p.max_leagues = 1 AND NOT p.is_disabled
-          AND p.email = 'info@codorasoft.com' AND p.display_name = 'Eagles admin'
+  (SELECT p.role = 'admin' AND NOT p.is_disabled AND p.email = 'info@codorasoft.com'
    FROM public.admin_profiles p JOIN auth.users u ON u.id = p.user_id
    WHERE u.email = 'info@codorasoft.com'),
-  'info@codorasoft.com is an enabled admin with 14 features and max_leagues 1');
+  'info@codorasoft.com is an enabled admin');
 
 SELECT pg_temp.expect(
-  (SELECT l.name = 'Eagles' AND l.logo_url IS NULL
-   FROM public.leagues l JOIN auth.users u ON u.id = l.owner_id
+  (SELECT true FROM public.leagues l JOIN auth.users u ON u.id = l.owner_id
    WHERE l.slug = 'eagles' AND u.email = 'info@codorasoft.com'),
-  'Eagles belongs to info@codorasoft.com and has no logo');
+  'eagles belongs to info@codorasoft.com');
 
 -- ===== Fixture
 
@@ -263,9 +256,10 @@ SELECT pg_temp.expect_error(
 -- ===== Helper functions and the public directory
 
 SELECT pg_temp.expect(
-  (SELECT cardinality(features) = 14 AND is_available AND name = 'Eagles' AND logo_url IS NULL
+  (SELECT is_available AND features = (SELECT p.features FROM public.admin_profiles p
+                                        JOIN public.leagues l ON l.owner_id = p.user_id WHERE l.slug = 'eagles')
    FROM public.league_directory WHERE slug = 'eagles'),
-  'league_directory shows eagles as available with 14 features');
+  'league_directory shows eagles as available with its owner''s features');
 
 SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
 SELECT pg_temp.expect(public.owns_league('aaaaaaaa-0000-4000-8000-000000000002'), 'A owns a-league');
@@ -342,7 +336,7 @@ SELECT pg_temp.expect_count(
   $sql$INSERT INTO public.players (league_id, name, position, skill_rating)
        VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'A Player 3', 'MID', 3)$sql$,
   1);
--- No league_id: the temporary default puts the row in Eagles, which A does not own
+-- No league_id: refused (no default league any more)
 SELECT pg_temp.expect_error(
   $sql$INSERT INTO public.players (name, position, skill_rating) VALUES ('No League', 'MID', 3)$sql$,
   'row-level security');
@@ -352,33 +346,20 @@ SELECT pg_temp.expect(
   'A can read b-league players');
 RESET role;
 
--- ===== The app deployed today (no league_id) keeps working for the Eagles admin
+-- ===== After the rollout (temporary defaults dropped) a root row without league_id is refused
 
-SELECT pg_temp.act_as((SELECT id FROM auth.users WHERE email = 'info@codorasoft.com'));
-SELECT pg_temp.expect_count(
-  $sql$INSERT INTO public.players (id, name, position, skill_rating)
-       VALUES ('eeeeeeee-0000-4000-8000-000000000003', 'Old App Player', 'MID', 3)$sql$,
-  1);
-SELECT pg_temp.expect_count(
-  $sql$INSERT INTO public.sessions (id, date, share_token)
-       VALUES ('eeeeeeee-0000-4000-8000-000000000005', '2026-10-06', 'tenancy-test-old-app')$sql$,
-  1);
-SELECT pg_temp.expect_count(
-  $sql$INSERT INTO public.teams (id, session_id, color)
-       VALUES ('eeeeeeee-0000-4000-8000-000000000006', 'eeeeeeee-0000-4000-8000-000000000005', 'green')$sql$,
-  1);
-SELECT pg_temp.expect_count(
-  $sql$INSERT INTO public.lineups (id, name) VALUES ('eeeeeeee-0000-4000-8000-000000000012', 'Old App Board')$sql$,
-  1);
-RESET role;
 SELECT pg_temp.expect(
-  (SELECT bool_and(league_id = (SELECT id FROM public.leagues WHERE slug = 'eagles')) AND count(*) = 4
-   FROM (
-     SELECT league_id FROM public.players WHERE id = 'eeeeeeee-0000-4000-8000-000000000003'
-     UNION ALL SELECT league_id FROM public.sessions WHERE id = 'eeeeeeee-0000-4000-8000-000000000005'
-     UNION ALL SELECT league_id FROM public.teams WHERE id = 'eeeeeeee-0000-4000-8000-000000000006'
-     UNION ALL SELECT league_id FROM public.lineups WHERE id = 'eeeeeeee-0000-4000-8000-000000000012') r),
-  'old-app inserts without league_id land in eagles');
+  (SELECT bool_and(column_default IS NULL) FROM information_schema.columns
+   WHERE table_schema = 'public' AND column_name = 'league_id' AND table_name IN ('players', 'sessions', 'lineups')),
+  'no temporary league_id defaults remain');
+SELECT pg_temp.act_as((SELECT id FROM auth.users WHERE email = 'info@codorasoft.com'));
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.players (name, position, skill_rating) VALUES ('No League', 'MID', 3)$sql$,
+  'row-level security');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.sessions (date, share_token) VALUES ('2026-10-06', 'tenancy-test-no-league')$sql$,
+  'row-level security');
+RESET role;
 
 -- ===== Admin accounts and leagues
 
@@ -596,6 +577,22 @@ SELECT pg_temp.expect_error(
   'row-level security');
 SELECT pg_temp.expect_count(
   $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('league-logos', 'bbbbbbbb-0000-4000-8000-000000000002/logo-1.jpg')$sql$,
+  1);
+-- The storage API deletes with WHERE ... RETURNING, so the owner must also be able to see the file.
+-- Another league's files stay untouched.
+-- (the Storage API sets this flag before deleting; plain SQL deletes are blocked without it)
+SELECT set_config('storage.allow_delete_query', 'true', true);
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM storage.objects WHERE bucket_id = 'league-logos' AND name = 'aaaaaaaa-0000-4000-8000-000000000002/logo-1.jpg'$sql$,
+  0);
+RESET role;
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM storage.objects WHERE bucket_id = 'player-photos' AND name = 'aaaaaaaa-0000-4000-8000-000000000002/players/x.jpg' RETURNING name$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM storage.objects WHERE bucket_id = 'league-logos' AND name = 'aaaaaaaa-0000-4000-8000-000000000002/logo-1.jpg' RETURNING name$sql$,
   1);
 RESET role;
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Rehearses the multi-tenant migrations and the database rules tests on the linked (live)
-# Supabase database inside ONE transaction that always ends in ROLLBACK, so nothing is kept.
+# Rehearses the migrations that are not yet applied, plus the database rules tests, on the
+# linked (live) Supabase database inside ONE transaction that always ends in ROLLBACK, so
+# nothing is kept.
 #
-# Order: BEGIN; per-table row counts; migrations; row counts compared (raises on any
+# Order: BEGIN; per-table row counts; pending migrations; row counts compared (raises on any
 # difference); supabase/tests/tenancy.test.sql; ROLLBACK.
-# Migration 2 (20261006000003_*, drops the temporary defaults) is left out on purpose.
 #
 # Usage: bash scripts/rehearse.sh
 set -euo pipefail
@@ -19,14 +19,23 @@ else
   out=".rehearsal.sql"
 fi
 
+# Versions already applied on the linked project
+applied=$(supabase migration list --linked 2>/dev/null | node -e '
+  let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
+    const j = JSON.parse(s.slice(s.indexOf("{")))
+    process.stdout.write(j.migrations.filter(m => m.remote).map(m => m.remote).join(" "))
+  })')
+[ -n "$applied" ] || { echo "could not read the applied migration list" >&2; exit 1; }
+
 migrations=()
-for f in supabase/migrations/20261006*.sql; do
+for f in supabase/migrations/*.sql; do
   [ -e "$f" ] || continue
-  case "$(basename "$f")" in 20261006000003_*) continue ;; esac
+  version=$(basename "$f" | cut -d_ -f1)
+  case " $applied " in *" $version "*) continue ;; esac
   migrations+=("$f")
 done
 if [ ${#migrations[@]} -eq 0 ]; then
-  echo "warning: no 20261006* migrations found; running the tests against the current schema" >&2
+  echo "no pending migrations; running the tests against the current schema" >&2
 fi
 
 {
