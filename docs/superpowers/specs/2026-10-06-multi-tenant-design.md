@@ -93,7 +93,7 @@ Accounts with no `admin_profiles` row have no access to anything beyond public r
 | owner_id | uuid | → `admin_profiles(user_id)`; cannot change after insert |
 | name | text | 1–80 chars, any language |
 | slug | text UNIQUE | `^[a-z0-9]+(-[a-z0-9]+)*$`, 3–40 chars; cannot change after insert |
-| logo_url | text | nullable |
+| logo_url | text | nullable; NULL shows the default "no logo" image (Section 9) |
 | created_at | timestamptz | |
 
 A BEFORE INSERT trigger on `leagues` rejects the insert when the owner is not an enabled `admin` or already owns `max_leagues` leagues (locks the owner's profile row to avoid races). A BEFORE UPDATE trigger rejects changes to `slug` and `owner_id`.
@@ -202,7 +202,8 @@ Mobile-first, Arabic/English, same look as the admin area.
 
 - **No leagues yet:** single "Create your first league" screen.
 - **New league:** name; address (slug) suggested from Latin names, typed for Arabic names, validated live (format + uniqueness), shown as the full public URL, cannot be changed later; optional logo cropped to a circle with the existing photo cropper and resized before upload. Disabled with "League limit reached (n/n)" at the limit.
-- **Header league switcher:** current league logo (first letter when none) and name; menu lists the admin's leagues, "+ New league (used/max)", and "League settings". Switching keeps the current section (players → players).
+- **Default logo:** every league without a logo (`logo_url` NULL) shows the same built-in "no logo" image — a neutral grey shield placeholder shipped with the app (an SVG in the code, not a file in storage). It is used everywhere a league logo appears: header, switcher, league settings, superadmin lists, public header and league home. Removing a logo in league settings returns to this image.
+- **Header league switcher:** current league logo and name; menu lists the admin's leagues, "+ New league (used/max)", and "League settings". Switching keeps the current section (players → players).
 - **League settings** (`/admin/:slug/settings`): rename, change/remove logo, copy public link, share public link to Messenger.
 - **Hidden features:** menu items and buttons for disabled features are not rendered — no "locked" messages:
 
@@ -280,7 +281,7 @@ It is safe to stop and run again at any point: until step 2, the player still us
 
 - Existing admin account: `info@codorasoft.com` (renamed from `admin@codorasoft.com` on 2026-10-06; same account id and password).
 - Superadmin account: `admin@codorasoft.com`; the user chooses its password at rollout step 5.
-- Legacy league name, slug, and optional logo file.
+- Legacy league: name **Eagles**, slug `eagles`, no logo (shows the default image).
 
 ---
 
