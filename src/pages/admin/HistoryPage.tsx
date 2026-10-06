@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useLeague, useAdminPath } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
 import type { Session } from '../../lib/types'
 
@@ -8,6 +9,8 @@ const tile = 'min-h-[56px] rounded-lg bg-gray-700 hover:bg-gray-600 text-[11px] 
 
 export default function HistoryPage() {
   const { t } = useTranslation()
+  const league = useLeague()
+  const adminPath = useAdminPath()
   const [sessions, setSessions] = useState<Session[]>([])
   const [activeMatchMap, setActiveMatchMap] = useState<Record<string, string>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -19,6 +22,7 @@ export default function HistoryPage() {
     const { data } = await supabase
       .from('sessions')
       .select('*')
+      .eq('league_id', league.id)
       .order('date', { ascending: false })
     const rows = (data ?? []) as Session[]
     setSessions(rows)
@@ -40,7 +44,7 @@ export default function HistoryPage() {
     setActiveMatchMap(map)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [league.id])
 
   const startEdit = (s: Session) => {
     setEditingId(s.id)
@@ -106,11 +110,11 @@ export default function HistoryPage() {
                 {s.status === 'active' && (
                   <div className="grid grid-cols-2 gap-2">
                     {activeMatchMap[s.id] ? (
-                      <Link to={`/admin/sessions/${s.id}/match/${activeMatchMap[s.id]}`} className="min-h-[44px] rounded-lg bg-green-600 hover:bg-green-500 text-sm font-semibold flex items-center justify-center gap-2">
+                      <Link to={adminPath(`/sessions/${s.id}/match/${activeMatchMap[s.id]}`)} className="min-h-[44px] rounded-lg bg-green-600 hover:bg-green-500 text-sm font-semibold flex items-center justify-center gap-2">
                         <span aria-hidden="true">▶</span> {t('history.resume')}
                       </Link>
                     ) : <span />}
-                    <Link to={`/admin/sessions/${s.id}/awards`} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
+                    <Link to={adminPath(`/sessions/${s.id}/awards`)} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
                       <span aria-hidden="true">🏆</span> {t('history.awards')}
                     </Link>
                   </div>
@@ -118,7 +122,7 @@ export default function HistoryPage() {
 
                 {/* Row 2: the four session buttons */}
                 <div className="grid grid-cols-4 gap-2">
-                  <Link to={`/admin/sessions/${s.id}`} className={tile}>
+                  <Link to={adminPath(`/sessions/${s.id}`)} className={tile}>
                     <span className="text-lg" aria-hidden="true">📋</span>{t('history.matches')}
                   </Link>
                   <Link to={`/s/${s.share_token}`} target="_blank" className={tile}>

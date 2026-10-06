@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useLeague, useFeature, useAdminPath } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
 import { selectAll } from '../../lib/selectAll'
 import { balanceTeams } from '../../utils/teamBalancer'
@@ -36,9 +37,12 @@ export default function TeamBuilderPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const league = useLeague()
+  const smart = useFeature('smart_balancing')
+  const adminPath = useAdminPath()
   const [attendees, setAttendees] = useState<Player[]>([])
   const [form, setForm] = useState<Map<string, number>>(new Map())
-  const [formPercent, setFormPercent] = useState(readWeight)
+  const [formPercent, setFormPercent] = useState(() => (smart ? readWeight() : 0))
   const [pairs, setPairs] = useState<Pair[]>([])
   const [splitDuos, setSplitDuos] = useState(readSplitDuos)
   const [teams, setTeams] = useState<[Player[], Player[], Player[]]>([[], [], []])
@@ -52,11 +56,11 @@ export default function TeamBuilderPage() {
   )
 
   const synergy = useCallback((a: Player, b: Player) => {
-    if (!splitDuos) return 0
+    if (!smart || !splitDuos) return 0
     const pair = pairs.find((p) => (p.a === a.id && p.b === b.id) || (p.a === b.id && p.b === a.id))
     if (!pair || pair.matches < DUO_MIN_MATCHES) return 0
     return Math.max(0, (pair.wins / pair.matches - 0.5) * DUO_SCALE)
-  }, [pairs, splitDuos])
+  }, [pairs, splitDuos, smart])
 
   const rebalance = useCallback(() => {
     const result = balanceTeams(attendees, strengthOf, synergy)
@@ -70,10 +74,15 @@ export default function TeamBuilderPage() {
       const { data: spRows } = await supabase.from('session_players').select('player_id').eq('session_id', sessionId)
       const playerIds = (spRows ?? []).map((r: { player_id: string }) => r.player_id)
       if (playerIds.length === 0) return
+      if (!smart) {
+        const { data: playerRows } = await supabase.from('players').select('*').in('id', playerIds)
+        setAttendees((playerRows ?? []) as Player[])
+        return
+      }
       const [{ data: playerRows }, sessions, matches, events, teamPlayers] = await Promise.all([
         supabase.from('players').select('*').in('id', playerIds),
-        selectAll<Session>((a, b) => supabase.from('sessions').select('*').range(a, b)),
-        selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('status', 'completed').range(a, b)),
+        selectAll<Session>((a, b) => supabase.from('sessions').select('*').eq('league_id', league.id).range(a, b)),
+        selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('league_id', league.id).eq('status', 'completed').range(a, b)),
         selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').in('player_id', playerIds).range(a, b)),
         selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').in('player_id', playerIds).range(a, b)),
       ])
@@ -82,7 +91,7 @@ export default function TeamBuilderPage() {
       setAttendees((playerRows ?? []) as Player[])
     }
     load()
-  }, [sessionId])
+  }, [sessionId, league.id, smart])
 
   // Rebalance when attendees and form arrive, and whenever the stars/form mix changes
   useEffect(() => { if (attendees.length > 0) rebalance() }, [rebalance, attendees.length])
@@ -132,7 +141,7 @@ export default function TeamBuilderPage() {
 
     setSaving(false)
     if (matchData) {
-      navigate(`/admin/sessions/${sessionId}/match/${(matchData as { id: string }).id}`)
+      navigate(adminPath(`/sessions/${sessionId}/match/${(matchData as { id: string }).id}`))
     }
   }
 
@@ -150,6 +159,7 @@ export default function TeamBuilderPage() {
         </button>
       </div>
 
+      {smart && (
       <section className="mb-4 bg-gray-800 rounded-xl p-3">
         <div className="flex items-center justify-between text-sm mb-2">
           <label htmlFor="form-weight" className="font-semibold">{t('teamBuilder.balanceBy')}</label>
@@ -176,6 +186,7 @@ export default function TeamBuilderPage() {
           <span>🤝 {t('teamBuilder.splitDuos')}</span>
         </label>
       </section>
+      )}
 
       {needsGk && (
         <div className="mb-4 p-3 bg-yellow-900/40 border border-yellow-600 rounded-lg text-sm text-yellow-300">

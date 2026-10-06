@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
+import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { PhotoCropper } from '../../components/PhotoCropper'
 import { deletePlayerPhoto, uploadPlayerPhoto } from '../../lib/playerPhoto'
@@ -35,6 +36,10 @@ const defaultForm: PlayerFormData = { name: '', position: 'MID', skill_rating: 3
 
 export default function PlayersPage() {
   const { t } = useTranslation()
+  const league = useLeague()
+  const photosOn = useFeature('photos')
+  const profilesOn = useFeature('profiles')
+  const publicPath = usePublicPath()
   const [players, setPlayers] = useState<Player[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
@@ -55,6 +60,7 @@ export default function PlayersPage() {
     const { data } = await supabase
       .from('players')
       .select('*')
+      .eq('league_id', league.id)
       .eq('is_active', true)
       .order('name')
     if (data) setPlayers(data as Player[])
@@ -90,15 +96,15 @@ export default function PlayersPage() {
     const id = editingPlayer?.id ?? crypto.randomUUID()
     const oldPhoto = editingPlayer?.photo_url ?? null
     let photoUrl: string | null = removePhoto ? null : form.photo_url || null
-    if (photoFile) {
-      const uploaded = await uploadPlayerPhoto(id, photoFile).catch(() => null)
+    if (photosOn && photoFile) {
+      const uploaded = await uploadPlayerPhoto(league.id, id, photoFile).catch(() => null)
       // Upload failed (an error message is shown): keep the previous photo rather than losing it
       if (uploaded) photoUrl = uploaded
     }
     const payload = { name: form.name, position: form.position, skill_rating: form.skill_rating, photo_url: photoUrl }
     const { error } = editingPlayer
       ? await supabase.from('players').update(payload).eq('id', id)
-      : await supabase.from('players').insert({ id, ...payload })
+      : await supabase.from('players').insert({ id, league_id: league.id, ...payload })
     if (!error && oldPhoto && oldPhoto !== photoUrl) await deletePlayerPhoto(oldPhoto)
     setSaving(false)
     if (error) return
@@ -128,7 +134,11 @@ export default function PlayersPage() {
             <div className="flex items-center gap-3">
               <PlayerAvatar player={p} />
               <div className="flex-1 min-w-0">
-                <Link to={`/players/${p.id}`} className="font-semibold truncate block hover:underline">{p.name}</Link>
+                {profilesOn ? (
+                  <Link to={publicPath(`/players/${p.id}`)} className="font-semibold truncate block hover:underline">{p.name}</Link>
+                ) : (
+                  <span className="font-semibold truncate block">{p.name}</span>
+                )}
                 <div className="flex items-center gap-2 mt-1">
                   <PositionBadge position={p.position} />
                   <span className="text-yellow-400 text-sm">{'★'.repeat(p.skill_rating)}{'☆'.repeat(5 - p.skill_rating)}</span>
@@ -155,7 +165,7 @@ export default function PlayersPage() {
         ))}
       </div>
 
-      {cropSrc && (
+      {photosOn && cropSrc && (
         <PhotoCropper
           src={cropSrc}
           onCancel={() => setCropSrc(null)}
@@ -186,6 +196,7 @@ export default function PlayersPage() {
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">{editingPlayer ? t('players.editPlayer') : t('players.addPlayerTitle')}</h2>
 
+            {photosOn && (
             <div className="flex items-center gap-4">
               {previewUrl ? (
                 <img src={previewUrl} alt="" className="w-20 h-20 rounded-full object-cover bg-gray-700 shrink-0" />
@@ -231,6 +242,7 @@ export default function PlayersPage() {
                 )}
               </div>
             </div>
+            )}
 
             <input
               placeholder={t('players.namePlaceholder')}
