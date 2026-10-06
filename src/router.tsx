@@ -14,7 +14,7 @@ const LoginPage = lazyPage(() => import('./pages/LoginPage'))
 const AdminHome = lazyPage(() => import('./routes/AdminHome'))
 const AdminLeagueRoute = lazyPage(() => import('./routes/AdminLeagueRoute'))
 const PlayersPage = lazyPage(() => import('./pages/admin/PlayersPage'))
-const NewSessionPage = lazyPage(() => import('./pages/admin/NewSessionPage'))
+const AttendancePage = lazyPage(() => import('./pages/admin/AttendancePage'))
 const TeamBuilderPage = lazyPage(() => import('./pages/admin/TeamBuilderPage'))
 const MatchTrackerPage = lazyPage(() => import('./pages/admin/MatchTrackerPage'))
 const AwardsPage = lazyPage(() => import('./pages/admin/AwardsPage'))
@@ -91,7 +91,9 @@ export const routes: RouteObject[] = [
               { path: 'history', element: page(<HistoryPage />) },
               { path: 'players', element: page(<PlayersPage />) },
               { path: 'settings', element: page(<LeagueSettingsPage />) },
-              { path: 'sessions/new', element: page(<NewSessionPage />) },
+              // Sessions start from the Home popup; old links open it there
+              { path: 'sessions/new', element: <Navigate to="../home?new=1" replace /> },
+              { path: 'sessions/:sessionId/players', element: page(<AttendancePage />) },
               { path: 'sessions/:sessionId', element: page(<SessionDetailPage />) },
               { path: 'sessions/:sessionId/teams', element: page(<TeamBuilderPage />) },
               { path: 'sessions/:sessionId/match/:matchId', element: page(<MatchTrackerPage />) },

@@ -68,3 +68,15 @@ it('leaves out records nobody has set yet', () => {
   expect(records.find((r) => r.id === 'session_clean_sheets')).toBeUndefined()
   expect(records.find((r) => r.id === 'best_duo')).toBeUndefined()
 })
+
+it('records a biggest win between the newer team colours', () => {
+  const extra = {
+    ...league,
+    sessions: [...sessions, { id: 's3', date: '2026-09-15' } as Session],
+    teams: [...teams, { id: 'O', session_id: 's3', color: 'orange' }, { id: 'P', session_id: 's3', color: 'purple' }] as Team[],
+    matches: [...matches, m('m9', 's3', 1, 'P', 'O', 0, 6)],
+  }
+  const biggest = computeRecords(extra).find((r) => r.id === 'biggest_win')!
+  expect(biggest.value).toBe(6)
+  expect(biggest.holders[0]).toMatchObject({ kind: 'match', winnerColor: 'orange', loserColor: 'purple', winnerScore: 6, loserScore: 0 })
+})

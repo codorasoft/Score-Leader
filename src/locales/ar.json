@@ -11,7 +11,10 @@
     "teamColor": {
       "green": "أخضر",
       "blue": "أزرق",
-      "yellow": "أصفر"
+      "yellow": "أصفر",
+      "orange": "برتقالي",
+      "purple": "بنفسجي",
+      "white": "أبيض"
     },
     "waiting": "انتظار",
     "vs": "ضد",
@@ -29,7 +32,6 @@
   },
   "nav": {
     "players": "اللاعبون",
-    "newSession": "جلسة جديدة",
     "history": "السجل",
     "signOut": "تسجيل الخروج",
     "leaderboard": "قائمة المتصدرين",
@@ -56,17 +58,30 @@
     "saving": "جارٍ الحفظ…"
   },
   "session": {
-    "title": "جلسة جديدة",
-    "dateLabel": "تاريخ الجلسة",
-    "startSession": "بدء الجلسة",
     "attendeesTitle": "اختيار الحاضرين",
-    "attendeesHint": "اضغط على اللاعبين لتحديد من سيحضر. الحد الأقصى 15.",
-    "confirmAttendance": "تأكيد الحضور"
+    "attendeesHint": "اضغط على اللاعبين لتحديد من سيحضر.",
+    "confirmAttendance": "تأكيد الحضور",
+    "newTitle": "جلسة جديدة",
+    "date": "التاريخ",
+    "teams": "عدد الفرق",
+    "perTeam": "عدد اللاعبين في كل فريق",
+    "fewerTeams": "فرق أقل",
+    "moreTeams": "فرق أكثر",
+    "fewerPerTeam": "لاعبون أقل في كل فريق",
+    "morePerTeam": "لاعبون أكثر في كل فريق",
+    "upTo_zero": "حتى {{count}} لاعب",
+    "upTo_one": "حتى لاعب واحد",
+    "upTo_two": "حتى لاعبين",
+    "upTo_few": "حتى {{count}} لاعبين",
+    "upTo_many": "حتى {{count}} لاعباً",
+    "upTo_other": "حتى {{count}} لاعب",
+    "create": "إنشاء",
+    "setup": "{{teams}} فرق × {{size}} لاعبين"
   },
   "teamBuilder": {
     "title": "بناء الفرق",
     "shuffleAll": "خلط الفرق",
-    "noGkWarning": "أقل من 3 حراس مرمى — حدد لاعبين ميدانيين كحراس إذا لزم الأمر.",
+    "noGkWarning": "عدد حراس المرمى أقل من عدد الفرق ({{teams}}) — حدد لاعبين ميدانيين كحراس إذا لزم الأمر.",
     "confirmAndStart": "تأكيد الفرق والبدء",
     "saving": "جار الحفظ…",
     "swapHint": "اضغط على لاعب، ثم على لاعب من فريق آخر لتبديلهما.",
@@ -78,10 +93,7 @@
     "teamSummary_few": "{{count}} لاعبين · {{stars}}★",
     "teamSummary_many": "{{count}} لاعباً · {{stars}}★",
     "teamSummary_other": "{{count}} لاعب · {{stars}}★",
-    "firstMatch": "المباراة الأولى",
     "firstMatchRandom": "عشوائي (قرعة)",
-    "firstMatchPair": "{{team1}} ضد {{team2}}",
-    "firstMatchWaits": "{{team}} ينتظر",
     "balanceBy": "توزيع الفرق حسب",
     "stars": "النجوم",
     "form": "المستوى",
@@ -98,7 +110,9 @@
     "teamStrength_few": "{{count}} لاعبين · ⚡{{power}}",
     "teamStrength_many": "{{count}} لاعباً · ⚡{{power}}",
     "teamStrength_other": "{{count}} لاعب · ⚡{{power}}",
-    "splitDuos": "فصل الثنائيات التي تفوز كثيراً معاً"
+    "splitDuos": "فصل الثنائيات التي تفوز كثيراً معاً",
+    "firstMatchPick": "من يلعب أولاً؟",
+    "pickTwo": "اختر فريقين، أو اتركها عشوائية. باقي الفرق تنتظر بهذا الترتيب."
   },
   "match": {
     "start": "▶ بدء",
@@ -124,7 +138,9 @@
     "undoConfirm": "نعم، تراجع",
     "startFirst": "اضغط بدء لتسجيل الأهداف والبطاقات",
     "log": "سجل المباراة",
-    "undoSwap": "↔ تبديل — {{a}} ⇄ {{b}}"
+    "undoSwap": "↔ تبديل — {{a}} ⇄ {{b}}",
+    "nextUp": "التالي: {{team}}",
+    "nextUpThen": "التالي: {{team}}، ثم {{rest}}"
   },
   "goal": {
     "whoScored": "من سجّل؟",
@@ -311,7 +327,6 @@
       "drawPreviousWinnerLoses": "تعادل. {{loser}} فاز في المباراة السابقة، لذلك يُحسب التعادل خسارة له. يبقى {{team}} في الملعب."
     },
     "next": "التالية: {{team1}} ضد {{team2}}",
-    "waits": "{{team}} ينتظر",
     "continue": "متابعة"
   },
   "timeline": {

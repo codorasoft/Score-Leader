@@ -25,7 +25,8 @@ function renderAt(path: string, features: readonly FeatureKey[] = FEATURES) {
 it('Home is the first tab and is marked current on the home page', () => {
   const nav = renderAt('/admin/eagles/home')
   const links = nav.getAllByRole('link')
-  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'New Session', 'History', 'Coach Board'])
+  // No New Session tab: sessions start from Home
+  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Coach Board'])
   expect(links[0]).toHaveAttribute('href', '/admin/eagles/home')
   expect(links[0]).toHaveAttribute('aria-current', 'page')
 })
@@ -36,7 +37,7 @@ it('History stays current inside a session', () => {
   expect(nav.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
 })
 
-it('without the coach board there are four tabs', () => {
+it('without the coach board there are three tabs', () => {
   const nav = renderAt('/admin/eagles/home', ['cards'])
-  expect(nav.getAllByRole('link')).toHaveLength(4)
+  expect(nav.getAllByRole('link')).toHaveLength(3)
 })

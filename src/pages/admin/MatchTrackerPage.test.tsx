@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { resetDb, rows } from '../../test/fakeSupabase'
-import { match, players, session, teamPlayers, teams } from '../../test/fixtures'
+import { match, player, players, session, team, teamPlayers, teams } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
@@ -44,7 +44,7 @@ it('shows who is playing and who waits, and blocks goals until the clock starts'
   renderPage()
   expect(await screen.findByText('Green Team')).toBeInTheDocument()
   expect(screen.getByText('Blue Team')).toBeInTheDocument()
-  expect(screen.getByText(/Waiting/).textContent).toContain('Yellow Team')
+  expect(screen.getByText('Next up: Yellow Team')).toBeInTheDocument()
   // The clock state catches up with the loaded match one render later
   await waitFor(() => expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeDisabled())
   expect(screen.getByText('Press Start to record goals and cards')).toBeInTheDocument()
@@ -127,4 +127,40 @@ it('hides card and swap buttons when those features are off', async () => {
   expect(await screen.findByRole('button', { name: '⚽ Goal' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '🟨 Card' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '↔ Swap' })).not.toBeInTheDocument()
+})
+
+describe('more or fewer than three teams', () => {
+  it('four teams: the winner stays, the first waiting team comes on and the loser joins the queue', async () => {
+    rows('teams').push(team('to', 's1', 'orange'))
+    rows('players').push(player('p8', 'Rami', 'MID', 3), player('p9', 'Tariq', 'ATT', 3))
+    rows('team_players').push({ league_id: 'L1', team_id: 'to', player_id: 'p8' }, { league_id: 'L1', team_id: 'to', player_id: 'p9' })
+    Object.assign(rows('sessions')[0], { team_count: 4 })
+    Object.assign(rows('matches')[0], { queue: ['ty', 'to'], waiting_team_id: 'ty', team1_score: 1 })
+    const user = userEvent.setup()
+    renderPage()
+    expect(await screen.findByText('Next up: Yellow Team, then Orange Team')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+
+    expect(await screen.findByRole('heading', { name: 'Green Team wins!' })).toBeInTheDocument()
+    expect(screen.getByText('Next up: Orange Team, then Blue Team')).toBeInTheDocument()
+    const next = rows('matches').find((m) => m.match_number === 2)!
+    expect(next).toMatchObject({ team1_id: 'tg', team2_id: 'ty', queue: ['to', 'tb'], waiting_team_id: 'to' })
+  })
+
+  it('two teams: the same two play again and nobody is shown waiting', async () => {
+    rows('teams').splice(2, 1)
+    rows('team_players').splice(4, 2)
+    Object.assign(rows('sessions')[0], { team_count: 2 })
+    Object.assign(rows('matches')[0], { match_number: 2, queue: [], waiting_team_id: null, team2_score: 1 })
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    expect(screen.queryByText(/Next up/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+
+    expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
+    expect(screen.queryByText(/Next up/)).not.toBeInTheDocument()
+    expect(rows('matches').find((m) => m.match_number === 3)).toMatchObject({ team1_id: 'tb', team2_id: 'tg', queue: [], waiting_team_id: null })
+  })
 })

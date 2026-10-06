@@ -1,5 +1,5 @@
 export type PlayerPosition = 'GK' | 'DEF' | 'MID' | 'ATT'
-export type TeamColor = 'green' | 'blue' | 'yellow'
+export type TeamColor = 'green' | 'blue' | 'yellow' | 'orange' | 'purple' | 'white'
 export type SessionStatus = 'draft' | 'active' | 'completed'
 export type MatchStatus = 'pending' | 'active' | 'completed'
 export type TimerStatus = 'running' | 'paused' | 'stopped'
@@ -25,6 +25,9 @@ export interface Session {
   status: SessionStatus
   share_token: string
   created_at: string
+  // How many teams play and how many players each has (2–6 teams of 3–11)
+  team_count: number
+  team_size: number
 }
 
 export interface Team {
@@ -42,7 +45,10 @@ export interface Match {
   match_number: number
   team1_id: string
   team2_id: string
-  waiting_team_id: string
+  // First team in `queue`, or null when nobody waits (2-team sessions)
+  waiting_team_id: string | null
+  // Teams waiting to come on, in order; the winner stays and the loser joins the back
+  queue: string[]
   status: MatchStatus
   team1_score: number
   team2_score: number

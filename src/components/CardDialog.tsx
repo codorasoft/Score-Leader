@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Player, Team } from '../lib/types'
+import { styleMap } from '../lib/teamColors'
 
 type CardType = 'yellow_card' | 'red_card'
 
@@ -15,11 +16,7 @@ interface CardDialogProps {
   onClose: () => void
 }
 
-const colorDot: Record<string, string> = {
-  green: 'bg-green-500',
-  blue: 'bg-blue-500',
-  yellow: 'bg-yellow-400',
-}
+const colorDot = styleMap('dot')
 
 export function CardDialog({ teams, onConfirm, onClose }: CardDialogProps) {
   const { t } = useTranslation()

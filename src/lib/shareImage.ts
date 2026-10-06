@@ -2,6 +2,7 @@ import type { Player } from './types'
 import type { PlayerCard } from '../utils/playerCard'
 import { TIER_STYLE } from '../components/PlayerCardView'
 import { DRAW_COLORS, type Shape } from '../utils/boardDrawings'
+import { styleMap } from './teamColors'
 
 const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Arabic", sans-serif'
 
@@ -133,7 +134,7 @@ export interface SessionImageData {
   footer: string
 }
 
-const DOT: Record<string, string> = { green: '#22c55e', blue: '#3b82f6', yellow: '#facc15' }
+const DOT = styleMap('hex')
 
 export function drawSessionImage(data: SessionImageData): HTMLCanvasElement {
   const W = 1080

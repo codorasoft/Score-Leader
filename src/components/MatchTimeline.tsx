@@ -3,8 +3,9 @@ import type { MatchEvent, Player, Team } from '../lib/types'
 import { buildTimeline } from '../utils/timeline'
 import { formatMatchClock } from '../utils/matchClock'
 import { useFeature } from '../contexts/LeagueContext'
+import { styleMap } from '../lib/teamColors'
 
-const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const colorDot = styleMap('dot')
 
 interface Props {
   events: MatchEvent[]

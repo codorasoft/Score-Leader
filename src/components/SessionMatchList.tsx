@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Match, MatchEvent, Player, Team } from '../lib/types'
 import { MatchTimeline } from './MatchTimeline'
+import { styleMap } from '../lib/teamColors'
 
-const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const colorDot = styleMap('dot')
 
 interface Props {
   matches: Match[]

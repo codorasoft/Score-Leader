@@ -2,25 +2,22 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Player, TeamColor } from '../lib/types'
 import { PositionBadge } from '../pages/admin/PlayersPage'
-import { movePlayer, swapPlayers, teamStars, type ThreeTeams } from '../utils/teamEdit'
+import { movePlayer, swapPlayers, teamStars, type Teams } from '../utils/teamEdit'
+import { styleMap } from '../lib/teamColors'
 
-const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
-
-const colorStyles: Record<TeamColor, string> = {
-  green: 'border-green-500 bg-green-900/20',
-  blue: 'border-blue-500 bg-blue-900/20',
-  yellow: 'border-yellow-500 bg-yellow-900/20',
-}
+const colorStyles = styleMap('board')
 
 interface Props {
-  teams: ThreeTeams
-  onChange: (teams: ThreeTeams) => void
+  teams: Teams
+  // Colour of each team, in the same order as `teams`
+  colors: TeamColor[]
+  onChange: (teams: Teams) => void
   // When given, team totals and player chips show this balancing strength instead of only stars
   strengthOf?: (p: Player) => number
 }
 
 // Tap a player to select them, then tap a player on another team to swap, or "Move here".
-export function TeamSwapBoard({ teams, onChange, strengthOf }: Props) {
+export function TeamSwapBoard({ teams, colors, onChange, strengthOf }: Props) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selectedTeam = selectedId ? teams.findIndex((team) => team.some((p) => p.id === selectedId)) : -1
@@ -45,8 +42,10 @@ export function TeamSwapBoard({ teams, onChange, strengthOf }: Props) {
         {selected ? t('teamBuilder.selectedHint', { name: selected.name }) : t('teamBuilder.swapHint')}
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {COLORS.map((color, idx) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {colors.map((color, idx) => {
+          // Colours can arrive before the teams are (re)built
+          const members = teams[idx] ?? []
           const isTarget = selected && idx !== selectedTeam
           return (
             <section key={color} className={`border rounded-xl p-3 ${colorStyles[color]}`}>
@@ -54,13 +53,13 @@ export function TeamSwapBoard({ teams, onChange, strengthOf }: Props) {
                 <h2 className="font-bold">{t('common.teamName', { color: t(`common.teamColor.${color}`) })}</h2>
                 <span className="text-xs text-gray-300">
                   {strengthOf
-                    ? t('teamBuilder.teamStrength', { count: teams[idx].length, power: teams[idx].reduce((n, p) => n + strengthOf(p), 0).toFixed(1) })
-                    : t('teamBuilder.teamSummary', { count: teams[idx].length, stars: teamStars(teams[idx]) })}
+                    ? t('teamBuilder.teamStrength', { count: members.length, power: members.reduce((n, p) => n + strengthOf(p), 0).toFixed(1) })
+                    : t('teamBuilder.teamSummary', { count: members.length, stars: teamStars(members) })}
                 </span>
               </div>
 
               <div className="space-y-2">
-                {teams[idx].map((player) => {
+                {members.map((player) => {
                   const isSelected = player.id === selectedId
                   return (
                     <button

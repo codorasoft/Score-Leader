@@ -15,7 +15,6 @@ const icon = (d: string) => (
 const ICONS = {
   home: icon('M3 11l9-8 9 8M5 9.5V21h5v-6h4v6h5V9.5'),
   players: icon('M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'),
-  newSession: icon('M12 8v8M8 12h8M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20'),
   history: icon('M12 7v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20'),
   // A pitch: outline, halfway line and centre circle
   lineup: icon('M4 3h16v18H4zM4 12h16M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5'),
@@ -23,13 +22,12 @@ const ICONS = {
 }
 
 // History covers the history list and everything inside an existing session
-function activeTab(pathname: string): 'home' | 'players' | 'newSession' | 'history' | 'lineup' | null {
-  const [page, sub] = pathname.split('/').slice(3)
+function activeTab(pathname: string): 'home' | 'players' | 'history' | 'lineup' | null {
+  const [page] = pathname.split('/').slice(3)
   if (!page || page === 'home') return 'home'
   if (page === 'settings') return null
   if (page === 'players') return 'players'
   if (page === 'lineups') return 'lineup'
-  if (page === 'sessions' && sub === 'new') return 'newSession'
   return 'history'
 }
 
@@ -48,7 +46,6 @@ export default function AdminLayout() {
   const nav: { key: NonNullable<Tab>; to: string; label: string }[] = [
     { key: 'home', to: adminPath('/home'), label: t('nav.home') },
     { key: 'players', to: adminPath('/players'), label: t('nav.players') },
-    { key: 'newSession', to: adminPath('/sessions/new'), label: t('nav.newSession') },
     { key: 'history', to: adminPath('/history'), label: t('nav.history') },
     ...(coachBoard ? [{ key: 'lineup' as const, to: adminPath('/lineups'), label: t('nav.lineup') }] : []),
   ]

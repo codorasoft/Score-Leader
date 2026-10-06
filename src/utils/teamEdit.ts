@@ -1,11 +1,12 @@
 import type { Player } from '../lib/types'
 
-export type ThreeTeams = [Player[], Player[], Player[]]
+// One list of players per team, in colour order
+export type Teams = Player[][]
 
-const copy = (teams: ThreeTeams) => teams.map((t) => [...t]) as ThreeTeams
-const teamOf = (teams: ThreeTeams, id: string) => teams.findIndex((t) => t.some((p) => p.id === id))
+const copy = (teams: Teams) => teams.map((t) => [...t]) as Teams
+const teamOf = (teams: Teams, id: string) => teams.findIndex((t) => t.some((p) => p.id === id))
 
-export function swapPlayers(teams: ThreeTeams, aId: string, bId: string): ThreeTeams {
+export function swapPlayers(teams: Teams, aId: string, bId: string): Teams {
   const ta = teamOf(teams, aId)
   const tb = teamOf(teams, bId)
   if (ta === -1 || tb === -1 || ta === tb) return teams
@@ -16,7 +17,7 @@ export function swapPlayers(teams: ThreeTeams, aId: string, bId: string): ThreeT
   return next
 }
 
-export function movePlayer(teams: ThreeTeams, playerId: string, toTeam: number): ThreeTeams {
+export function movePlayer(teams: Teams, playerId: string, toTeam: number): Teams {
   const from = teamOf(teams, playerId)
   if (from === -1 || from === toTeam) return teams
   const next = copy(teams)

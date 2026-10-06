@@ -1,15 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState, type RefObject } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { ar, enUS } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { formatMatchClock } from '../../utils/matchClock'
+import { NewSessionDialog } from '../../components/NewSessionDialog'
+import { NextUp } from '../../components/NextUp'
+import { waitingQueue } from '../../utils/matchRotation'
 import { liveState, matchElapsed, staleSessions, todoItems, type LiveState, type OpenVote, type TodoItem } from '../../utils/homeStatus'
 import type { AwardVote, Match, Session, Team, TeamColor } from '../../lib/types'
+import { styleMap } from '../../lib/teamColors'
 
-const colorDot: Record<TeamColor, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const colorDot = styleMap('dot')
 const AWARD_LABEL: Record<AwardVote['award_type'], string> = { mvp: 'awards.mvp', fair_play: 'awards.fairPlay', best_goalkeeper: 'awards.bestGk' }
 const card = 'bg-gray-800 rounded-xl p-4'
 const bigButton = 'min-h-[52px] rounded-xl font-bold text-base flex items-center justify-center gap-2 px-4'
@@ -37,8 +41,9 @@ export default function HomePage() {
       const { data: sessionRows } = await supabase.from('sessions').select('*').eq('league_id', forLeague).order('date', { ascending: false })
       const sessions = (sessionRows ?? []) as Session[]
       const openIds = sessions.filter((s) => s.status !== 'completed').map((s) => s.id)
+      const draftIds = sessions.filter((s) => s.status === 'draft').map((s) => s.id)
 
-      const [matchRes, teamRes, voteRes, photoRes, boardRes] = await Promise.all([
+      const [matchRes, teamRes, voteRes, photoRes, boardRes, attendRes] = await Promise.all([
         openIds.length ? supabase.from('matches').select('*').in('session_id', openIds) : Promise.resolve({ data: [] }),
         openIds.length ? supabase.from('teams').select('*').in('session_id', openIds) : Promise.resolve({ data: [] }),
         voting ? supabase.from('award_votes').select('id, award_type, session_id').eq('league_id', forLeague).eq('status', 'open') : Promise.resolve({ data: [] }),
@@ -48,6 +53,7 @@ export default function HomePage() {
         coachBoard
           ? supabase.from('lineups').select('id, name, updated_at').eq('league_id', forLeague).order('updated_at', { ascending: false }).limit(1)
           : Promise.resolve({ data: [] }),
+        draftIds.length ? supabase.from('session_players').select('session_id').in('session_id', draftIds) : Promise.resolve({ data: [] }),
       ])
 
       const openVotes = (voteRes.data ?? []) as { id: string; award_type: AwardVote['award_type']; session_id: string }[]
@@ -63,7 +69,7 @@ export default function HomePage() {
       setData({
         leagueId: forLeague,
         value: {
-          live: liveState(sessions, (matchRes.data ?? []) as Match[]),
+          live: liveState(sessions, (matchRes.data ?? []) as Match[], ((attendRes.data ?? []) as { session_id: string }[]).map((r) => r.session_id)),
           teams: (teamRes.data ?? []) as Team[],
           todo: todoItems({ votes, stale: staleSessions(sessions, todayString()), missingPhotos: photoRes.count ?? 0, voting, photos }),
           board: ((boardRes.data ?? []) as Board[])[0] ?? null,
@@ -96,10 +102,36 @@ function useDateLabels() {
   return { day, ago }
 }
 
+// The live / start card plus the new-session popup. A new session can be started in any state,
+// so a session left unfinished never blocks the next one; old /sessions/new links arrive as ?new=1.
 function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [creating, setCreating] = useState(() => searchParams.get('new') === '1')
+  const startRef = useRef<HTMLButtonElement>(null)
+  const closeDialog = () => {
+    setCreating(false)
+    if (searchParams.has('new')) setSearchParams({}, { replace: true })
+    startRef.current?.focus()
+  }
+  return (
+    <>
+      <LiveCard live={live} teams={teams} onStart={() => setCreating(true)} startRef={startRef} />
+      {creating && <NewSessionDialog onClose={closeDialog} />}
+    </>
+  )
+}
+
+function LiveCard({ live, teams, onStart, startRef }: {
+  live: LiveState; teams: Team[]; onStart: () => void; startRef: RefObject<HTMLButtonElement | null>
+}) {
   const { t } = useTranslation()
   const adminPath = useAdminPath()
   const { day, ago } = useDateLabels()
+  const startAnother = (
+    <button type="button" ref={startRef} onClick={onStart} className="mt-3 w-full min-h-[44px] rounded-xl text-sm font-semibold text-blue-300 border border-blue-800/60 hover:bg-blue-900/30">
+      <span aria-hidden="true">➕</span> {t('home.start')}
+    </button>
+  )
 
   if (live.kind === 'match') {
     const team = (id: string) => teams.find((x) => x.id === id)
@@ -118,30 +150,35 @@ function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
           <TeamDot team={team(live.match.team2_id)} />
         </div>
         <MatchClock match={live.match} />
+        <NextUp queue={waitingQueue(live.match)} teams={teams} className="text-center text-xs text-gray-400 mt-1" />
         <Link to={adminPath(`/sessions/${live.session.id}/match/${live.match.id}`)} className={`${bigButton} mt-3 bg-green-600 hover:bg-green-500`}>
           <span aria-hidden="true">▶</span> {t('home.resume')}
         </Link>
+        {startAnother}
       </section>
     )
   }
 
   if (live.kind === 'setup' || live.kind === 'open') {
-    const to = live.kind === 'setup' ? `/sessions/${live.session.id}/teams` : `/sessions/${live.session.id}`
+    const to = live.kind === 'setup'
+      ? `/sessions/${live.session.id}/${live.hasPlayers ? 'teams' : 'players'}`
+      : `/sessions/${live.session.id}`
     return (
       <section className={card}>
         <p className="font-semibold mb-3">
           {t(live.kind === 'setup' ? 'home.setupTitle' : 'home.openTitle', { date: day(live.session.date) })}
         </p>
         <Link to={adminPath(to)} className={`${bigButton} bg-blue-600 hover:bg-blue-500`}>{t('home.continue')}</Link>
+        {startAnother}
       </section>
     )
   }
 
   return (
     <section className={card}>
-      <Link to={adminPath('/sessions/new')} className={`${bigButton} bg-blue-600 hover:bg-blue-500`}>
+      <button type="button" ref={startRef} onClick={onStart} className={`${bigButton} w-full bg-blue-600 hover:bg-blue-500`}>
         <span aria-hidden="true">➕</span> {t('home.start')}
-      </Link>
+      </button>
       <p className="text-sm text-gray-400 text-center mt-3">
         {live.lastPlayed ? t('home.lastPlayed', { when: ago(live.lastPlayed) }) : t('home.neverPlayed')}
       </p>

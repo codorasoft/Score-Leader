@@ -13,15 +13,12 @@ import { SessionVotes } from '../../components/SessionVotes'
 import { SessionSummaryShare } from '../../components/SessionSummaryShare'
 import LoadFailed from '../../components/LoadFailed'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
-import { nextMatchToStart } from '../../utils/matchRotation'
+import { matchRowFields, nextMatchToStart, waitingQueue } from '../../utils/matchRotation'
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
+import { styleMap } from '../../lib/teamColors'
 
-const colorDot: Record<string, string> = {
-  green: 'bg-green-500',
-  blue: 'bg-blue-500',
-  yellow: 'bg-yellow-400',
-}
+const colorDot = styleMap('dot')
 
 const isGoal = (e: MatchEvent) => e.event_type === 'goal' || e.event_type === 'penalty_goal'
 
@@ -47,7 +44,7 @@ export default function SessionDetailPage() {
   const [confirmDeleteMatchId, setConfirmDeleteMatchId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
-  const [firstWaiting, setFirstWaiting] = useState<TeamColor | null>(null)
+  const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
   const [starting, setStarting] = useState(false)
 
   const load = async () => {
@@ -148,16 +145,15 @@ export default function SessionDetailPage() {
   const startNumber = canStart ? nextMatchToStart(matches, teams)!.matchNumber : 0
 
   const startNextMatch = async () => {
-    const waitingId = teams.find((tm) => tm.color === firstWaiting)?.id
-    const next = nextMatchToStart(matches, teams, waitingId)
+    const idOf = (c: TeamColor) => teams.find((tm) => tm.color === c)?.id ?? ''
+    const playing = firstPlaying ? [idOf(firstPlaying[0]), idOf(firstPlaying[1])] as [string, string] : undefined
+    const next = nextMatchToStart(matches, teams, playing)
     if (!next || starting) return
     setStarting(true)
     const { data } = await supabase.from('matches').insert({
       session_id: sessionId,
       match_number: next.matchNumber,
-      team1_id: next.team1Id,
-      team2_id: next.team2Id,
-      waiting_team_id: next.waitingTeamId,
+      ...matchRowFields(next),
       status: 'pending',
     }).select().single()
     setStarting(false)
@@ -204,7 +200,7 @@ export default function SessionDetailPage() {
               </div>
             ))}
           </div>
-          {startNumber === 1 && <FirstMatchPicker waiting={firstWaiting} onChange={setFirstWaiting} />}
+          {startNumber === 1 && <FirstMatchPicker colors={teams.map((tm) => tm.color)} playing={firstPlaying} onChange={setFirstPlaying} />}
           <button
             onClick={startNextMatch}
             disabled={starting}
@@ -227,7 +223,8 @@ export default function SessionDetailPage() {
         {completed.map((m) => {
           const t1 = teamById[m.team1_id]
           const t2 = teamById[m.team2_id]
-          const waiting = teamById[m.waiting_team_id]
+          // Everyone who sat out this match, in queue order
+          const waiting = waitingQueue(m).map((id) => teamById[id]).filter(Boolean)
           const winner = m.winner_team_id ? teamById[m.winner_team_id] : null
           const isEditing = editingId === m.id
           const matchEvents = events.filter((e) => e.match_id === m.id)
@@ -357,9 +354,9 @@ export default function SessionDetailPage() {
                 </div>
               )}
 
-              {!isEditing && waiting && (
+              {!isEditing && waiting.length > 0 && (
                 <p className="text-xs text-gray-500 mt-2 text-center">
-                  {t('common.waiting')}: {teamLabel(waiting)}
+                  {t('common.waiting')}: {waiting.map(teamLabel).join(', ')}
                 </p>
               )}
               {!isEditing && m.is_draw && m.draw_resolved_by === 'penalties' && (

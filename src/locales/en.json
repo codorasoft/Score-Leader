@@ -11,7 +11,10 @@
     "teamColor": {
       "green": "Green",
       "blue": "Blue",
-      "yellow": "Yellow"
+      "yellow": "Yellow",
+      "orange": "Orange",
+      "purple": "Purple",
+      "white": "White"
     },
     "waiting": "Waiting",
     "vs": "vs",
@@ -29,7 +32,6 @@
   },
   "nav": {
     "players": "Players",
-    "newSession": "New Session",
     "history": "History",
     "signOut": "Sign out",
     "leaderboard": "Leaderboard",
@@ -56,17 +58,26 @@
     "saving": "Saving…"
   },
   "session": {
-    "title": "New Session",
-    "dateLabel": "Session date",
-    "startSession": "Start Session",
     "attendeesTitle": "Select Attendees",
-    "attendeesHint": "Tap players to mark who's coming. Max 15.",
-    "confirmAttendance": "Confirm Attendance"
+    "attendeesHint": "Tap players to mark who's coming.",
+    "confirmAttendance": "Confirm Attendance",
+    "newTitle": "New session",
+    "date": "Date",
+    "teams": "Number of teams",
+    "perTeam": "Players per team",
+    "fewerTeams": "Fewer teams",
+    "moreTeams": "More teams",
+    "fewerPerTeam": "Fewer players per team",
+    "morePerTeam": "More players per team",
+    "upTo_one": "Up to {{count}} player",
+    "upTo_other": "Up to {{count}} players",
+    "create": "Create",
+    "setup": "{{teams}} teams × {{size}} players"
   },
   "teamBuilder": {
     "title": "Team Builder",
     "shuffleAll": "Shuffle All",
-    "noGkWarning": "Fewer than 3 goalkeepers — designate field players as GKs if needed.",
+    "noGkWarning": "Fewer goalkeepers than teams ({{teams}}) — designate field players as GKs if needed.",
     "confirmAndStart": "Confirm Teams & Start",
     "saving": "Saving…",
     "swapHint": "Tap a player, then tap a player on another team to swap them.",
@@ -74,10 +85,7 @@
     "moveHere": "Move here",
     "teamSummary_one": "{{count}} player · {{stars}}★",
     "teamSummary_other": "{{count}} players · {{stars}}★",
-    "firstMatch": "First match",
     "firstMatchRandom": "Random (coin flip)",
-    "firstMatchPair": "{{team1}} vs {{team2}}",
-    "firstMatchWaits": "{{team}} waits",
     "balanceBy": "Balance teams by",
     "stars": "Stars",
     "form": "Form",
@@ -86,7 +94,9 @@
     "formHelp_other": "Form = win rate and goals/assists over each player’s last {{count}} sessions. New players use stars only.",
     "teamStrength_one": "{{count}} player · ⚡{{power}}",
     "teamStrength_other": "{{count}} players · ⚡{{power}}",
-    "splitDuos": "Split duos who win a lot together"
+    "splitDuos": "Split duos who win a lot together",
+    "firstMatchPick": "Who plays first?",
+    "pickTwo": "Tap two teams, or leave it random. The others wait in this order."
   },
   "match": {
     "start": "▶ Start",
@@ -112,7 +122,9 @@
     "undoConfirm": "Yes, undo",
     "startFirst": "Press Start to record goals and cards",
     "log": "Match log",
-    "undoSwap": "↔ Swap — {{a}} ⇄ {{b}}"
+    "undoSwap": "↔ Swap — {{a}} ⇄ {{b}}",
+    "nextUp": "Next up: {{team}}",
+    "nextUpThen": "Next up: {{team}}, then {{rest}}"
   },
   "goal": {
     "whoScored": "Who scored?",
@@ -279,7 +291,6 @@
       "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on."
     },
     "next": "Next: {{team1}} vs {{team2}}",
-    "waits": "{{team}} waits",
     "continue": "Continue"
   },
   "timeline": {

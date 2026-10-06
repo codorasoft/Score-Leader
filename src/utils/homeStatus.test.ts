@@ -21,8 +21,11 @@ describe('liveState', () => {
   it('an active session with every match played is open, not live', () => {
     expect(liveState([session('s1', '2026-10-06', 'active')], [match('m1', 1, 'completed')])).toMatchObject({ kind: 'open', session: { id: 's1' } })
   })
-  it('a draft session still needs its teams', () => {
-    expect(liveState([session('s1', '2026-10-06', 'draft')], [])).toMatchObject({ kind: 'setup', session: { id: 's1' } })
+  it('a draft session with no players yet goes to attendance first', () => {
+    expect(liveState([session('s1', '2026-10-06', 'draft')], [])).toMatchObject({ kind: 'setup', session: { id: 's1' }, hasPlayers: false })
+  })
+  it('a draft session with players goes on to the team builder', () => {
+    expect(liveState([session('s1', '2026-10-06', 'draft')], [], ['s1'])).toMatchObject({ kind: 'setup', hasPlayers: true })
   })
   it('the newest open session wins', () => {
     const s = liveState([session('old', '2026-10-01', 'active'), session('new', '2026-10-06', 'draft')], [])

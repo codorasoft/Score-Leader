@@ -5,10 +5,11 @@ import { loadLeague } from '../../lib/league'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import { computeRecords, type LeagueRecord, type RecordHolder } from '../../utils/records'
 import { formatMatchClock } from '../../utils/matchClock'
+import { styleMap } from '../../lib/teamColors'
 
 const MAX_HOLDERS = 3
 
-const dot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const dot = styleMap('dot')
 
 export default function RecordsPage() {
   const { t } = useTranslation()

@@ -2,18 +2,16 @@ import { useTranslation } from 'react-i18next'
 import type { Team } from '../lib/types'
 import type { MatchOutcome } from '../utils/matchOutcome'
 import { GOAL_LIMIT, MATCH_DURATION_SECONDS } from '../utils/matchClock'
+import { styleMap } from '../lib/teamColors'
 
-const colorBg: Record<string, string> = {
-  green: 'bg-green-900/40 border-green-600',
-  blue: 'bg-blue-900/40 border-blue-600',
-  yellow: 'bg-yellow-900/40 border-yellow-600',
-}
+const colorBg = styleMap('card')
 
 interface Props {
   outcome: MatchOutcome
   team1: { team: Team | undefined; score: number }
   team2: { team: Team | undefined; score: number }
-  next: { team1: Team | undefined; team2: Team | undefined; waiting: Team | undefined }
+  // queue: the teams waiting after this match, in order (empty with two teams)
+  next: { team1: Team | undefined; team2: Team | undefined; queue: Team[] }
   onContinue: () => void
 }
 
@@ -60,8 +58,11 @@ export function MatchResultDialog({ outcome, team1, team2, next, onContinue }: P
 
         <p className="text-xs text-gray-400 mb-5">
           {t('result.next', { team1: name(next.team1), team2: name(next.team2) })}
-          {' · '}
-          {t('result.waits', { team: name(next.waiting) })}
+          {next.queue.length > 0 && <span className="block mt-1">
+            {next.queue.length > 1
+              ? t('match.nextUpThen', { team: name(next.queue[0]), rest: next.queue.slice(1).map(name).join(', ') })
+              : t('match.nextUp', { team: name(next.queue[0]) })}
+          </span>}
         </p>
 
         <button autoFocus onClick={onContinue} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold">
