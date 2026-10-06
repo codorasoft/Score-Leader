@@ -30,3 +30,11 @@ it('does not mutate the original teams', () => {
 it('sums skill stars per team', () => {
   expect(teamStars([p('x', 5), p('y', 2)])).toBe(7)
 })
+
+it('swaps and moves players across five teams', () => {
+  const five = [[p('a')], [p('b')], [p('c')], [p('d')], [p('e'), p('f')]]
+  const swapped = swapPlayers(five, 'a', 'f')
+  expect(swapped.map((t) => t.map((pl) => pl.id))).toEqual([['f'], ['b'], ['c'], ['d'], ['e', 'a']])
+  const moved = movePlayer(five, 'e', 3)
+  expect(moved.map((t) => t.map((pl) => pl.id))).toEqual([['a'], ['b'], ['c'], ['d', 'e'], ['f']])
+})

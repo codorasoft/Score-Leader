@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Player, TeamColor } from '../lib/types'
 import { PositionBadge } from '../pages/admin/PlayersPage'
-import { movePlayer, swapPlayers, teamStars, type ThreeTeams } from '../utils/teamEdit'
+import { movePlayer, swapPlayers, teamStars, type Teams } from '../utils/teamEdit'
 import { styleMap } from '../lib/teamColors'
 
 const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
@@ -10,8 +10,8 @@ const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
 const colorStyles = styleMap('board')
 
 interface Props {
-  teams: ThreeTeams
-  onChange: (teams: ThreeTeams) => void
+  teams: Teams
+  onChange: (teams: Teams) => void
   // When given, team totals and player chips show this balancing strength instead of only stars
   strengthOf?: (p: Player) => number
 }

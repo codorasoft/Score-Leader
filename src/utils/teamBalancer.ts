@@ -1,7 +1,7 @@
 import type { Player } from '../lib/types'
 
 export interface BalanceResult {
-  teams: [Player[], Player[], Player[]]
+  teams: Player[][]
   needsGkAssignment: boolean
 }
 
@@ -24,29 +24,31 @@ const byStrength = (players: Player[], strength: (p: Player) => number) =>
 // pairs that win a lot together, so strong duos tend to be split across teams.
 export function balanceTeams(
   players: Player[],
+  teamCount: number,
   strength: (p: Player) => number = (p) => p.skill_rating,
   synergy: (a: Player, b: Player) => number = () => 0,
 ): BalanceResult {
   const allGks = byStrength(players.filter((p) => p.position === 'GK'), strength)
-  const gks = allGks.slice(0, 3)
-  const field = byStrength([...allGks.slice(3), ...players.filter((p) => p.position !== 'GK')], strength)
+  const gks = allGks.slice(0, teamCount)
+  const field = byStrength([...allGks.slice(teamCount), ...players.filter((p) => p.position !== 'GK')], strength)
 
-  const caps = [0, 1, 2].map((i) => Math.floor(players.length / 3) + (i < players.length % 3 ? 1 : 0))
-  const teams: [Player[], Player[], Player[]] = [[], [], []]
-  const totals = [0, 0, 0]
+  const slots = Array.from({ length: teamCount }, (_, i) => i)
+  const caps = slots.map((i) => Math.floor(players.length / teamCount) + (i < players.length % teamCount ? 1 : 0))
+  const teams: Player[][] = slots.map(() => [])
+  const totals = slots.map(() => 0)
   const gain = (idx: number, p: Player) => strength(p) + teams[idx].reduce((n, q) => n + synergy(p, q), 0)
   const add = (idx: number, p: Player) => { totals[idx] += gain(idx, p); teams[idx].push(p) }
 
   gks.forEach((gk, i) => add(i, gk))
   for (const p of field) {
-    const open = [0, 1, 2].filter((i) => teams[i].length < caps[i])
+    const open = slots.filter((i) => teams[i].length < caps[i])
     const after = (i: number) => totals[i] + gain(i, p)
     const target = open.sort((a, b) => after(a) - after(b) || teams[a].length - teams[b].length || a - b)[0]
     add(target, p)
   }
 
   improveBySwaps(teams, strength, synergy)
-  return { teams, needsGkAssignment: gks.length < 3 }
+  return { teams, needsGkAssignment: gks.length < teamCount }
 }
 
 const MAX_SWAP_ROUNDS = 50
@@ -63,8 +65,8 @@ function improveBySwaps(teams: Player[][], strength: (p: Player) => number, syne
   for (let round = 0; round < MAX_SWAP_ROUNDS; round++) {
     let current = spread()
     let improved = false
-    for (let a = 0; a < 3; a++) {
-      for (let b = a + 1; b < 3; b++) {
+    for (let a = 0; a < teams.length; a++) {
+      for (let b = a + 1; b < teams.length; b++) {
         for (let i = 0; i < teams[a].length; i++) {
           for (let j = 0; j < teams[b].length; j++) {
             if (teams[a][i].position === 'GK' || teams[b][j].position === 'GK') continue

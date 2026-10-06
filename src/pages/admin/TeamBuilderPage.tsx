@@ -45,7 +45,7 @@ export default function TeamBuilderPage() {
   const [formPercent, setFormPercent] = useState(() => (smart ? readWeight() : 0))
   const [pairs, setPairs] = useState<Pair[]>([])
   const [splitDuos, setSplitDuos] = useState(readSplitDuos)
-  const [teams, setTeams] = useState<[Player[], Player[], Player[]]>([[], [], []])
+  const [teams, setTeams] = useState<Player[][]>([[], [], []])
   const [needsGk, setNeedsGk] = useState(false)
   const [saving, setSaving] = useState(false)
   const [firstWaiting, setFirstWaiting] = useState<TeamColor | null>(null)
@@ -63,7 +63,7 @@ export default function TeamBuilderPage() {
   }, [pairs, splitDuos, smart])
 
   const rebalance = useCallback(() => {
-    const result = balanceTeams(attendees, strengthOf, synergy)
+    const result = balanceTeams(attendees, 3, strengthOf, synergy)
     setTeams(result.teams)
     setNeedsGk(result.needsGkAssignment)
   }, [attendees, strengthOf, synergy])
