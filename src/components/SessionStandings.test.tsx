@@ -24,3 +24,12 @@ it('renders nothing before any match has finished', () => {
   const { container } = render(<SessionStandings teams={teams} matches={[]} />)
   expect(container).toBeEmptyDOMElement()
 })
+
+it('lists every team of a four-team session, best first', () => {
+  const four: Team[] = (['green', 'blue', 'yellow', 'orange'] as const).map((color) => ({ id: color, session_id: 's', color, name: null }) as Team)
+  render(<SessionStandings teams={four} matches={[match('a', 'orange', 'green', 2, 0), match('b', 'orange', 'blue', 1, 0), match('c', 'yellow', 'orange', 0, 0)]} />)
+  const names = screen.getAllByRole('listitem').map((li) => within(li).getByText(/Team$/).textContent)
+  expect(names).toHaveLength(4)
+  expect(names[0]).toBe('Orange Team')
+  expect(names).toEqual(expect.arrayContaining(['Green Team', 'Blue Team', 'Yellow Team', 'Orange Team']))
+})

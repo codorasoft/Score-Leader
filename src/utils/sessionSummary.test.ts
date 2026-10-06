@@ -61,3 +61,14 @@ it('marks tied awards and leaves out empty sections', () => {
   expect(text).not.toContain('Top scorers')
   expect(text).not.toContain('Top assists')
 })
+
+it('names all four teams of a four-team session in the standings', () => {
+  const four = (['green', 'blue', 'yellow', 'orange'] as const).map((color) => ({ id: color, session_id: 's', color, name: null })) as Team[]
+  const text = buildSessionSummary({
+    t: i18n.t.bind(i18n), date: '2026-10-06', teams: four, players,
+    matches: [match('m1', 'orange', 'green', 1, 0), match('m2', 'orange', 'blue', 2, 1), match('m3', 'yellow', 'orange', 0, 1)],
+    events: [], awards: [], url: 'https://example.app/s/abc',
+  })
+  for (const name of ['Orange Team', 'Green Team', 'Blue Team', 'Yellow Team']) expect(text).toContain(name)
+  expect(text.indexOf('Orange Team')).toBeLessThan(text.indexOf('Green Team'))
+})
