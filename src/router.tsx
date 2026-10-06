@@ -23,6 +23,8 @@ import LineupEditorPage from './pages/admin/LineupEditorPage'
 import SuperLayout from './layouts/SuperLayout'
 import AdminsPage from './pages/super/AdminsPage'
 import NewAdminPage from './pages/super/NewAdminPage'
+import AdminDetailPage from './pages/super/AdminDetailPage'
+import LeaguesPage from './pages/super/LeaguesPage'
 import NewLeaguePage from './pages/admin/NewLeaguePage'
 import LeagueSettingsPage from './pages/admin/LeagueSettingsPage'
 
@@ -50,6 +52,8 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <AdminsPage /> },
           { path: 'admins/new', element: <NewAdminPage /> },
+          { path: 'admins/:userId', element: <AdminDetailPage /> },
+          { path: 'leagues', element: <LeaguesPage /> },
         ],
       },
     ],

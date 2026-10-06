@@ -26,9 +26,11 @@ export function Toaster() {
           key={toast.id}
           role="alert"
           onClick={() => dismiss(toast.id)}
-          className="pointer-events-auto w-full max-w-sm bg-red-700 text-white text-sm font-semibold rounded-xl px-4 py-3 shadow-lg text-start"
+          className={`pointer-events-auto w-full max-w-sm ${toast.kind === 'success' ? 'bg-green-700' : 'bg-red-700'} text-white text-sm font-semibold rounded-xl px-4 py-3 shadow-lg text-start`}
         >
-          {toast.kind === 'network'
+          {toast.kind === 'success'
+            ? toast.detail
+            : toast.kind === 'network'
             ? t('errors.network')
             : t('errors.requestFailed', { detail: toast.detail ?? t('errors.unknown') })}
         </button>

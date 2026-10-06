@@ -544,6 +544,31 @@
       "features": "Invalid features",
       "network": "Could not reach the server. Try again.",
       "generic": "Check the form and try again"
+    },
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions",
+    "deleteLeague": {
+      "open": "Delete league",
+      "title": "Delete {{name}}?",
+      "warning": "All of this league's players, sessions, photos and its logo will be deleted permanently. This cannot be undone.",
+      "typeName": "Type \"{{name}}\" to confirm",
+      "confirm": "Delete permanently",
+      "deleting": "Deleting…"
+    },
+    "detail": {
+      "saved": "Saved",
+      "passwordReset": "Password reset",
+      "notFound": "Admin not found",
+      "enable": "Enable",
+      "disable": "Disable",
+      "newPassword": "New password",
+      "resetPassword": "Reset password",
+      "leagues": "Leagues",
+      "noLeagues": "No leagues yet"
+    },
+    "leagues": {
+      "title": "All leagues",
+      "empty": "No leagues yet"
     }
   },
   "features": {

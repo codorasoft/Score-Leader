@@ -621,6 +621,35 @@
       "features": "ميزات غير صالحة",
       "network": "تعذر الوصول إلى الخادم. حاول مرة أخرى.",
       "generic": "راجع النموذج وحاول مرة أخرى"
+    },
+    "sessionCount_zero": "لا جلسات",
+    "sessionCount_one": "جلسة واحدة",
+    "sessionCount_two": "جلستان",
+    "sessionCount_few": "{{count}} جلسات",
+    "sessionCount_many": "{{count}} جلسة",
+    "sessionCount_other": "{{count}} جلسة",
+    "deleteLeague": {
+      "open": "حذف الدوري",
+      "title": "حذف {{name}}؟",
+      "warning": "سيتم حذف جميع لاعبي الدوري وجلساته وصوره وشعاره نهائيًا. لا يمكن التراجع عن ذلك.",
+      "typeName": "اكتب \"{{name}}\" للتأكيد",
+      "confirm": "حذف نهائي",
+      "deleting": "جارٍ الحذف…"
+    },
+    "detail": {
+      "saved": "تم الحفظ",
+      "passwordReset": "تمت إعادة تعيين كلمة المرور",
+      "notFound": "المشرف غير موجود",
+      "enable": "تفعيل",
+      "disable": "تعطيل",
+      "newPassword": "كلمة مرور جديدة",
+      "resetPassword": "إعادة تعيين كلمة المرور",
+      "leagues": "الدوريات",
+      "noLeagues": "لا توجد دوريات بعد"
+    },
+    "leagues": {
+      "title": "جميع الدوريات",
+      "empty": "لا توجد دوريات بعد"
     }
   },
   "features": {
