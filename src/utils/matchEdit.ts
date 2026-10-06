@@ -33,3 +33,10 @@ export function recomputeResult(
     draw_resolved_by: null,
   }
 }
+
+// Undoing a card or swap is only offered while that feature is on for the league
+export function undoAllowed(eventType: MatchEvent['event_type'], on: { cards: boolean; swaps: boolean }): boolean {
+  if (eventType === 'swap') return on.swaps
+  if (eventType === 'yellow_card' || eventType === 'red_card') return on.cards
+  return true
+}

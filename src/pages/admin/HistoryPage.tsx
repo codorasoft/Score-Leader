@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useLeague, useAdminPath } from '../../contexts/LeagueContext'
+import { useLeague, useAdminPath, useFeature } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
 import type { Session } from '../../lib/types'
 
@@ -11,6 +11,7 @@ export default function HistoryPage() {
   const { t } = useTranslation()
   const league = useLeague()
   const adminPath = useAdminPath()
+  const awardsOn = useFeature('awards')
   const [sessions, setSessions] = useState<Session[]>([])
   const [activeMatchMap, setActiveMatchMap] = useState<Record<string, string>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -49,6 +50,11 @@ export default function HistoryPage() {
   const startEdit = (s: Session) => {
     setEditingId(s.id)
     setEditDate(s.date)
+  }
+
+  const finishSession = async (id: string) => {
+    const { error } = await supabase.from('sessions').update({ status: 'completed' }).eq('id', id)
+    if (!error) load()
   }
 
   const saveEdit = async () => {
@@ -114,9 +120,15 @@ export default function HistoryPage() {
                         <span aria-hidden="true">▶</span> {t('history.resume')}
                       </Link>
                     ) : <span />}
-                    <Link to={adminPath(`/sessions/${s.id}/awards`)} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
-                      <span aria-hidden="true">🏆</span> {t('history.awards')}
-                    </Link>
+                    {awardsOn ? (
+                      <Link to={adminPath(`/sessions/${s.id}/awards`)} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
+                        <span aria-hidden="true">🏆</span> {t('history.awards')}
+                      </Link>
+                    ) : (
+                      <button onClick={() => finishSession(s.id)} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
+                        {t('awards.finishSession')}
+                      </button>
+                    )}
                   </div>
                 )}
 

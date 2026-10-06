@@ -8,7 +8,7 @@ import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
 import { resolveMatch, decideResult } from '../../utils/matchRotation'
-import { findLastUndoable } from '../../utils/matchEdit'
+import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
 import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
@@ -295,8 +295,9 @@ export default function MatchTrackerPage() {
     if (nextId) { navigate(adminPath(`/sessions/${sessionId}/match/${nextId}`)); return }
     if (awards) { navigate(adminPath(`/sessions/${sessionId}/awards`)); return }
     // No awards step: close the session here, as AwardsPage would
-    supabase.from('sessions').update({ status: 'completed' }).eq('id', sessionId).then(() => {
-      navigate(adminPath(`/sessions/${sessionId}`))
+    supabase.from('sessions').update({ status: 'completed' }).eq('id', sessionId).then(({ error }) => {
+      // On failure stay put; History offers Finish session to retry
+      if (!error) navigate(adminPath(`/sessions/${sessionId}`))
     })
   }
 
@@ -382,7 +383,7 @@ export default function MatchTrackerPage() {
         <p className="text-xs text-gray-400 text-center -mt-2 mb-4">{t('match.startFirst')}</p>
       )}
 
-      {!penaltyMode && lastEvent && (
+      {!penaltyMode && lastEvent && undoAllowed(lastEvent.event_type, { cards, swaps }) && (
         <button
           onClick={() => setConfirmUndo(true)}
           className="w-full mb-4 py-2 rounded border border-gray-600 text-sm text-gray-300 hover:bg-gray-800 flex items-center justify-center gap-2"
