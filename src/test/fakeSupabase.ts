@@ -2,6 +2,8 @@
 // filters really filter, inserts/updates/deletes really change the rows, and every write is logged.
 // Use it with:  vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
+import { forgetCachedLeagues } from '../lib/leagueCache'
+
 type Row = Record<string, unknown>
 type Filter = (row: Row) => boolean
 type ApiError = { message: string; code?: string }
@@ -11,6 +13,7 @@ export interface Write { table: string; op: 'insert' | 'update' | 'delete' | 'up
 export const db = {
   tables: {} as Record<string, Row[]>,
   writes: [] as Write[],
+  reads: 0,
   // Every request to a table listed here fails with this error (reads and writes)
   errors: {} as Record<string, ApiError>,
   nextId: 1,
@@ -19,8 +22,10 @@ export const db = {
 export function resetDb(tables: Record<string, Row[]> = {}) {
   db.tables = structuredClone(tables)
   db.writes = []
+  db.reads = 0
   db.errors = {}
   db.nextId = 1
+  forgetCachedLeagues()
 }
 
 export const rows = (table: string) => (db.tables[table] ??= [])
@@ -45,6 +50,8 @@ function query(table: string) {
     const all = rows(table)
     const hit = all.filter((r) => filters.every((f) => f(r)))
 
+    // Like the real client (see forgetOnWrite), any write clears the cached league histories
+    if (op !== 'select') forgetCachedLeagues()
     if (op === 'insert' || op === 'upsert') {
       const list = (Array.isArray(payload) ? payload : [payload]) as Row[]
       const added = list.map((r) => ({ id: `${table}-${db.nextId++}`, ...r }))
@@ -67,6 +74,7 @@ function query(table: string) {
       return { data: returning ? hit : null, error: null, count: null, status: 200 }
     }
 
+    db.reads++
     let out = [...hit]
     for (const { col, asc } of [...orderBy].reverse()) {
       out.sort((a, c) => (String(a[col]) < String(c[col]) ? -1 : String(a[col]) > String(c[col]) ? 1 : 0) * (asc ? 1 : -1))

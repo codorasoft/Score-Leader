@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '../../lib/supabase'
-import { selectAll } from '../../lib/selectAll'
+import { loadLeague } from '../../lib/league'
 import { availablePeriods, defaultPeriod, periodStats, type PeriodKey } from '../../utils/leaderboardPeriod'
 import { monthKey, playersOfMonth, potmPoints } from '../../utils/playerOfMonth'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
@@ -39,15 +38,10 @@ export default function LeaderboardPage() {
   const [sortBy, setSortBy] = useState<SortKey>('points')
 
   const load = useCallback(async () => {
-    const [players, sessions, matches, events, teamPlayers] = await Promise.all([
-      selectAll<Player>((a, b) => supabase.from('players').select('*').eq('league_id', league.id).eq('is_active', true).range(a, b)),
-      selectAll<Session>((a, b) => supabase.from('sessions').select('*').eq('league_id', league.id).range(a, b)),
-      selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('league_id', league.id).eq('status', 'completed').range(a, b)),
-      selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').eq('league_id', league.id).range(a, b)),
-      selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').eq('league_id', league.id).range(a, b)),
-    ])
+    // Shared with cards, records and profiles; the leaderboard lists active players only
+    const { players, sessions, matches, events, teamPlayers } = await loadLeague(league.id)
     if (currentLeague.current !== league.id) return
-    setLoaded({ leagueId: league.id, data: { players, sessions, matches, events, teamPlayers } })
+    setLoaded({ leagueId: league.id, data: { players: players.filter((p) => p.is_active), sessions, matches, events, teamPlayers } })
   }, [league.id])
 
   const currentLeague = useRef(league.id)
