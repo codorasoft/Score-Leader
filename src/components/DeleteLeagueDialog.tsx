@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deleteLeague } from '../lib/adminApi'
+import { serverErrorKey } from '../lib/errorText'
 import type { League } from '../lib/tenancy'
 
 export default function DeleteLeagueDialog({ league, onDeleted }: { league: Pick<League, 'id' | 'name'>; onDeleted: () => void }) {
@@ -23,7 +24,7 @@ export default function DeleteLeagueDialog({ league, onDeleted }: { league: Pick
     const res = await deleteLeague(league.id, typed)
     setBusy(false)
     if ('error' in res) {
-      setError(res.error === 'network' ? t('super.errors.network') : res.error)
+      setError(t(serverErrorKey(res.error)))
       return
     }
     close()

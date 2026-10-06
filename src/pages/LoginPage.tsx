@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
+import { serverErrorKey } from '../lib/errorText'
 import { LanguageToggle } from '../components/LanguageToggle'
 
 export default function LoginPage() {
@@ -35,7 +36,7 @@ export default function LoginPage() {
       await signIn(email, password)
       navigate('/admin')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(t(serverErrorKey(err instanceof Error ? err.message : undefined)))
     } finally {
       setSubmitting(false)
     }

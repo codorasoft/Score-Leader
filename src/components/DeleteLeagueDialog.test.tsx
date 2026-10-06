@@ -27,11 +27,11 @@ describe('DeleteLeagueDialog', () => {
     await waitFor(() => expect(onDeleted).toHaveBeenCalled())
   })
   it('shows the returned error', async () => {
-    h.deleteLeague.mockResolvedValue({ error: 'name mismatch' })
+    h.deleteLeague.mockResolvedValue({ error: 'name does not match' })
     render(<DeleteLeagueDialog league={league} onDeleted={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Delete league' }))
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Eagles' } })
     fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }))
-    expect(await screen.findByText('name mismatch')).toBeInTheDocument()
+    expect(await screen.findByText('The name you typed does not match the league name.')).toBeInTheDocument()
   })
 })

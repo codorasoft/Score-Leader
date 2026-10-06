@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { onToast, type ToastMessage } from '../lib/toast'
+import { serverErrorKey } from '../lib/errorText'
 
 const DISMISS_MS = 6000
 
@@ -32,7 +33,7 @@ export function Toaster() {
             ? toast.detail
             : toast.kind === 'network'
             ? t('errors.network')
-            : t('errors.requestFailed', { detail: toast.detail ?? t('errors.unknown') })}
+            : t('errors.requestFailed', { detail: t(serverErrorKey(toast.detail)) })}
         </button>
       ))}
     </div>

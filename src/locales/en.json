@@ -588,5 +588,22 @@
     "needs": "Needs {{feature}}",
     "selectAll": "Select all",
     "none": "None"
+  },
+  "serverErrors": {
+    "network": "Could not reach the server. Check your internet and try again.",
+    "forbidden": "You do not have permission for this. Sign in again and retry.",
+    "emailTaken": "An account with this email already exists.",
+    "invalidLogin": "Wrong email or password.",
+    "password": "Password must be at least 8 characters.",
+    "email": "Enter a valid email address.",
+    "cannotResetSuperadmin": "The superadmin's password cannot be reset here.",
+    "adminNotFound": "This admin no longer exists.",
+    "leagueNotFound": "This league no longer exists.",
+    "nameMismatch": "The name you typed does not match the league name.",
+    "leagueLimit": "League limit reached.",
+    "notAllowed": "You are not allowed to change this.",
+    "duplicate": "This already exists. Use a different name or address.",
+    "otherLeague": "That player belongs to another league.",
+    "generic": "Something went wrong. Please try again."
   }
 }

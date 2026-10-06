@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { createAdmin } from '../../lib/adminApi'
+import { serverErrorKey } from '../../lib/errorText'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 import { validateCreateAdmin } from '../../../supabase/functions/_shared/validate.ts'
 import FeatureChecklist from '../../components/FeatureChecklist'
@@ -42,7 +43,7 @@ export default function NewAdminPage() {
     const res = await createAdmin(checked.value)
     setBusy(false)
     if ('error' in res) {
-      setError(res.error === 'network' ? t('super.errors.network') : res.error)
+      setError(t(serverErrorKey(res.error)))
       return
     }
     navigate(res.user_id ? `/super/admins/${res.user_id}` : '/super')

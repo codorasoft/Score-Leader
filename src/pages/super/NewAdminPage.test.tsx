@@ -46,6 +46,6 @@ describe('NewAdminPage', () => {
     setup()
     fill('12345678')
     fireEvent.click(screen.getByRole('button', { name: 'Create admin' }))
-    expect(await screen.findByText('email already registered')).toBeInTheDocument()
+    expect(await screen.findByText('An account with this email already exists.')).toBeInTheDocument()
   })
 })

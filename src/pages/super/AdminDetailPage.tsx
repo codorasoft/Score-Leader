@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchAdmins, fetchAllLeagues, updateAdmin, type AdminProfile, type League } from '../../lib/tenancy'
 import { resetAdminPassword } from '../../lib/adminApi'
 import { showToast } from '../../lib/toast'
+import { serverErrorKey } from '../../lib/errorText'
 import type { FeatureKey } from '../../lib/features'
 import FeatureChecklist from '../../components/FeatureChecklist'
 import { LeagueLogo } from '../../components/LeagueLogo'
@@ -77,7 +78,7 @@ export default function AdminDetailPage() {
     setBusy(true)
     const res = await resetAdminPassword(admin.user_id, password)
     setBusy(false)
-    if ('error' in res) { setPwError(res.error === 'network' ? t('super.errors.network') : res.error); return }
+    if ('error' in res) { setPwError(t(serverErrorKey(res.error))); return }
     setPassword('')
     showToast('success', t('super.detail.passwordReset'))
   }
