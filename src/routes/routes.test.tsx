@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import type { AdminProfile, League, LeagueInfo } from '../lib/tenancy'
 import { FEATURES } from '../lib/features'
@@ -10,8 +10,10 @@ const h = vi.hoisted(() => ({
     signIn: vi.fn(),
     signOut: vi.fn(),
   },
-  profile: { profile: null as unknown, loading: false },
+  profile: { profile: null as unknown, loading: false } as { profile: unknown; loading: boolean; error?: boolean },
+  retry: vi.fn(),
   leagues: [] as unknown[],
+  leaguesError: false,
   infoBySlug: null as unknown,
   infoById: null as unknown,
   sessionRow: null as unknown,
@@ -19,9 +21,12 @@ const h = vi.hoisted(() => ({
 const { stub } = vi.hoisted(() => ({ stub: (name: string) => ({ default: () => name }) }))
 
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => h.auth }))
-vi.mock('../hooks/useProfile', () => ({ useProfile: () => h.profile }))
+vi.mock('../hooks/useProfile', () => ({ useProfile: () => ({ error: false, retry: h.retry, ...h.profile }) }))
 vi.mock('../lib/tenancy', () => ({
-  fetchMyLeagues: vi.fn(async () => h.leagues),
+  fetchMyLeagues: vi.fn(async () => {
+    if (h.leaguesError) throw new Error('offline')
+    return h.leagues
+  }),
   fetchLeagueInfoBySlug: vi.fn(async () => h.infoBySlug),
   fetchLeagueInfoById: vi.fn(async () => h.infoById),
 }))
@@ -73,6 +78,8 @@ beforeEach(() => {
   h.auth.user = { id: 'u1' }
   h.auth.loading = false
   h.auth.signOut.mockClear()
+  h.retry.mockClear()
+  h.leaguesError = false
   h.profile = { profile: profile(), loading: false }
   h.leagues = [league('eagles'), league('tigers')]
   h.infoBySlug = info()
@@ -160,6 +167,26 @@ describe('admin redirects', () => {
   })
 })
 
+describe('leagues fetch failure', () => {
+  it('keeps the deep link and offers a retry instead of create-first-league', async () => {
+    h.leaguesError = true
+    const router = renderAt('/admin/eagles/sessions/s1/match/m1')
+    expect(await screen.findByText('Could not load. Check your connection.')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/eagles/sessions/s1/match/m1')
+
+    h.leaguesError = false
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('MatchTrackerPage')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/eagles/sessions/s1/match/m1')
+  })
+  it('/admin does not go to create-first-league when the fetch fails', async () => {
+    h.leaguesError = true
+    const router = renderAt('/admin')
+    expect(await screen.findByText('Could not load. Check your connection.')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin')
+  })
+})
+
 describe('role guards', () => {
   it('superadmin at /admin goes to /super', async () => {
     h.profile = { profile: profile({ role: 'superadmin' }), loading: false }
@@ -182,6 +209,15 @@ describe('role guards', () => {
     renderAt('/admin')
     expect(await screen.findByText('Your account is disabled')).toBeInTheDocument()
     await waitFor(() => expect(h.auth.signOut).toHaveBeenCalledTimes(1))
+  })
+  it('a failed profile fetch offers a retry and does not sign out', async () => {
+    h.profile = { profile: null, loading: false, error: true }
+    renderAt('/admin/eagles/history')
+    expect(await screen.findByText('Could not load. Check your connection.')).toBeInTheDocument()
+    expect(screen.queryByText('Your account is disabled')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(h.retry).toHaveBeenCalled()
+    expect(h.auth.signOut).not.toHaveBeenCalled()
   })
   it('missing profile is treated as disabled', async () => {
     h.profile = { profile: null, loading: false }

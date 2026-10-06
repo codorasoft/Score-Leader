@@ -17,7 +17,9 @@
     "vs": "vs",
     "match": "Match #{{number}}",
     "returnNow": "RETURN NOW",
-    "noStats": "No stats yet"
+    "noStats": "No stats yet",
+    "loadFailed": "Could not load. Check your connection.",
+    "retry": "Retry"
   },
   "login": {
     "emailPlaceholder": "Email",

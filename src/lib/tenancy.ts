@@ -32,13 +32,17 @@ export interface LeagueInfo {
   is_available: boolean
 }
 
+// Throws when the request fails; null means the account has no profile row.
 export async function fetchMyProfile(userId: string): Promise<AdminProfile | null> {
-  const { data } = await supabase.from('admin_profiles').select('*').eq('user_id', userId).maybeSingle()
+  const { data, error } = await supabase.from('admin_profiles').select('*').eq('user_id', userId).maybeSingle()
+  if (error) throw error
   return (data as AdminProfile | null) ?? null
 }
 
+// Throws when the request fails; [] means the admin has no league yet.
 export async function fetchMyLeagues(): Promise<League[]> {
-  const { data } = await supabase.from('leagues').select('*').order('created_at')
+  const { data, error } = await supabase.from('leagues').select('*').order('created_at')
+  if (error) throw error
   return (data as League[] | null) ?? []
 }
 
