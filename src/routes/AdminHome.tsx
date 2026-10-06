@@ -1,13 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useMyLeagues } from '../contexts/MyLeaguesContext'
-import { readLastLeague } from '../lib/leaguePaths'
-import type { League } from '../lib/tenancy'
-
-// Last-used league if the admin still owns it, else the first one.
-export function pickLeague(leagues: League[]): string | null {
-  const last = readLastLeague()
-  return leagues.find(l => l.slug === last)?.slug ?? leagues[0]?.slug ?? null
-}
+import { pickLeague } from '../lib/leaguePaths'
 
 export default function AdminHome() {
   const { leagues } = useMyLeagues()
