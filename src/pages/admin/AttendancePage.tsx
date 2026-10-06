@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
+import { serverErrorKey } from '../../lib/errorText'
 import { PositionBadge } from './PlayersPage'
 import type { Player, Session } from '../../lib/types'
 
@@ -56,10 +57,18 @@ export default function AttendancePage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).maybeSingle()
-      .then(({ data }) => { if (data) setSession(data as Session) })
+      .then(({ data, error: loadError }) => {
+        // Not found, or another league's session
+        if (!data && !loadError) { navigate(adminPath('/history'), { replace: true }); return }
+        if (data) setSession(data as Session)
+      })
+    // Coming back to change attendance: start from what was saved
+    supabase.from('session_players').select('player_id').eq('session_id', sessionId)
+      .then(({ data }) => { if (data?.length) setSelected(new Set((data as { player_id: string }[]).map((r) => r.player_id))) })
     supabase.from('players').select('*').eq('league_id', league.id).eq('is_active', true).order('name')
       .then(({ data }) => { if (data) setPlayers(data as Player[]) })
   }, [sessionId, league.id])
@@ -78,10 +87,14 @@ export default function AttendancePage() {
   const handleConfirm = async () => {
     if (!sessionId || saving) return
     setSaving(true)
+    setError('')
+    // Replace any attendance saved earlier, so going back and changing it works
     const rows = Array.from(selected).map((playerId) => ({ session_id: sessionId, player_id: playerId }))
-    const { error } = await supabase.from('session_players').insert(rows)
+    const { error: clearError } = await supabase.from('session_players').delete().eq('session_id', sessionId)
+    const { error: saveError } = clearError ? { error: clearError } : await supabase.from('session_players').insert(rows)
     setSaving(false)
-    if (!error) navigate(adminPath(`/sessions/${sessionId}/teams`))
+    if (saveError) { setError(t(serverErrorKey(saveError.message))); return }
+    navigate(adminPath(`/sessions/${sessionId}/teams`))
   }
 
   if (!session) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
@@ -95,6 +108,7 @@ export default function AttendancePage() {
       <p className="text-gray-400 text-sm mb-4">{t('session.attendeesHint')}</p>
       <AttendancePicker players={players} selected={selected} limit={limit} onToggle={togglePlayer} />
       <div className="mt-6">
+        {error && <p role="alert" className="text-red-400 text-sm mb-2">{error}</p>}
         <button
           onClick={handleConfirm}
           disabled={saving || selected.size < session.team_count}

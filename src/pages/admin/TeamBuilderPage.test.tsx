@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
-import { resetDb, rows } from '../../test/fakeSupabase'
+import { db, resetDb, rows } from '../../test/fakeSupabase'
 import { finishedLeague } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 
@@ -43,7 +43,7 @@ it('splits the attending players into three teams of two', async () => {
   for (const name of ['Ali', 'Omar', 'Sami', 'Zaid', 'Hadi', 'Nour']) expect(screen.getByText(name)).toBeInTheDocument()
   expect(screen.queryByText('Retired')).not.toBeInTheDocument()
   // Only Ali is a keeper
-  expect(screen.getByText(/Fewer than 3 goalkeepers/)).toBeInTheDocument()
+  expect(screen.getByText(/Fewer goalkeepers than teams \(3\)/)).toBeInTheDocument()
 })
 
 it('saves the teams, starts the session and opens match 1 with the chosen team waiting', async () => {
@@ -104,4 +104,20 @@ it('a 4-team session makes four teams and queues the two that do not start', asy
   expect([first.team1_id, first.team2_id].sort()).toEqual([id('blue'), id('orange')].sort())
   expect(first.queue).toEqual([id('green'), id('yellow')])
   expect(first.waiting_team_id).toBe(id('green'))
+})
+
+it('the keeper warning counts the teams in the session', async () => {
+  rows('sessions').find((x) => x.id === 's2')!.team_count = 2
+  renderPage()
+  // Only Ali keeps goal, and this session has 2 teams
+  expect(await screen.findByText(/Fewer goalkeepers than teams \(2\)/)).toBeInTheDocument()
+})
+
+it("does not load another league's session", async () => {
+  rows('sessions').find((x) => x.id === 's2')!.league_id = 'L2'
+  renderPage()
+  await waitFor(() => expect(db.reads).toBeGreaterThan(0))
+  await new Promise((r) => setTimeout(r, 50))
+  expect(screen.queryByText('Ali')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Confirm Teams & Start' })).toBeDisabled()
 })

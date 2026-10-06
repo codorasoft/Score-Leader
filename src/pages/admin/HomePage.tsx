@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
@@ -7,6 +7,8 @@ import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { formatMatchClock } from '../../utils/matchClock'
 import { NewSessionDialog } from '../../components/NewSessionDialog'
+import { NextUp } from '../../components/NextUp'
+import { waitingQueue } from '../../utils/matchRotation'
 import { liveState, matchElapsed, staleSessions, todoItems, type LiveState, type OpenVote, type TodoItem } from '../../utils/homeStatus'
 import type { AwardVote, Match, Session, Team, TeamColor } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
@@ -100,10 +102,9 @@ function useDateLabels() {
   return { day, ago }
 }
 
+// The live / start card plus the new-session popup. A new session can be started in any state,
+// so a session left unfinished never blocks the next one; old /sessions/new links arrive as ?new=1.
 function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
-  const { t } = useTranslation()
-  const adminPath = useAdminPath()
-  const { day, ago } = useDateLabels()
   const [searchParams, setSearchParams] = useSearchParams()
   const [creating, setCreating] = useState(() => searchParams.get('new') === '1')
   const startRef = useRef<HTMLButtonElement>(null)
@@ -112,6 +113,25 @@ function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
     if (searchParams.has('new')) setSearchParams({}, { replace: true })
     startRef.current?.focus()
   }
+  return (
+    <>
+      <LiveCard live={live} teams={teams} onStart={() => setCreating(true)} startRef={startRef} />
+      {creating && <NewSessionDialog onClose={closeDialog} />}
+    </>
+  )
+}
+
+function LiveCard({ live, teams, onStart, startRef }: {
+  live: LiveState; teams: Team[]; onStart: () => void; startRef: RefObject<HTMLButtonElement | null>
+}) {
+  const { t } = useTranslation()
+  const adminPath = useAdminPath()
+  const { day, ago } = useDateLabels()
+  const startAnother = (
+    <button type="button" ref={startRef} onClick={onStart} className="mt-3 w-full min-h-[44px] rounded-xl text-sm font-semibold text-blue-300 border border-blue-800/60 hover:bg-blue-900/30">
+      <span aria-hidden="true">➕</span> {t('home.start')}
+    </button>
+  )
 
   if (live.kind === 'match') {
     const team = (id: string) => teams.find((x) => x.id === id)
@@ -130,9 +150,11 @@ function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
           <TeamDot team={team(live.match.team2_id)} />
         </div>
         <MatchClock match={live.match} />
+        <NextUp queue={waitingQueue(live.match)} teams={teams} className="text-center text-xs text-gray-400 mt-1" />
         <Link to={adminPath(`/sessions/${live.session.id}/match/${live.match.id}`)} className={`${bigButton} mt-3 bg-green-600 hover:bg-green-500`}>
           <span aria-hidden="true">▶</span> {t('home.resume')}
         </Link>
+        {startAnother}
       </section>
     )
   }
@@ -147,16 +169,16 @@ function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
           {t(live.kind === 'setup' ? 'home.setupTitle' : 'home.openTitle', { date: day(live.session.date) })}
         </p>
         <Link to={adminPath(to)} className={`${bigButton} bg-blue-600 hover:bg-blue-500`}>{t('home.continue')}</Link>
+        {startAnother}
       </section>
     )
   }
 
   return (
     <section className={card}>
-      <button type="button" ref={startRef} onClick={() => setCreating(true)} className={`${bigButton} w-full bg-blue-600 hover:bg-blue-500`}>
+      <button type="button" ref={startRef} onClick={onStart} className={`${bigButton} w-full bg-blue-600 hover:bg-blue-500`}>
         <span aria-hidden="true">➕</span> {t('home.start')}
       </button>
-      {creating && <NewSessionDialog onClose={closeDialog} />}
       <p className="text-sm text-gray-400 text-center mt-3">
         {live.lastPlayed ? t('home.lastPlayed', { when: ago(live.lastPlayed) }) : t('home.neverPlayed')}
       </p>

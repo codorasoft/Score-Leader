@@ -73,6 +73,41 @@ describe('live / start block', () => {
   })
 })
 
+describe('starting a session while another is unfinished', () => {
+  it('a live match still offers to start a new session', async () => {
+    h.rows.sessions = [session('s1', '2026-09-27', 'active')]
+    h.rows.matches = [match('pending')]
+    renderHome()
+    expect(await screen.findByText('Live now')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Start new session/ }))
+    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+  })
+  it('an open or half-set-up session still offers it too', async () => {
+    h.rows.sessions = [session('s1', '2026-09-27', 'draft')]
+    renderHome()
+    expect(await screen.findByRole('link', { name: 'Continue' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Start new session/ })).toBeInTheDocument()
+  })
+  it('the old new-session link opens the popup even with a session open', async () => {
+    h.rows.sessions = [session('s1', '2026-09-27', 'active')]
+    renderHome(FEATURES, '/admin/eagles/home?new=1')
+    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+  })
+})
+
+describe('live match shows who is next', () => {
+  it('names the waiting team', async () => {
+    h.rows.sessions = [session('s1', today, 'active')]
+    h.rows.matches = [match('active', { queue: ['tc'] })]
+    h.rows.teams = [
+      { id: 'ta', session_id: 's1', color: 'green', name: null }, { id: 'tb', session_id: 's1', color: 'blue', name: null },
+      { id: 'tc', session_id: 's1', color: 'yellow', name: null },
+    ]
+    renderHome()
+    expect(await screen.findByText('Next up: Yellow Team')).toBeInTheDocument()
+  })
+})
+
 describe('to do block', () => {
   beforeEach(() => {
     h.rows.sessions = [session('old', '2026-10-01', 'active'), session('s9', '2026-09-20', 'completed')]

@@ -77,7 +77,7 @@
   "teamBuilder": {
     "title": "Team Builder",
     "shuffleAll": "Shuffle All",
-    "noGkWarning": "Fewer than 3 goalkeepers — designate field players as GKs if needed.",
+    "noGkWarning": "Fewer goalkeepers than teams ({{teams}}) — designate field players as GKs if needed.",
     "confirmAndStart": "Confirm Teams & Start",
     "saving": "Saving…",
     "swapHint": "Tap a player, then tap a player on another team to swap them.",

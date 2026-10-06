@@ -75,10 +75,12 @@ export default function TeamBuilderPage() {
     const load = async () => {
       if (!sessionId) return
       const [{ data: sessionRow }, { data: spRows }] = await Promise.all([
-        supabase.from('sessions').select('team_count').eq('id', sessionId).maybeSingle(),
+        supabase.from('sessions').select('team_count').eq('id', sessionId).eq('league_id', league.id).maybeSingle(),
         supabase.from('session_players').select('player_id').eq('session_id', sessionId),
       ])
-      if (sessionRow) setTeamCount((sessionRow as { team_count: number }).team_count)
+      // Not found, or another league's session
+      if (!sessionRow) return
+      setTeamCount((sessionRow as { team_count: number }).team_count)
       const playerIds = (spRows ?? []).map((r: { player_id: string }) => r.player_id)
       if (playerIds.length === 0) return
       if (!smart) {
@@ -197,7 +199,7 @@ export default function TeamBuilderPage() {
 
       {needsGk && (
         <div className="mb-4 p-3 bg-yellow-900/40 border border-yellow-600 rounded-lg text-sm text-yellow-300">
-          ⚠ {t('teamBuilder.noGkWarning')}
+          ⚠ {t('teamBuilder.noGkWarning', { teams: teamCount })}
         </div>
       )}
 
