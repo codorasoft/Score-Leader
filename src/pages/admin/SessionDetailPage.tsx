@@ -13,7 +13,7 @@ import { SessionVotes } from '../../components/SessionVotes'
 import { SessionSummaryShare } from '../../components/SessionSummaryShare'
 import LoadFailed from '../../components/LoadFailed'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
-import { nextMatchToStart } from '../../utils/matchRotation'
+import { matchRowFields, nextMatchToStart } from '../../utils/matchRotation'
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
@@ -145,16 +145,14 @@ export default function SessionDetailPage() {
   const startNumber = canStart ? nextMatchToStart(matches, teams)!.matchNumber : 0
 
   const startNextMatch = async () => {
-    const waitingId = teams.find((tm) => tm.color === firstWaiting)?.id
-    const next = nextMatchToStart(matches, teams, waitingId)
+    const playing = firstWaiting ? teams.filter((tm) => tm.color !== firstWaiting).map((tm) => tm.id) as [string, string] : undefined
+    const next = nextMatchToStart(matches, teams, playing)
     if (!next || starting) return
     setStarting(true)
     const { data } = await supabase.from('matches').insert({
       session_id: sessionId,
       match_number: next.matchNumber,
-      team1_id: next.team1Id,
-      team2_id: next.team2Id,
-      waiting_team_id: next.waitingTeamId,
+      ...matchRowFields(next),
       status: 'pending',
     }).select().single()
     setStarting(false)

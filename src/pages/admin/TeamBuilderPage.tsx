@@ -9,7 +9,7 @@ import { blendStrength, formRatings, DEFAULT_FORM_SESSIONS } from '../../utils/p
 import { partnerships, type Pair } from '../../utils/playerMatches'
 import { TeamSwapBoard } from '../../components/TeamSwapBoard'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
-import { setupFirstMatch } from '../../utils/matchRotation'
+import { matchRowFields, setupFirstMatch } from '../../utils/matchRotation'
 import type { Match, MatchEvent, Player, Session, Team, TeamColor, TeamPlayer } from '../../lib/types'
 
 const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
@@ -125,15 +125,14 @@ export default function TeamBuilderPage() {
     await supabase.from('sessions').update({ status: 'active' }).eq('id', sessionId)
 
     const created = teamRows as Team[]
-    const first = setupFirstMatch(created, created.find((tm) => tm.color === firstWaiting)?.id)
+    const playing = firstWaiting ? created.filter((tm) => tm.color !== firstWaiting).map((tm) => tm.id) as [string, string] : undefined
+    const first = setupFirstMatch(created, playing)
     const { data: matchData } = await supabase
       .from('matches')
       .insert({
         session_id: sessionId,
         match_number: 1,
-        team1_id: first.team1Id,
-        team2_id: first.team2Id,
-        waiting_team_id: first.waitingTeamId,
+        ...matchRowFields(first),
         status: 'pending',
       })
       .select()

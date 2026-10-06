@@ -1,26 +1,28 @@
 import type { Match, Team } from '../lib/types'
+import { TEAM_COLORS } from '../lib/teamColors'
 
-export interface NextMatchConfig {
-  nextTeam1Id: string
-  nextTeam2Id: string
-  nextWaitingTeamId: string
+// The next match: who plays, and the teams waiting to come on in order (first comes on next).
+export interface NextMatch {
+  team1Id: string
+  team2Id: string
+  queue: string[]
 }
 
-export function resolveMatch(match: Match): NextMatchConfig {
-  const { team1_id, team2_id, waiting_team_id, winner_team_id } = match
+// Winner stays, the first waiting team comes on, the loser joins the back of the queue
+// (draws are decided by decideResult first). With nobody waiting (2 teams) the same two play again.
+export function resolveMatch(match: Match): NextMatch {
+  const { team1_id, team2_id, winner_team_id } = match
+  if (!winner_team_id) throw new Error('Cannot resolve match without a winner')
+  const loser = winner_team_id === team1_id ? team2_id : team1_id
+  // Matches saved before queues existed only have their waiting team
+  const waiting = match.queue?.length ? match.queue : match.waiting_team_id ? [match.waiting_team_id] : []
+  if (waiting.length === 0) return { team1Id: winner_team_id, team2Id: loser, queue: [] }
+  return { team1Id: winner_team_id, team2Id: waiting[0], queue: [...waiting.slice(1), loser] }
+}
 
-  if (!winner_team_id) {
-    throw new Error('Cannot resolve match without a winner')
-  }
-
-  // Winner stays, waiting team comes on, loser sits out (draws are decided by decideResult first).
-  const loserTeamId = winner_team_id === team1_id ? team2_id : team1_id
-  return {
-    nextTeam1Id: winner_team_id,
-    // Nobody waiting (2 teams): the same two play again
-    nextTeam2Id: waiting_team_id ?? loserTeamId,
-    nextWaitingTeamId: loserTeamId,
-  }
+// Columns for a new match row; waiting_team_id is kept as the queue's first team for older readers
+export function matchRowFields(next: NextMatch): Pick<Match, 'team1_id' | 'team2_id' | 'queue' | 'waiting_team_id'> {
+  return { team1_id: next.team1Id, team2_id: next.team2Id, queue: next.queue, waiting_team_id: next.queue[0] ?? null }
 }
 
 // Session rule: a draw in match 1 goes to penalties (no winner yet). In later matches team1
@@ -36,15 +38,18 @@ export function decideResult(params: Pick<Match, 'team1_score' | 'team2_score' |
   return { is_draw: true, draw_resolved_by: 'late_team', winner_team_id: params.team2_id }
 }
 
-// The admin may choose which team sits out the first match; otherwise it is a coin flip.
-export function setupFirstMatch(
-  teams: Team[],
-  waitingTeamId?: string,
-): { team1Id: string; team2Id: string; waitingTeamId: string } {
-  const waiting = teams.find((tm) => tm.id === waitingTeamId) ?? teams[Math.floor(Math.random() * teams.length)]
-  const playing = teams.filter((tm) => tm.id !== waiting.id)
-  if (Math.random() < 0.5) playing.reverse()
-  return { team1Id: playing[0].id, team2Id: playing[1].id, waitingTeamId: waiting.id }
+// The admin may choose the two teams that play first; otherwise two are picked at random.
+// Everyone else queues in colour order.
+export function setupFirstMatch(teams: Team[], playing?: [string, string]): NextMatch {
+  const chosen = playing && playing[0] !== playing[1] && playing.every((id) => teams.some((tm) => tm.id === id))
+    ? [...playing]
+    : [...teams].sort(() => Math.random() - 0.5).slice(0, 2).map((tm) => tm.id)
+  if (Math.random() < 0.5) chosen.reverse()
+  const queue = teams
+    .filter((tm) => !chosen.includes(tm.id))
+    .sort((a, b) => TEAM_COLORS.indexOf(a.color) - TEAM_COLORS.indexOf(b.color))
+    .map((tm) => tm.id)
+  return { team1Id: chosen[0], team2Id: chosen[1], queue }
 }
 
 // The match to start when a session is under way but has none set up (e.g. the admin deleted
@@ -53,14 +58,10 @@ export function setupFirstMatch(
 export function nextMatchToStart(
   matches: Match[],
   teams: Team[],
-  firstWaitingTeamId?: string,
-): { matchNumber: number; team1Id: string; team2Id: string; waitingTeamId: string } | null {
-  if (teams.length !== 3 || matches.some((m) => m.status !== 'completed')) return null
+  playing?: [string, string],
+): (NextMatch & { matchNumber: number }) | null {
+  if (teams.length < 2 || matches.some((m) => m.status !== 'completed')) return null
   const last = [...matches].sort((a, b) => b.match_number - a.match_number)[0]
-  if (!last?.winner_team_id) {
-    const first = setupFirstMatch(teams, firstWaitingTeamId)
-    return { matchNumber: (last?.match_number ?? 0) + 1, ...first }
-  }
-  const next = resolveMatch(last)
-  return { matchNumber: last.match_number + 1, team1Id: next.nextTeam1Id, team2Id: next.nextTeam2Id, waitingTeamId: next.nextWaitingTeamId }
+  if (!last?.winner_team_id) return { matchNumber: (last?.match_number ?? 0) + 1, ...setupFirstMatch(teams, playing) }
+  return { matchNumber: last.match_number + 1, ...resolveMatch(last) }
 }

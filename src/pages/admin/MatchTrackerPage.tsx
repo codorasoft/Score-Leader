@@ -7,7 +7,7 @@ import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
-import { resolveMatch, decideResult } from '../../utils/matchRotation'
+import { resolveMatch, decideResult, matchRowFields } from '../../utils/matchRotation'
 import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
 import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
@@ -263,22 +263,20 @@ export default function MatchTrackerPage() {
     if (error) return
 
     const completedMatch = { ...match, ...update } as Match
-    const { nextTeam1Id, nextTeam2Id, nextWaitingTeamId } = resolveMatch(completedMatch)
+    const next = resolveMatch(completedMatch)
 
     // Create next match
     const { data: nextMatch } = await supabase.from('matches').insert({
       session_id: match.session_id,
       match_number: match.match_number + 1,
-      team1_id: nextTeam1Id,
-      team2_id: nextTeam2Id,
-      waiting_team_id: nextWaitingTeamId,
+      ...matchRowFields(next),
       status: 'pending',
     }).select().single()
 
     setResult({
       outcome: describeOutcome({ ...completedMatch, winner_team_id: update.winner_team_id, elapsedSeconds: timer.elapsed, penalties }),
       nextMatchId: nextMatch ? (nextMatch as Match).id : null,
-      next: { team1Id: nextTeam1Id, team2Id: nextTeam2Id, waitingTeamId: nextWaitingTeamId },
+      next: { team1Id: next.team1Id, team2Id: next.team2Id, waitingTeamId: next.queue[0] ?? '' },
     })
   }
 
