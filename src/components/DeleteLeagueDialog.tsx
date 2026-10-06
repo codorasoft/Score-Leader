@@ -13,7 +13,7 @@ export default function DeleteLeagueDialog({ league, onDeleted }: { league: Pick
   const titleId = useId()
   const warningId = useId()
   const openerRef = useRef<HTMLButtonElement>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLFormElement>(null)
   const wasOpen = useRef(false)
 
   // Return focus to the button that opened the dialog once it closes.
@@ -29,7 +29,7 @@ export default function DeleteLeagueDialog({ league, onDeleted }: { league: Pick
   }
 
   // Escape closes (unless a delete is in flight); Tab and Shift+Tab wrap inside the dialog.
-  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+  function onKeyDown(e: KeyboardEvent<HTMLFormElement>) {
     if (e.key === 'Escape' && !busy) { e.preventDefault(); close(); return }
     if (e.key !== 'Tab' || !dialogRef.current) return
     const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>('input, button:not([disabled])')]
