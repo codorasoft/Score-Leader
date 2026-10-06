@@ -59,4 +59,24 @@ describe('PlayersPage in a league', () => {
     fireEvent.click(await screen.findByRole('button', { name: '+ Add Player' }))
     expect(screen.queryByText(/photo/i)).toBeNull()
   })
+
+  it('reloads players when the league changes', async () => {
+    vi.resetModules()
+    const eqs: unknown[][] = []
+    const q: Record<string, unknown> = {}
+    q.eq = (...a: unknown[]) => { eqs.push(a); return q }
+    q.order = () => Promise.resolve({ data: [] })
+    vi.doMock('../../lib/supabase', () => ({ supabase: { from: () => ({ select: () => q }) } }))
+    const { default: Page } = await import('./PlayersPage')
+    const { LeagueProvider } = await import('../../contexts/LeagueContext')
+    const { testLeague } = await import('../../test/league')
+    const { MemoryRouter } = await import('react-router-dom')
+    const ui = (id: string) => (
+      <MemoryRouter><LeagueProvider league={{ ...testLeague(), id }}><Page /></LeagueProvider></MemoryRouter>
+    )
+    const { rerender } = render(ui('L1'))
+    await waitFor(() => expect(eqs).toContainEqual(['league_id', 'L1']))
+    rerender(ui('L2'))
+    await waitFor(() => expect(eqs).toContainEqual(['league_id', 'L2']))
+  })
 })

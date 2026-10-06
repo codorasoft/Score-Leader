@@ -66,7 +66,16 @@ export default function PlayersPage() {
     if (data) setPlayers(data as Player[])
   }
 
-  useEffect(() => { fetchPlayers() }, [])
+  useEffect(() => {
+    // A different league: drop the previous league's players and any open dialog
+    setPlayers([])
+    setDialogOpen(false)
+    setEditingPlayer(null)
+    setConfirmRemove(null)
+    setCropSrc(null)
+    fetchPlayers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [league.id])
 
   const resetPhoto = () => {
     setPhotoFile(null)
