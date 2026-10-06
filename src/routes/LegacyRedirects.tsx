@@ -1,7 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useMyLeagues } from '../contexts/MyLeaguesContext'
-import { LEGACY_SLUG } from '../lib/leaguePaths'
-import { pickLeague } from './AdminHome'
+import { LEGACY_SLUG, pickLeague } from '../lib/leaguePaths'
 
 // /leaderboard, /records, /cards, /players/:id → same page in the legacy league.
 export function LegacyPublicRedirect() {

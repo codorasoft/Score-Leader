@@ -1,3 +1,5 @@
+import type { League } from './tenancy'
+
 export const LEGACY_SLUG = 'eagles'
 
 const LAST_LEAGUE_KEY = 'scoreleader.lastLeague'
@@ -16,4 +18,10 @@ export function readLastLeague(): string | null {
 
 export function writeLastLeague(slug: string): void {
   try { localStorage.setItem(LAST_LEAGUE_KEY, slug) } catch { /* not remembered */ }
+}
+
+// Last-used league if the admin still owns it, else the first one.
+export function pickLeague(leagues: League[]): string | null {
+  const last = readLastLeague()
+  return leagues.find(l => l.slug === last)?.slug ?? leagues[0]?.slug ?? null
 }

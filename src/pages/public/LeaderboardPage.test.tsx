@@ -3,13 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
-import { resetDb } from '../../test/fakeSupabase'
+import { db, resetDb } from '../../test/fakeSupabase'
 import { finishedLeague } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
 import LeaderboardPage from './LeaderboardPage'
+import RecordsPage from './RecordsPage'
 
 const renderPage = (features = FEATURES, url = '/l/eagles/leaderboard') =>
   render(<MemoryRouter initialEntries={[url]}><InLeague features={features}><LeaderboardPage /></InLeague></MemoryRouter>)
@@ -61,4 +62,15 @@ it('says so when no matches have been finished', async () => {
   resetDb({ players: finishedLeague().players })
   renderPage()
   expect(await screen.findByText('No finished matches in this period')).toBeInTheDocument()
+})
+
+it('records reuse the history the leaderboard just downloaded', async () => {
+  resetDb(finishedLeague())
+  const { unmount } = renderPage()
+  await screen.findByRole('link', { name: /Omar/ })
+  unmount()
+  const reads = db.reads
+  render(<MemoryRouter><InLeague><RecordsPage /></InLeague></MemoryRouter>)
+  expect(await screen.findByRole('heading', { name: 'Biggest win' })).toBeInTheDocument()
+  expect(db.reads).toBe(reads)
 })

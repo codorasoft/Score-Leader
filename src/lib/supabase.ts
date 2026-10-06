@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { createReportingFetch } from './reportingFetch'
 import { showToast } from './toast'
+import { forgetOnWrite } from './leagueCache'
 
 // Local .env uses VITE_*; the Vercel–Supabase integration injects NEXT_PUBLIC_* at build time.
 const env = import.meta.env
@@ -11,5 +12,5 @@ const supabaseAnonKey =
 export const supabase = createClient(
   supabaseUrl as string,
   supabaseAnonKey as string,
-  { global: { fetch: createReportingFetch((...args) => fetch(...args), showToast) } },
+  { global: { fetch: forgetOnWrite(createReportingFetch((...args) => fetch(...args), showToast)) } },
 )

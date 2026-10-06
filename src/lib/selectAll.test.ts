@@ -18,3 +18,11 @@ it('stops on an error and returns what it has', async () => {
     .mockResolvedValueOnce({ data: null, error: new Error('boom') })
   expect(await selectAll(page)).toHaveLength(1000)
 })
+
+it('tells the caller when a page failed', async () => {
+  const onError = vi.fn()
+  await selectAll(vi.fn().mockResolvedValue({ data: null, error: new Error('boom') }), onError)
+  expect(onError).toHaveBeenCalledTimes(1)
+  await selectAll(vi.fn().mockResolvedValue({ data: [1], error: null }), onError)
+  expect(onError).toHaveBeenCalledTimes(1)
+})
