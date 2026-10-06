@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
@@ -6,6 +7,7 @@ import { selectAll } from '../../lib/selectAll'
 import { availablePeriods, defaultPeriod, periodStats, type PeriodKey } from '../../utils/leaderboardPeriod'
 import { monthKey, playersOfMonth, potmPoints } from '../../utils/playerOfMonth'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
+import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import type { Player, Match, MatchEvent, TeamPlayer, Session } from '../../lib/types'
 
 type SortKey = 'points' | 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
@@ -29,21 +31,30 @@ interface Data {
 export default function LeaderboardPage() {
   const { t, i18n } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [data, setData] = useState<Data | null>(null)
+  const league = useLeague()
+  const publicPath = usePublicPath()
+  const potmOn = useFeature('potm')
+  const profiles = useFeature('profiles')
+  const [loaded, setLoaded] = useState<{ leagueId: string; data: Data } | null>(null)
   const [sortBy, setSortBy] = useState<SortKey>('points')
 
   const load = useCallback(async () => {
     const [players, sessions, matches, events, teamPlayers] = await Promise.all([
-      selectAll<Player>((a, b) => supabase.from('players').select('*').eq('is_active', true).range(a, b)),
-      selectAll<Session>((a, b) => supabase.from('sessions').select('*').range(a, b)),
-      selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('status', 'completed').range(a, b)),
-      selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').range(a, b)),
-      selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').range(a, b)),
+      selectAll<Player>((a, b) => supabase.from('players').select('*').eq('league_id', league.id).eq('is_active', true).range(a, b)),
+      selectAll<Session>((a, b) => supabase.from('sessions').select('*').eq('league_id', league.id).range(a, b)),
+      selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('league_id', league.id).eq('status', 'completed').range(a, b)),
+      selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').eq('league_id', league.id).range(a, b)),
+      selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').eq('league_id', league.id).range(a, b)),
     ])
-    setData({ players, sessions, matches, events, teamPlayers })
-  }, [])
+    if (currentLeague.current !== league.id) return
+    setLoaded({ leagueId: league.id, data: { players, sessions, matches, events, teamPlayers } })
+  }, [league.id])
 
+  const currentLeague = useRef(league.id)
+  currentLeague.current = league.id
   useEffect(() => { load() }, [load])
+
+  const data = loaded?.leagueId === league.id ? loaded.data : null
 
   if (!data) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
@@ -66,7 +77,7 @@ export default function LeaderboardPage() {
   const sorted = [...rows].sort(compare)
   const ranks: number[] = []
   sorted.forEach((s, i) => ranks.push(i > 0 && compare(sorted[i - 1], s) === 0 ? ranks[i - 1] : i + 1))
-  const potm = period.length === 7 ? playersOfMonth(data, period) : null
+  const potm = potmOn && period.length === 7 ? playersOfMonth(data, period) : null
   const monthOver = period < monthKey(new Date())
 
   return (
@@ -119,7 +130,7 @@ export default function LeaderboardPage() {
 
       <div className="space-y-2">
         {sorted.map((s, i) => (
-          <Link key={s.player.id} to={`/players/${s.player.id}`} className="flex items-center bg-gray-800 hover:bg-gray-700 rounded-lg px-4 py-3 gap-3">
+          <Row key={s.player.id} to={profiles ? publicPath(`/players/${s.player.id}`) : null}>
             <span className="w-6 text-gray-500 text-sm font-mono">{ranks[i]}</span>
             <PlayerAvatar player={s.player} size="sm" />
             <span className="flex-1 min-w-0">
@@ -130,11 +141,19 @@ export default function LeaderboardPage() {
               </span>
             </span>
             <span className="text-2xl font-bold shrink-0">{s[sortBy]}</span>
-          </Link>
+          </Row>
         ))}
         {sorted.length === 0 && <p className="text-gray-500 text-center py-8">{t('leaderboard.empty')}</p>}
         {sorted.length > 0 && sortBy === 'points' && <p className="text-[11px] text-gray-500 text-center pt-2">{t('potm.formula')}</p>}
       </div>
     </div>
   )
+}
+
+const rowClass = 'flex items-center bg-gray-800 rounded-lg px-4 py-3 gap-3'
+
+function Row({ to, children }: { to: string | null; children: ReactNode }) {
+  return to
+    ? <Link to={to} className={`${rowClass} hover:bg-gray-700`}>{children}</Link>
+    : <div className={rowClass}>{children}</div>
 }

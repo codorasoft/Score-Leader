@@ -574,6 +574,11 @@
     },
     "confirmClear": "حذف كل الأسهم والمناطق؟"
   },
+  "leagueHome": {
+    "liveNow": "مباشر الآن",
+    "recentSessions": "الجلسات الأخيرة",
+    "noSessions": "لا توجد جلسات بعد."
+  },
   "notAvailable": {
     "league": "الدوري غير متاح",
     "page": "الصفحة غير موجودة",

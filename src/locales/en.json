@@ -497,6 +497,11 @@
     },
     "confirmClear": "Remove all arrows and zones?"
   },
+  "leagueHome": {
+    "liveNow": "Live now",
+    "recentSessions": "Recent sessions",
+    "noSessions": "No sessions yet."
+  },
   "notAvailable": {
     "league": "League not available",
     "page": "Page not found",

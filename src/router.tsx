@@ -30,6 +30,7 @@ import LeaderboardPage from './pages/public/LeaderboardPage'
 import PlayerProfilePage from './pages/public/PlayerProfilePage'
 import RecordsPage from './pages/public/RecordsPage'
 import CardsPage from './pages/public/CardsPage'
+import LeagueHomePage from './pages/public/LeagueHomePage'
 
 const legacyPublic = { element: <LegacyPublicRedirect /> }
 const legacyAdmin = { element: <LegacyAdminRedirect /> }
@@ -85,8 +86,7 @@ export const routes: RouteObject[] = [
     path: '/l/:slug',
     element: <PublicLeagueRoute />,
     children: [
-      // The league home page replaces this redirect later.
-      { index: true, element: <Navigate to="leaderboard" replace /> },
+      { index: true, element: <LeagueHomePage /> },
       { path: 'leaderboard', element: <FeatureRoute name="leaderboard" fallback="notFound"><LeaderboardPage /></FeatureRoute> },
       { path: 'records', element: <FeatureRoute name="records" fallback="notFound"><RecordsPage /></FeatureRoute> },
       { path: 'cards', element: <FeatureRoute name="player_cards" fallback="notFound"><CardsPage /></FeatureRoute> },

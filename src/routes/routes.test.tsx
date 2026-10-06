@@ -49,6 +49,7 @@ vi.mock('../pages/public/VotePage', () => stub('VotePage'))
 vi.mock('../pages/public/LeaderboardPage', () => stub('LeaderboardPage'))
 vi.mock('../pages/public/PlayerProfilePage', () => stub('PlayerProfilePage'))
 vi.mock('../pages/public/RecordsPage', () => stub('RecordsPage'))
+vi.mock('../pages/public/LeagueHomePage', () => stub('LeagueHomePage'))
 vi.mock('../pages/public/CardsPage', () => stub('CardsPage'))
 
 import { routes } from '../router'
@@ -248,9 +249,10 @@ describe('public league', () => {
     renderAt('/l/eagles/leaderboard')
     expect(await screen.findByText('League not available')).toBeInTheDocument()
   })
-  it('league index opens the leaderboard for now', async () => {
+  it('league index renders the league home page', async () => {
     const router = renderAt('/l/eagles')
-    await expectPath(router, '/l/eagles/leaderboard')
+    expect(await screen.findByText('LeagueHomePage')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/l/eagles')
   })
 })
 
