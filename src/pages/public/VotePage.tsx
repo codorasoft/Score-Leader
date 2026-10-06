@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { getFingerprint } from '../../utils/fingerprint'
 import { useFeature } from '../../contexts/LeagueContext'
+import { serverErrorKey } from '../../lib/errorText'
 import type { AwardVote, Player } from '../../lib/types'
 
 export default function VotePage() {
@@ -16,6 +17,8 @@ export default function VotePage() {
   const [submitted, setSubmitted] = useState(false)
   const [alreadyVoted, setAlreadyVoted] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState('')
 
   useEffect(() => {
     const init = async () => {
@@ -52,13 +55,18 @@ export default function VotePage() {
   }, [voteToken])
 
   const handleSubmit = async () => {
-    if (!chosen || !vote) return
+    if (!chosen || !vote || sending) return
+    setSending(true)
+    setSendError('')
     const fp = await getFingerprint()
-    await supabase.from('award_vote_entries').insert({
+    const { error } = await supabase.from('award_vote_entries').insert({
       award_vote_id: vote.id,
       voter_fingerprint: fp,
       player_id: chosen,
     })
+    setSending(false)
+    // A duplicate means this device's vote is already in; anything else was not saved, so keep the choice for a retry
+    if (error && error.code !== '23505') { setSendError(t(serverErrorKey(error.message))); return }
     setSubmitted(true)
   }
 
@@ -90,9 +98,11 @@ export default function VotePage() {
         ))}
       </div>
 
+      {sendError && <p role="alert" className="text-red-400 text-sm text-center mb-3">{sendError}</p>}
+
       <button
         onClick={handleSubmit}
-        disabled={!chosen}
+        disabled={!chosen || sending}
         className="w-full py-3 bg-blue-600 rounded-xl font-bold disabled:opacity-50"
       >
         {t('vote.submit')}

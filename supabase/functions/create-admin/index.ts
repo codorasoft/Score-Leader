@@ -1,4 +1,5 @@
 import { corsHeaders, json, readJson, requireSuperadmin } from '../_shared/superadmin.ts'
+import { internalError } from '../_shared/errors.ts'
 import { validateCreateAdmin } from '../_shared/validate.ts'
 
 async function handle(req: Request): Promise<Response> {
@@ -26,7 +27,7 @@ async function handle(req: Request): Promise<Response> {
   })
   if (profileError) {
     await admin.auth.admin.deleteUser(data.user.id)
-    return json({ error: profileError.message }, 500)
+    return json(internalError('profile', profileError), 500)
   }
   return json({ ok: true, user_id: data.user.id })
 }
@@ -36,6 +37,6 @@ Deno.serve(async (req) => {
   try {
     return await handle(req)
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : 'internal error' }, 500)
+    return json(internalError('unhandled', e), 500)
   }
 })

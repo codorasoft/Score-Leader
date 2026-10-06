@@ -11,6 +11,7 @@ import { SessionStandings } from '../../components/SessionStandings'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { SessionVotes } from '../../components/SessionVotes'
 import { SessionSummaryShare } from '../../components/SessionSummaryShare'
+import LoadFailed from '../../components/LoadFailed'
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 
@@ -43,28 +44,35 @@ export default function SessionDetailPage() {
   const [goalDialog, setGoalDialog] = useState<{ match: Match; teamId: string } | null>(null)
   const [confirmDeleteMatchId, setConfirmDeleteMatchId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const load = async () => {
-    const [{ data: sess }, { data: matchData }, { data: teamData }, { data: awardData }] = await Promise.all([
-      supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).single(),
+    const [sessRes, matchRes, teamRes, awardRes] = await Promise.all([
+      supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).maybeSingle(),
       supabase.from('matches').select('*').eq('session_id', sessionId).order('match_number'),
       supabase.from('teams').select('*').eq('session_id', sessionId),
       supabase.from('session_awards').select('*').eq('session_id', sessionId),
     ])
+    // A malformed id in the URL (invalid uuid) is "not found", not a failure.
+    if (sessRes.error?.code === '22P02') { navigate(adminPath('/history'), { replace: true }); return }
+    // A network or server failure is not "not found": offer a retry instead of leaving the page.
+    if (sessRes.error || matchRes.error || teamRes.error || awardRes.error) { setLoadFailed(true); return }
+    setLoadFailed(false)
     // Not found, or another league's session
-    if (!sess) { navigate(adminPath('/history'), { replace: true }); return }
-    setAwards((awardData ?? []) as SessionAward[])
-    const matchRows = (matchData ?? []) as Match[]
-    const teamRows = (teamData ?? []) as Team[]
-    setSession(sess as Session)
+    if (!sessRes.data) { navigate(adminPath('/history'), { replace: true }); return }
+    setAwards((awardRes.data ?? []) as SessionAward[])
+    const matchRows = (matchRes.data ?? []) as Match[]
+    const teamRows = (teamRes.data ?? []) as Team[]
+    setSession(sessRes.data as Session)
     setMatches(matchRows)
     setTeams(teamRows)
 
     if (matchRows.length === 0 || teamRows.length === 0) return
-    const [{ data: evData }, { data: tpData }] = await Promise.all([
+    const [{ data: evData, error: evError }, { data: tpData, error: tpError }] = await Promise.all([
       supabase.from('match_events').select('*').in('match_id', matchRows.map((m) => m.id)),
       supabase.from('team_players').select('*').in('team_id', teamRows.map((tm) => tm.id)),
     ])
+    if (evError || tpError) { setLoadFailed(true); return }
     const evRows = (evData ?? []) as MatchEvent[]
     const tpRows = (tpData ?? []) as TeamPlayer[]
     setEvents(evRows)
@@ -72,7 +80,8 @@ export default function SessionDetailPage() {
 
     const pIds = [...new Set([...tpRows.map((tp) => tp.player_id), ...evRows.map((e) => e.player_id)])]
     if (pIds.length > 0) {
-      const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
+      const { data: pData, error: pError } = await supabase.from('players').select('*').in('id', pIds)
+      if (pError) { setLoadFailed(true); return }
       setPlayers((pData ?? []) as Player[])
     }
   }
@@ -133,6 +142,8 @@ export default function SessionDetailPage() {
     await supabase.from('matches').delete().eq('id', matchId)
     load()
   }
+
+  if (loadFailed) return <LoadFailed onRetry={load} />
 
   return (
     <div className="max-w-lg mx-auto p-4">

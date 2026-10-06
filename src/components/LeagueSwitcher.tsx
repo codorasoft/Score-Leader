@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LeagueLogo } from './LeagueLogo'
@@ -13,11 +13,37 @@ export function LeagueSwitcher({ current, leagues, maxLeagues }: { current: Leag
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const atLimit = leagues.length >= maxLeagues
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const close = () => setOpen(false)
+
+  const menuItems = () => [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
+
+  // Opening moves focus to the first item so the arrow keys work straight away.
+  useEffect(() => { if (open) menuItems()[0]?.focus() }, [open])
+
+  function onMenuKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const items = menuItems()
+    const at = items.indexOf(document.activeElement as HTMLElement)
+    const move = (to: number) => { e.preventDefault(); items[(to + items.length) % items.length]?.focus() }
+    switch (e.key) {
+      case 'ArrowDown': return move(at + 1)
+      case 'ArrowUp': return move(at - 1)
+      case 'Home': return move(0)
+      case 'End': return move(items.length - 1)
+      case 'Escape':
+        e.preventDefault()
+        close()
+        buttonRef.current?.focus()
+        return
+      case 'Tab': return close()
+    }
+  }
 
   return (
     <div className="relative min-w-0">
       <button
+        ref={buttonRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -33,12 +59,14 @@ export function LeagueSwitcher({ current, leagues, maxLeagues }: { current: Leag
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={close} />
-          <div role="menu" className="absolute start-0 top-full mt-1 z-50 w-64 max-w-[80vw] p-1 rounded-xl bg-gray-800 border border-gray-700 shadow-lg">
+          <div ref={menuRef} role="menu" aria-label={t('league.switch')} onKeyDown={onMenuKeyDown} className="absolute start-0 top-full mt-1 z-50 w-64 max-w-[80vw] p-1 rounded-xl bg-gray-800 border border-gray-700 shadow-lg">
             {leagues.map(l => (
               <button
                 key={l.id}
                 role="menuitem"
                 type="button"
+                tabIndex={-1}
+                aria-current={l.slug === current.slug ? 'true' : undefined}
                 onClick={() => { close(); if (l.slug !== current.slug) navigate(switchLeaguePath(location.pathname, l.slug)) }}
                 className={`${item} hover:bg-gray-700`}
               >
@@ -49,15 +77,15 @@ export function LeagueSwitcher({ current, leagues, maxLeagues }: { current: Leag
             ))}
             <div className="my-1 border-t border-gray-700" />
             {atLimit ? (
-              <span role="menuitem" aria-disabled="true" className={`${item} text-gray-500 cursor-not-allowed`}>
+              <span role="menuitem" tabIndex={-1} aria-disabled="true" className={`${item} text-gray-500 cursor-not-allowed`}>
                 {t('league.limitReached', { used: leagues.length, max: maxLeagues })}
               </span>
             ) : (
-              <Link role="menuitem" to="/admin/leagues/new" onClick={close} className={`${item} hover:bg-gray-700`}>
+              <Link role="menuitem" tabIndex={-1} to="/admin/leagues/new" onClick={close} className={`${item} hover:bg-gray-700`}>
                 {t('league.newLeague', { used: leagues.length, max: maxLeagues })}
               </Link>
             )}
-            <Link role="menuitem" to={`/admin/${current.slug}/settings`} onClick={close} className={`${item} hover:bg-gray-700`}>
+            <Link role="menuitem" tabIndex={-1} to={`/admin/${current.slug}/settings`} onClick={close} className={`${item} hover:bg-gray-700`}>
               {t('league.settings')}
             </Link>
           </div>
