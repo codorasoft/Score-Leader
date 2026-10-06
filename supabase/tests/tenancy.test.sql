@@ -599,5 +599,70 @@ SELECT pg_temp.expect_count(
   1);
 RESET role;
 
+-- ===== Deleting a league cascades to every table that holds its rows (run as postgres)
+
+INSERT INTO public.leagues (id, owner_id, name, slug) VALUES
+  ('99999999-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000001', 'League Z', 'z-league');
+INSERT INTO public.players (id, league_id, name, position, skill_rating) VALUES
+  ('99999999-0000-4000-8000-000000000003', '99999999-0000-4000-8000-000000000002', 'Z Player 1', 'MID', 3),
+  ('99999999-0000-4000-8000-000000000004', '99999999-0000-4000-8000-000000000002', 'Z Player 2', 'GK', 3);
+INSERT INTO public.sessions (id, league_id, date, share_token) VALUES
+  ('99999999-0000-4000-8000-000000000005', '99999999-0000-4000-8000-000000000002', '2026-10-06', 'tenancy-test-z');
+INSERT INTO public.teams (id, session_id, color) VALUES
+  ('99999999-0000-4000-8000-000000000006', '99999999-0000-4000-8000-000000000005', 'green'),
+  ('99999999-0000-4000-8000-000000000007', '99999999-0000-4000-8000-000000000005', 'blue'),
+  ('99999999-0000-4000-8000-000000000008', '99999999-0000-4000-8000-000000000005', 'yellow');
+INSERT INTO public.session_players (session_id, player_id) VALUES
+  ('99999999-0000-4000-8000-000000000005', '99999999-0000-4000-8000-000000000003'),
+  ('99999999-0000-4000-8000-000000000005', '99999999-0000-4000-8000-000000000004');
+INSERT INTO public.team_players (team_id, player_id) VALUES
+  ('99999999-0000-4000-8000-000000000006', '99999999-0000-4000-8000-000000000003'),
+  ('99999999-0000-4000-8000-000000000007', '99999999-0000-4000-8000-000000000004');
+INSERT INTO public.matches (id, session_id, match_number, team1_id, team2_id, waiting_team_id) VALUES
+  ('99999999-0000-4000-8000-000000000009', '99999999-0000-4000-8000-000000000005', 1,
+   '99999999-0000-4000-8000-000000000006', '99999999-0000-4000-8000-000000000007', '99999999-0000-4000-8000-000000000008');
+INSERT INTO public.match_events (id, match_id, player_id, team_id, event_type) VALUES
+  ('99999999-0000-4000-8000-000000000010', '99999999-0000-4000-8000-000000000009',
+   '99999999-0000-4000-8000-000000000003', '99999999-0000-4000-8000-000000000006', 'goal');
+INSERT INTO public.award_votes (id, session_id, award_type, status, decided_by, vote_token) VALUES
+  ('99999999-0000-4000-8000-000000000011', '99999999-0000-4000-8000-000000000005', 'mvp', 'open', 'vote', 'tenancy-vote-z');
+INSERT INTO public.award_vote_nominations (award_vote_id, player_id) VALUES
+  ('99999999-0000-4000-8000-000000000011', '99999999-0000-4000-8000-000000000003');
+INSERT INTO public.award_vote_entries (award_vote_id, voter_fingerprint, player_id) VALUES
+  ('99999999-0000-4000-8000-000000000011', 'tenancy-z-voter', '99999999-0000-4000-8000-000000000003');
+INSERT INTO public.session_awards (session_id, award_type, winner_player_id, decided_by, is_tied) VALUES
+  ('99999999-0000-4000-8000-000000000005', 'best_goalscorer', '99999999-0000-4000-8000-000000000003', 'auto_stat', false);
+INSERT INTO public.lineups (id, league_id, name) VALUES
+  ('99999999-0000-4000-8000-000000000012', '99999999-0000-4000-8000-000000000002', 'Z Board');
+INSERT INTO public.lineup_players (lineup_id, player_id, x, y) VALUES
+  ('99999999-0000-4000-8000-000000000012', '99999999-0000-4000-8000-000000000003', 0.5, 0.5);
+
+DO $$
+DECLARE
+  t text;
+  z uuid := '99999999-0000-4000-8000-000000000002';
+  n bigint;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
+    'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
+    'lineups', 'lineup_players'
+  ] LOOP
+    EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
+    PERFORM pg_temp.expect(n > 0, t || ': fixture league has rows before delete');
+  END LOOP;
+
+  DELETE FROM public.leagues WHERE id = z;
+
+  FOREACH t IN ARRAY ARRAY[
+    'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
+    'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
+    'lineups', 'lineup_players'
+  ] LOOP
+    EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
+    PERFORM pg_temp.expect(n = 0, t || ': no rows left after the league is deleted');
+  END LOOP;
+END $$;
+
 -- Later tests go above this line.
 SELECT 'TENANCY TESTS PASSED' AS result;
