@@ -28,6 +28,8 @@ const TABLES: Record<string, string[]> = {
   leagues: ['id'],
 }
 
+const OPTIONAL = new Set(['admin_profiles', 'leagues'])
+
 function readEnvUrl(): string | undefined {
   try {
     const m = readFileSync('.env', 'utf8').match(/^\s*VITE_SUPABASE_URL\s*=\s*(.+?)\s*$/m)
@@ -63,18 +65,20 @@ const isMissing = (e: { code?: string }) => e.code === '42P01' || e.code === 'PG
 async function dumpTable(table: string, order: string[]): Promise<number | null> {
   const head = await supabase.from(table).select('*', { count: 'exact', head: true })
   if (head.error) {
-    if (isMissing(head.error) || /schema cache|does not exist/.test(head.error.message)) return null
+    if (OPTIONAL.has(table) && (isMissing(head.error) || /schema cache|does not exist/.test(head.error.message))) return null
     throw new Error(`${table}: ${head.error.message}`)
+  }
+  if (head.count === null) {
+    // HEAD responses carry no error body; a missing table shows up as a null count
+    if (OPTIONAL.has(table)) return null
+    throw new Error(`${table}: no row count returned`)
   }
   const rows: unknown[] = []
   for (let from = 0; ; from += PAGE) {
     let q = supabase.from(table).select('*')
     for (const c of order) q = q.order(c)
     const { data, error } = await q.range(from, from + PAGE - 1)
-    if (error) {
-      if (isMissing(error) || /schema cache|does not exist/.test(error.message)) return null
-      throw new Error(`${table}: ${error.message}`)
-    }
+    if (error) throw new Error(`${table}: ${error.message}`)
     rows.push(...data)
     if (data.length < PAGE) break
   }
@@ -102,9 +106,11 @@ async function listFiles(prefix: string): Promise<string[]> {
 
 const manifest: Record<string, unknown> = {}
 const counts: Record<string, number> = {}
+const skipped: string[] = []
 for (const [table, order] of Object.entries(TABLES)) {
   const n = await dumpTable(table, order)
   if (n === null) {
+    skipped.push(table)
     console.log(`skip ${table} (does not exist)`)
     continue
   }
@@ -130,7 +136,7 @@ for (const path of photos) {
   save(join('storage', BUCKET, path), buf)
 }
 
-Object.assign(manifest, counts, { authUsers: users.length, photos: photos.length, totalBytes })
+Object.assign(manifest, counts, { skippedTables: skipped, authUsers: users.length, photos: photos.length, totalBytes })
 save('manifest.json', JSON.stringify(manifest, null, 2))
 console.log(`Backup written to ${outDir}`)
 console.log(JSON.stringify(manifest, null, 2))
