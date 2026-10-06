@@ -33,7 +33,9 @@ it('an under-way session whose matches were all deleted shows its teams and star
   expect(await screen.findByText(/No match is set up/)).toBeInTheDocument()
   for (const name of ['Ali', 'Omar', 'Sami', 'Zaid', 'Hadi', 'Nour']) expect(screen.getByText(name)).toBeInTheDocument()
 
-  await user.click(screen.getByRole('button', { name: /Yellow Team waits/ }))
+  // Green and Blue play first, so Yellow waits
+  await user.click(screen.getByRole('button', { name: 'Green Team' }))
+  await user.click(screen.getByRole('button', { name: 'Blue Team' }))
   await user.click(screen.getByRole('button', { name: 'Start match 1' }))
 
   await waitFor(() => expect(screen.getByText(/^tracker/)).toBeInTheDocument())

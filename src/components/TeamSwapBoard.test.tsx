@@ -9,7 +9,7 @@ function Harness() {
   const [teams, setTeams] = useState<[Player[], Player[], Player[]]>([[p('Ali', 5), p('Omar')], [p('Sami', 1)], [p('Hadi')]])
   return (
     <>
-      <TeamSwapBoard teams={teams} onChange={setTeams} />
+      <TeamSwapBoard teams={teams} colors={['green', 'blue', 'yellow']} onChange={setTeams} />
       <output data-testid="state">{teams.map((t) => t.map((x) => x.name).join(',')).join(' | ')}</output>
     </>
   )

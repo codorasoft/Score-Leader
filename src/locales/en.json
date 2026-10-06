@@ -11,7 +11,10 @@
     "teamColor": {
       "green": "Green",
       "blue": "Blue",
-      "yellow": "Yellow"
+      "yellow": "Yellow",
+      "orange": "Orange",
+      "purple": "Purple",
+      "white": "White"
     },
     "waiting": "Waiting",
     "vs": "vs",
@@ -74,10 +77,7 @@
     "moveHere": "Move here",
     "teamSummary_one": "{{count}} player · {{stars}}★",
     "teamSummary_other": "{{count}} players · {{stars}}★",
-    "firstMatch": "First match",
     "firstMatchRandom": "Random (coin flip)",
-    "firstMatchPair": "{{team1}} vs {{team2}}",
-    "firstMatchWaits": "{{team}} waits",
     "balanceBy": "Balance teams by",
     "stars": "Stars",
     "form": "Form",
@@ -86,7 +86,9 @@
     "formHelp_other": "Form = win rate and goals/assists over each player’s last {{count}} sessions. New players use stars only.",
     "teamStrength_one": "{{count}} player · ⚡{{power}}",
     "teamStrength_other": "{{count}} players · ⚡{{power}}",
-    "splitDuos": "Split duos who win a lot together"
+    "splitDuos": "Split duos who win a lot together",
+    "firstMatchPick": "Who plays first?",
+    "pickTwo": "Tap two teams, or leave it random. The others wait in this order."
   },
   "match": {
     "start": "▶ Start",

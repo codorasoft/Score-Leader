@@ -10,9 +10,9 @@ import { partnerships, type Pair } from '../../utils/playerMatches'
 import { TeamSwapBoard } from '../../components/TeamSwapBoard'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
 import { matchRowFields, setupFirstMatch } from '../../utils/matchRotation'
+import { TEAM_COLORS } from '../../lib/teamColors'
 import type { Match, MatchEvent, Player, Session, Team, TeamColor, TeamPlayer } from '../../lib/types'
 
-const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
 const WEIGHT_KEY = 'balanceFormWeight'
 const SPLIT_DUOS_KEY = 'balanceSplitDuos'
 const DUO_MIN_MATCHES = 5
@@ -45,10 +45,13 @@ export default function TeamBuilderPage() {
   const [formPercent, setFormPercent] = useState(() => (smart ? readWeight() : 0))
   const [pairs, setPairs] = useState<Pair[]>([])
   const [splitDuos, setSplitDuos] = useState(readSplitDuos)
+  // The session's number of teams (3 until it loads; sessions before this setting were all 3)
+  const [teamCount, setTeamCount] = useState(3)
+  const colors = TEAM_COLORS.slice(0, teamCount)
   const [teams, setTeams] = useState<Player[][]>([[], [], []])
   const [needsGk, setNeedsGk] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [firstWaiting, setFirstWaiting] = useState<TeamColor | null>(null)
+  const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
 
   const strengthOf = useCallback(
     (p: Player) => blendStrength(p.skill_rating, form.get(p.id), formPercent / 100),
@@ -63,15 +66,19 @@ export default function TeamBuilderPage() {
   }, [pairs, splitDuos, smart])
 
   const rebalance = useCallback(() => {
-    const result = balanceTeams(attendees, 3, strengthOf, synergy)
+    const result = balanceTeams(attendees, teamCount, strengthOf, synergy)
     setTeams(result.teams)
     setNeedsGk(result.needsGkAssignment)
-  }, [attendees, strengthOf, synergy])
+  }, [attendees, teamCount, strengthOf, synergy])
 
   useEffect(() => {
     const load = async () => {
       if (!sessionId) return
-      const { data: spRows } = await supabase.from('session_players').select('player_id').eq('session_id', sessionId)
+      const [{ data: sessionRow }, { data: spRows }] = await Promise.all([
+        supabase.from('sessions').select('team_count').eq('id', sessionId).maybeSingle(),
+        supabase.from('session_players').select('player_id').eq('session_id', sessionId),
+      ])
+      if (sessionRow) setTeamCount((sessionRow as { team_count: number }).team_count)
       const playerIds = (spRows ?? []).map((r: { player_id: string }) => r.player_id)
       if (playerIds.length === 0) return
       if (!smart) {
@@ -112,20 +119,21 @@ export default function TeamBuilderPage() {
 
     const { data: teamRows } = await supabase
       .from('teams')
-      .insert(COLORS.map((color) => ({ session_id: sessionId, color })))
+      .insert(colors.map((color) => ({ session_id: sessionId, color })))
       .select()
     if (!teamRows) { setSaving(false); return }
 
     // Match rows to board columns by colour; don't rely on the insert returning rows in order
     const teamPlayerRows = (teamRows as Team[]).flatMap((team) =>
-      teams[COLORS.indexOf(team.color)].map((p) => ({ team_id: team.id, player_id: p.id }))
+      teams[colors.indexOf(team.color)].map((p) => ({ team_id: team.id, player_id: p.id }))
     )
     await supabase.from('team_players').insert(teamPlayerRows)
 
     await supabase.from('sessions').update({ status: 'active' }).eq('id', sessionId)
 
     const created = teamRows as Team[]
-    const playing = firstWaiting ? created.filter((tm) => tm.color !== firstWaiting).map((tm) => tm.id) as [string, string] : undefined
+    const idOf = (c: TeamColor) => created.find((tm) => tm.color === c)!.id
+    const playing = firstPlaying ? [idOf(firstPlaying[0]), idOf(firstPlaying[1])] as [string, string] : undefined
     const first = setupFirstMatch(created, playing)
     const { data: matchData } = await supabase
       .from('matches')
@@ -193,9 +201,9 @@ export default function TeamBuilderPage() {
         </div>
       )}
 
-      <TeamSwapBoard teams={teams} onChange={setTeams} strengthOf={strengthOf} />
+      <TeamSwapBoard teams={teams} colors={colors} onChange={setTeams} strengthOf={strengthOf} />
 
-      <FirstMatchPicker waiting={firstWaiting} onChange={setFirstWaiting} />
+      <FirstMatchPicker colors={colors} playing={firstPlaying} onChange={setFirstPlaying} />
 
       <div className="mt-6">
         <button

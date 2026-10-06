@@ -161,7 +161,8 @@ describe('admin redirects', () => {
     const router = renderAt('/admin/tigers/players')
     await screen.findByText('PlayersPage')
     expect(router.state.location.pathname).toBe('/admin/tigers/players')
-    expect(localStorage.getItem('scoreleader.lastLeague')).toBe('tigers')
+    // Saved by an effect right after the page renders
+    await waitFor(() => expect(localStorage.getItem('scoreleader.lastLeague')).toBe('tigers'))
   })
   it('the league index opens home', async () => {
     const router = renderAt('/admin/eagles')

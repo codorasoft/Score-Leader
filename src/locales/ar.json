@@ -11,7 +11,10 @@
     "teamColor": {
       "green": "أخضر",
       "blue": "أزرق",
-      "yellow": "أصفر"
+      "yellow": "أصفر",
+      "orange": "برتقالي",
+      "purple": "بنفسجي",
+      "white": "أبيض"
     },
     "waiting": "انتظار",
     "vs": "ضد",
@@ -78,10 +81,7 @@
     "teamSummary_few": "{{count}} لاعبين · {{stars}}★",
     "teamSummary_many": "{{count}} لاعباً · {{stars}}★",
     "teamSummary_other": "{{count}} لاعب · {{stars}}★",
-    "firstMatch": "المباراة الأولى",
     "firstMatchRandom": "عشوائي (قرعة)",
-    "firstMatchPair": "{{team1}} ضد {{team2}}",
-    "firstMatchWaits": "{{team}} ينتظر",
     "balanceBy": "توزيع الفرق حسب",
     "stars": "النجوم",
     "form": "المستوى",
@@ -98,7 +98,9 @@
     "teamStrength_few": "{{count}} لاعبين · ⚡{{power}}",
     "teamStrength_many": "{{count}} لاعباً · ⚡{{power}}",
     "teamStrength_other": "{{count}} لاعب · ⚡{{power}}",
-    "splitDuos": "فصل الثنائيات التي تفوز كثيراً معاً"
+    "splitDuos": "فصل الثنائيات التي تفوز كثيراً معاً",
+    "firstMatchPick": "من يلعب أولاً؟",
+    "pickTwo": "اختر فريقين، أو اتركها عشوائية. باقي الفرق تنتظر بهذا الترتيب."
   },
   "match": {
     "start": "▶ بدء",

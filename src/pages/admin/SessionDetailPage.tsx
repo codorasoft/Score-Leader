@@ -44,7 +44,7 @@ export default function SessionDetailPage() {
   const [confirmDeleteMatchId, setConfirmDeleteMatchId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
-  const [firstWaiting, setFirstWaiting] = useState<TeamColor | null>(null)
+  const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
   const [starting, setStarting] = useState(false)
 
   const load = async () => {
@@ -145,7 +145,8 @@ export default function SessionDetailPage() {
   const startNumber = canStart ? nextMatchToStart(matches, teams)!.matchNumber : 0
 
   const startNextMatch = async () => {
-    const playing = firstWaiting ? teams.filter((tm) => tm.color !== firstWaiting).map((tm) => tm.id) as [string, string] : undefined
+    const idOf = (c: TeamColor) => teams.find((tm) => tm.color === c)?.id ?? ''
+    const playing = firstPlaying ? [idOf(firstPlaying[0]), idOf(firstPlaying[1])] as [string, string] : undefined
     const next = nextMatchToStart(matches, teams, playing)
     if (!next || starting) return
     setStarting(true)
@@ -199,7 +200,7 @@ export default function SessionDetailPage() {
               </div>
             ))}
           </div>
-          {startNumber === 1 && <FirstMatchPicker waiting={firstWaiting} onChange={setFirstWaiting} />}
+          {startNumber === 1 && <FirstMatchPicker colors={teams.map((tm) => tm.color)} playing={firstPlaying} onChange={setFirstPlaying} />}
           <button
             onClick={startNextMatch}
             disabled={starting}

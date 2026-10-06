@@ -18,7 +18,7 @@ beforeEach(() => {
   const league = finishedLeague()
   resetDb({
     ...league,
-    sessions: [...league.sessions, { league_id: 'L1', id: 's2', date: '2026-10-06', status: 'draft', share_token: 'tok2', created_at: '2026-10-06T17:00:00Z' }],
+    sessions: [...league.sessions, { league_id: 'L1', id: 's2', date: '2026-10-06', status: 'draft', share_token: 'tok2', created_at: '2026-10-06T17:00:00Z', team_count: 3, team_size: 5 }],
     session_players: attending.map((player_id) => ({ league_id: 'L1', session_id: 's2', player_id })),
   })
 })
@@ -50,7 +50,9 @@ it('saves the teams, starts the session and opens match 1 with the chosen team w
   const user = userEvent.setup()
   renderPage()
   await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(3))
-  await user.click(screen.getByRole('button', { name: /Blue Team waits/ }))
+  // Green and Yellow play first, so Blue waits
+  await user.click(screen.getByRole('button', { name: 'Green Team' }))
+  await user.click(screen.getByRole('button', { name: 'Yellow Team' }))
   await user.click(screen.getByRole('button', { name: 'Confirm Teams & Start' }))
 
   const created = rows('teams').filter((t) => t.session_id === 's2')
@@ -76,4 +78,30 @@ it('offers the stars/form slider only with smart balancing', async () => {
   await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(3))
   expect(screen.queryByLabelText('Balance teams by')).not.toBeInTheDocument()
   expect(screen.queryByText(/Split duos/)).not.toBeInTheDocument()
+})
+
+it('a 4-team session makes four teams and queues the two that do not start', async () => {
+  rows('sessions').find((x) => x.id === 's2')!.team_count = 4
+  const extra = ['Rami', 'Tariq', 'Faris', 'Bilal', 'Jad', 'Karim', 'Laith'].map((name, i) =>
+    ({ league_id: 'L1', id: `q${i}`, name, position: 'MID', skill_rating: 3, photo_url: null, is_active: true, created_at: '2026-01-01T00:00:00Z' }))
+  rows('players').push(...extra)
+  rows('session_players').push(...extra.map((pl) => ({ league_id: 'L1', session_id: 's2', player_id: pl.id })))
+  const user = userEvent.setup()
+  renderPage()
+  // 13 players over 4 teams: 4, 3, 3, 3
+  await waitFor(() => expect(screen.getAllByText(/^[34] players/)).toHaveLength(4))
+  expect(screen.getAllByText(/^4 players/)).toHaveLength(1)
+
+  await user.click(screen.getByRole('button', { name: 'Blue Team' }))
+  await user.click(screen.getByRole('button', { name: 'Orange Team' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm Teams & Start' }))
+  await waitFor(() => expect(screen.getByText(/^match page/)).toBeInTheDocument())
+
+  const created = rows('teams').filter((t) => t.session_id === 's2')
+  expect(created.map((t) => t.color)).toEqual(['green', 'blue', 'yellow', 'orange'])
+  const id = (c: string) => created.find((t) => t.color === c)!.id
+  const first = rows('matches').find((m) => m.session_id === 's2')!
+  expect([first.team1_id, first.team2_id].sort()).toEqual([id('blue'), id('orange')].sort())
+  expect(first.queue).toEqual([id('green'), id('yellow')])
+  expect(first.waiting_team_id).toBe(id('green'))
 })
