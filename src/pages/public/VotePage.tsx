@@ -65,6 +65,8 @@ export default function VotePage() {
       player_id: chosen,
     })
     setSending(false)
+    // The voting rule refused it: the vote was closed (or voting switched off) after the page loaded
+    if (error?.code === '42501') { setVote({ ...vote, status: 'closed' }); return }
     // A duplicate means this device's vote is already in; anything else was not saved, so keep the choice for a retry
     if (error && error.code !== '23505') { setSendError(t(serverErrorKey(error.message))); return }
     setSubmitted(true)
