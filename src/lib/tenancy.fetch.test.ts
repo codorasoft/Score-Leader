@@ -9,7 +9,7 @@ const query = {
 }
 vi.mock('./supabase', () => ({ supabase: { from: () => query } }))
 
-import { fetchMyLeagues, fetchMyProfile } from './tenancy'
+import { fetchAdmins, fetchAllLeagues, fetchMyLeagues, fetchMyProfile } from './tenancy'
 
 describe('fetchMyProfile', () => {
   it('returns null when there is no profile row', async () => {
@@ -30,5 +30,18 @@ describe('fetchMyLeagues', () => {
   it('throws when the request fails', async () => {
     result = { data: null, error: { message: 'Failed to fetch' } }
     await expect(fetchMyLeagues()).rejects.toBeTruthy()
+  })
+})
+
+describe('fetchAdmins / fetchAllLeagues', () => {
+  it('throw when the request fails', async () => {
+    result = { data: null, error: { message: 'Failed to fetch' } }
+    await expect(fetchAdmins()).rejects.toBeTruthy()
+    await expect(fetchAllLeagues()).rejects.toBeTruthy()
+  })
+  it('return [] for an empty result', async () => {
+    result = { data: [], error: null }
+    expect(await fetchAdmins()).toEqual([])
+    expect(await fetchAllLeagues()).toEqual([])
   })
 })

@@ -75,13 +75,17 @@ export async function updateLeague(id: string, values: { name?: string; logo_url
   return !error
 }
 
+// Throws when the request fails.
 export async function fetchAdmins(): Promise<AdminProfile[]> {
-  const { data } = await supabase.from('admin_profiles').select('*').eq('role', 'admin').order('created_at')
+  const { data, error } = await supabase.from('admin_profiles').select('*').eq('role', 'admin').order('created_at')
+  if (error) throw error
   return (data as AdminProfile[] | null) ?? []
 }
 
+// Throws when the request fails.
 export async function fetchAllLeagues(): Promise<(League & { session_count: number })[]> {
-  const { data } = await supabase.from('leagues').select('*, sessions(count)').order('created_at')
+  const { data, error } = await supabase.from('leagues').select('*, sessions(count)').order('created_at')
+  if (error) throw error
   return ((data as (League & { sessions: { count: number }[] })[] | null) ?? []).map(({ sessions, ...league }) => ({
     ...league,
     session_count: sessions?.[0]?.count ?? 0,
