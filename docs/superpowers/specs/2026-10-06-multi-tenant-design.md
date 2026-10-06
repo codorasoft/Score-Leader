@@ -248,7 +248,7 @@ Each migration is a separate SQL file in `supabase/migrations/`, run in a transa
 
 **Migration 1: tenancy (additive + backfill)**
 1. Create `admin_profiles`, `leagues`, the helper functions, triggers and `league_directory`.
-2. Require exactly one existing auth user (stop with an error otherwise); insert its profile as `admin`, all 14 features, `max_leagues = 1`.
+2. Find the existing account by email `info@codorasoft.com` (stop with an error if it is missing); insert its profile as `admin`, all 14 features, `max_leagues = 1`.
 3. Insert the legacy league (name and slug from Section 12) owned by that user.
 4. Add `league_id` (nullable) to all 13 tables, backfill every row with the legacy league, then set `NOT NULL`, the foreign key and an index.
 5. Set the column default on the three root tables to the legacy league id, so the currently deployed app keeps working until the new app is live.
@@ -268,7 +268,7 @@ It is safe to stop and run again at any point: until step 2, the player still us
 2. Rehearse on a local Supabase loaded with the backup: run Migration 1; compare the row count of every table before and after; check that no `league_id` is NULL.
 3. Apply Migration 1 to the live database via the linked CLI.
 4. Run the photo move script against the live project and check its report.
-5. Deploy the Edge Functions; create the superadmin account (one-off, via the Auth admin API) and insert its `superadmin` profile.
+5. Deploy the Edge Functions; create the superadmin account `admin@codorasoft.com` (one-off, via the Auth admin API, password chosen by the user) and insert its `superadmin` profile.
 6. Deploy the new app to Vercel.
 7. Apply Migration 2.
 
@@ -278,7 +278,8 @@ It is safe to stop and run again at any point: until step 2, the player still us
 
 ## 12. Inputs needed before implementation
 
-- Superadmin email (the user chooses its password).
+- Existing admin account: `info@codorasoft.com` (renamed from `admin@codorasoft.com` on 2026-10-06; same account id and password).
+- Superadmin account: `admin@codorasoft.com`; the user chooses its password at rollout step 5.
 - Legacy league name, slug, and optional logo file.
 
 ---
