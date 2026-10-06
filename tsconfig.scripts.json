@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["scripts"]
+}
