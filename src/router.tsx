@@ -21,6 +21,8 @@ import SessionDetailPage from './pages/admin/SessionDetailPage'
 import HistoryPage from './pages/admin/HistoryPage'
 import LineupsPage from './pages/admin/LineupsPage'
 import LineupEditorPage from './pages/admin/LineupEditorPage'
+import NewLeaguePage from './pages/admin/NewLeaguePage'
+import LeagueSettingsPage from './pages/admin/LeagueSettingsPage'
 
 import LiveSessionPage from './pages/public/LiveSessionPage'
 import VotePage from './pages/public/VotePage'
@@ -49,8 +51,7 @@ export const routes: RouteObject[] = [
         element: <MyLeaguesRoute />,
         children: [
           { index: true, element: <AdminHome /> },
-          // Placeholder until the create-league page exists; keeps /admin from looping for admins with no league.
-          { path: 'leagues/new', element: <NotAvailablePage kind="page" /> },
+          { path: 'leagues/new', element: <NewLeaguePage /> },
           { path: 'players', ...legacyAdmin },
           { path: 'history', ...legacyAdmin },
           { path: 'lineups/*', ...legacyAdmin },
@@ -62,6 +63,7 @@ export const routes: RouteObject[] = [
               { index: true, element: <Navigate to="history" replace /> },
               { path: 'history', element: <HistoryPage /> },
               { path: 'players', element: <PlayersPage /> },
+              { path: 'settings', element: <LeagueSettingsPage /> },
               { path: 'sessions/new', element: <NewSessionPage /> },
               { path: 'sessions/:sessionId', element: <SessionDetailPage /> },
               { path: 'sessions/:sessionId/teams', element: <TeamBuilderPage /> },
