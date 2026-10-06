@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
@@ -26,8 +26,8 @@ const match = (status: string, extra = {}) => ({
   team1_score: 2, team2_score: 1, timer_status: 'paused', timer_started_at: null, timer_elapsed_seconds: 125, league_id: 'L1', ...extra,
 })
 
-function renderHome(features: readonly FeatureKey[] = FEATURES) {
-  return render(<MemoryRouter><InLeague features={features}><HomePage /></InLeague></MemoryRouter>)
+function renderHome(features: readonly FeatureKey[] = FEATURES, url = '/admin/eagles/home') {
+  return render(<MemoryRouter initialEntries={[url]}><InLeague features={features}><HomePage /></InLeague></MemoryRouter>)
 }
 
 beforeEach(() => { h.rows = {}; h.count = 0 })
@@ -36,8 +36,19 @@ describe('live / start block', () => {
   it('nothing open: start button and when the league last played', async () => {
     h.rows.sessions = [session('s0', '2026-09-01', 'completed')]
     renderHome()
-    expect(await screen.findByRole('link', { name: /Start new session/ })).toHaveAttribute('href', '/admin/eagles/sessions/new')
+    expect(await screen.findByRole('button', { name: /Start new session/ })).toBeInTheDocument()
     expect(screen.getByText(/Last played:/)).toBeInTheDocument()
+  })
+  it('start new session opens the new-session popup', async () => {
+    h.rows.sessions = [session('s0', '2026-09-01', 'completed')]
+    renderHome()
+    fireEvent.click(await screen.findByRole('button', { name: /Start new session/ }))
+    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+  })
+  it('opens the popup straight away when asked to by the link', async () => {
+    h.rows.sessions = [session('s0', '2026-09-01', 'completed')]
+    renderHome(FEATURES, '/admin/eagles/home?new=1')
+    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
   })
   it('a running match: score, clock and resume', async () => {
     h.rows.sessions = [session('s1', today, 'active')]
@@ -49,8 +60,14 @@ describe('live / start block', () => {
     expect(screen.getByText('02:05')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Resume/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1/match/m1')
   })
+  it('a new session without players: continue to attendance', async () => {
+    h.rows.sessions = [session('s1', today, 'draft')]
+    renderHome()
+    expect(await screen.findByRole('link', { name: 'Continue' })).toHaveAttribute('href', '/admin/eagles/sessions/s1/players')
+  })
   it('a session still picking teams: continue to the team builder', async () => {
     h.rows.sessions = [session('s1', today, 'draft')]
+    h.rows.session_players = [{ session_id: 's1', player_id: 'p1' }]
     renderHome()
     expect(await screen.findByRole('link', { name: 'Continue' })).toHaveAttribute('href', '/admin/eagles/sessions/s1/teams')
   })

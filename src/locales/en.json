@@ -32,7 +32,6 @@
   },
   "nav": {
     "players": "Players",
-    "newSession": "New Session",
     "history": "History",
     "signOut": "Sign out",
     "leaderboard": "Leaderboard",
@@ -59,12 +58,21 @@
     "saving": "Saving…"
   },
   "session": {
-    "title": "New Session",
-    "dateLabel": "Session date",
-    "startSession": "Start Session",
     "attendeesTitle": "Select Attendees",
-    "attendeesHint": "Tap players to mark who's coming. Max 15.",
-    "confirmAttendance": "Confirm Attendance"
+    "attendeesHint": "Tap players to mark who's coming.",
+    "confirmAttendance": "Confirm Attendance",
+    "newTitle": "New session",
+    "date": "Date",
+    "teams": "Number of teams",
+    "perTeam": "Players per team",
+    "fewerTeams": "Fewer teams",
+    "moreTeams": "More teams",
+    "fewerPerTeam": "Fewer players per team",
+    "morePerTeam": "More players per team",
+    "upTo_one": "Up to {{count}} player",
+    "upTo_other": "Up to {{count}} players",
+    "create": "Create",
+    "setup": "{{teams}} teams × {{size}} players"
   },
   "teamBuilder": {
     "title": "Team Builder",

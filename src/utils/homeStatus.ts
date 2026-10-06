@@ -3,20 +3,21 @@ import type { AwardVote, Match, Session } from '../lib/types'
 export type LiveState =
   | { kind: 'match'; session: Session; match: Match }
   | { kind: 'open'; session: Session }
-  | { kind: 'setup'; session: Session }
+  | { kind: 'setup'; session: Session; hasPlayers: boolean }
   | { kind: 'idle'; lastPlayed: string | null }
 
 const newestFirst = (a: Session, b: Session) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)
 
 // What the "Live now / Start" block shows: the newest unfinished session (its running or next
 // match when there is one), otherwise when the league last played.
-export function liveState(sessions: Session[], matchesOfOpenSessions: Match[]): LiveState {
+// draftsWithPlayers: draft sessions whose attendance is already saved (they continue to the team builder)
+export function liveState(sessions: Session[], matchesOfOpenSessions: Match[], draftsWithPlayers: string[] = []): LiveState {
   const open = sessions.filter((s) => s.status !== 'completed').sort(newestFirst)[0]
   if (!open) {
     const last = sessions.filter((s) => s.status === 'completed').sort(newestFirst)[0]
     return { kind: 'idle', lastPlayed: last?.date ?? null }
   }
-  if (open.status === 'draft') return { kind: 'setup', session: open }
+  if (open.status === 'draft') return { kind: 'setup', session: open, hasPlayers: draftsWithPlayers.includes(open.id) }
   const own = matchesOfOpenSessions.filter((m) => m.session_id === open.id)
   const running = own.find((m) => m.status === 'active')
   const next = own.filter((m) => m.status === 'pending').sort((a, b) => a.match_number - b.match_number)[0]

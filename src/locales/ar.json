@@ -32,7 +32,6 @@
   },
   "nav": {
     "players": "اللاعبون",
-    "newSession": "جلسة جديدة",
     "history": "السجل",
     "signOut": "تسجيل الخروج",
     "leaderboard": "قائمة المتصدرين",
@@ -59,12 +58,25 @@
     "saving": "جارٍ الحفظ…"
   },
   "session": {
-    "title": "جلسة جديدة",
-    "dateLabel": "تاريخ الجلسة",
-    "startSession": "بدء الجلسة",
     "attendeesTitle": "اختيار الحاضرين",
-    "attendeesHint": "اضغط على اللاعبين لتحديد من سيحضر. الحد الأقصى 15.",
-    "confirmAttendance": "تأكيد الحضور"
+    "attendeesHint": "اضغط على اللاعبين لتحديد من سيحضر.",
+    "confirmAttendance": "تأكيد الحضور",
+    "newTitle": "جلسة جديدة",
+    "date": "التاريخ",
+    "teams": "عدد الفرق",
+    "perTeam": "عدد اللاعبين في كل فريق",
+    "fewerTeams": "فرق أقل",
+    "moreTeams": "فرق أكثر",
+    "fewerPerTeam": "لاعبون أقل في كل فريق",
+    "morePerTeam": "لاعبون أكثر في كل فريق",
+    "upTo_zero": "حتى {{count}} لاعب",
+    "upTo_one": "حتى لاعب واحد",
+    "upTo_two": "حتى لاعبين",
+    "upTo_few": "حتى {{count}} لاعبين",
+    "upTo_many": "حتى {{count}} لاعباً",
+    "upTo_other": "حتى {{count}} لاعب",
+    "create": "إنشاء",
+    "setup": "{{teams}} فرق × {{size}} لاعبين"
   },
   "teamBuilder": {
     "title": "بناء الفرق",

@@ -40,7 +40,7 @@ vi.mock('../lib/supabase', () => {
 })
 
 vi.mock('../pages/admin/PlayersPage', () => stub('PlayersPage'))
-vi.mock('../pages/admin/NewSessionPage', () => stub('NewSessionPage'))
+vi.mock('../pages/admin/AttendancePage', () => stub('AttendancePage'))
 vi.mock('../pages/admin/TeamBuilderPage', () => stub('TeamBuilderPage'))
 vi.mock('../pages/admin/MatchTrackerPage', () => stub('MatchTrackerPage'))
 vi.mock('../pages/admin/AwardsPage', () => stub('AwardsPage'))
@@ -286,5 +286,19 @@ describe('session links', () => {
   it('unknown token shows League not available', async () => {
     renderAt('/s/missing')
     expect(await screen.findByText('League not available')).toBeInTheDocument()
+  })
+})
+
+describe('new session', () => {
+  beforeEach(() => localStorage.setItem('scoreleader.lastLeague', 'tigers'))
+
+  it('the old new-session page opens Home with the popup', async () => {
+    const router = renderAt('/admin/eagles/sessions/new')
+    await expectPath(router, '/admin/eagles/home')
+    expect(router.state.location.search).toBe('?new=1')
+  })
+  it('attendance has its own page', async () => {
+    renderAt('/admin/eagles/sessions/s1/players')
+    expect(await screen.findByText('AttendancePage')).toBeInTheDocument()
   })
 })

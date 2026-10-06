@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { ar, enUS } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { formatMatchClock } from '../../utils/matchClock'
+import { NewSessionDialog } from '../../components/NewSessionDialog'
 import { liveState, matchElapsed, staleSessions, todoItems, type LiveState, type OpenVote, type TodoItem } from '../../utils/homeStatus'
 import type { AwardVote, Match, Session, Team, TeamColor } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
@@ -38,8 +39,9 @@ export default function HomePage() {
       const { data: sessionRows } = await supabase.from('sessions').select('*').eq('league_id', forLeague).order('date', { ascending: false })
       const sessions = (sessionRows ?? []) as Session[]
       const openIds = sessions.filter((s) => s.status !== 'completed').map((s) => s.id)
+      const draftIds = sessions.filter((s) => s.status === 'draft').map((s) => s.id)
 
-      const [matchRes, teamRes, voteRes, photoRes, boardRes] = await Promise.all([
+      const [matchRes, teamRes, voteRes, photoRes, boardRes, attendRes] = await Promise.all([
         openIds.length ? supabase.from('matches').select('*').in('session_id', openIds) : Promise.resolve({ data: [] }),
         openIds.length ? supabase.from('teams').select('*').in('session_id', openIds) : Promise.resolve({ data: [] }),
         voting ? supabase.from('award_votes').select('id, award_type, session_id').eq('league_id', forLeague).eq('status', 'open') : Promise.resolve({ data: [] }),
@@ -49,6 +51,7 @@ export default function HomePage() {
         coachBoard
           ? supabase.from('lineups').select('id, name, updated_at').eq('league_id', forLeague).order('updated_at', { ascending: false }).limit(1)
           : Promise.resolve({ data: [] }),
+        draftIds.length ? supabase.from('session_players').select('session_id').in('session_id', draftIds) : Promise.resolve({ data: [] }),
       ])
 
       const openVotes = (voteRes.data ?? []) as { id: string; award_type: AwardVote['award_type']; session_id: string }[]
@@ -64,7 +67,7 @@ export default function HomePage() {
       setData({
         leagueId: forLeague,
         value: {
-          live: liveState(sessions, (matchRes.data ?? []) as Match[]),
+          live: liveState(sessions, (matchRes.data ?? []) as Match[], ((attendRes.data ?? []) as { session_id: string }[]).map((r) => r.session_id)),
           teams: (teamRes.data ?? []) as Team[],
           todo: todoItems({ votes, stale: staleSessions(sessions, todayString()), missingPhotos: photoRes.count ?? 0, voting, photos }),
           board: ((boardRes.data ?? []) as Board[])[0] ?? null,
@@ -101,6 +104,14 @@ function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
   const { t } = useTranslation()
   const adminPath = useAdminPath()
   const { day, ago } = useDateLabels()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [creating, setCreating] = useState(() => searchParams.get('new') === '1')
+  const startRef = useRef<HTMLButtonElement>(null)
+  const closeDialog = () => {
+    setCreating(false)
+    if (searchParams.has('new')) setSearchParams({}, { replace: true })
+    startRef.current?.focus()
+  }
 
   if (live.kind === 'match') {
     const team = (id: string) => teams.find((x) => x.id === id)
@@ -127,7 +138,9 @@ function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
   }
 
   if (live.kind === 'setup' || live.kind === 'open') {
-    const to = live.kind === 'setup' ? `/sessions/${live.session.id}/teams` : `/sessions/${live.session.id}`
+    const to = live.kind === 'setup'
+      ? `/sessions/${live.session.id}/${live.hasPlayers ? 'teams' : 'players'}`
+      : `/sessions/${live.session.id}`
     return (
       <section className={card}>
         <p className="font-semibold mb-3">
@@ -140,9 +153,10 @@ function LiveBlock({ live, teams }: { live: LiveState; teams: Team[] }) {
 
   return (
     <section className={card}>
-      <Link to={adminPath('/sessions/new')} className={`${bigButton} bg-blue-600 hover:bg-blue-500`}>
+      <button type="button" ref={startRef} onClick={() => setCreating(true)} className={`${bigButton} w-full bg-blue-600 hover:bg-blue-500`}>
         <span aria-hidden="true">➕</span> {t('home.start')}
-      </Link>
+      </button>
+      {creating && <NewSessionDialog onClose={closeDialog} />}
       <p className="text-sm text-gray-400 text-center mt-3">
         {live.lastPlayed ? t('home.lastPlayed', { when: ago(live.lastPlayed) }) : t('home.neverPlayed')}
       </p>
