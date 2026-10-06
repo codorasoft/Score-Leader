@@ -35,7 +35,8 @@
     "leaderboard": "Leaderboard",
     "records": "Records",
     "cards": "Cards",
-    "lineup": "Coach Board"
+    "lineup": "Coach Board",
+    "home": "Home"
   },
   "players": {
     "title": "Players",
@@ -605,5 +606,25 @@
     "duplicate": "This already exists. Use a different name or address.",
     "otherLeague": "That player belongs to another league.",
     "generic": "Something went wrong. Please try again."
+  },
+  "home": {
+    "liveNow": "Live now",
+    "matchNumber": "Match {{n}}",
+    "resume": "Resume",
+    "setupTitle": "Session {{date}}: teams not finished",
+    "openTitle": "Session {{date}} is still open",
+    "continue": "Continue",
+    "start": "Start new session",
+    "lastPlayed": "Last played: {{when}}",
+    "neverPlayed": "No sessions played yet",
+    "todo": "To do",
+    "allDone": "All done ✓",
+    "todoVote": "{{award}} vote ({{date}}): {{votes}} so far. Close it",
+    "todoStale": "Session of {{date}} is still open. Finish it",
+    "todoPhotos_one": "1 player has no photo",
+    "todoPhotos_other": "{{count}} players have no photo",
+    "boardEdited": "Edited {{date}}",
+    "newBoard": "+ New board",
+    "firstBoard": "Create your first board"
   }
 }

@@ -27,6 +27,7 @@ import AdminDetailPage from './pages/super/AdminDetailPage'
 import LeaguesPage from './pages/super/LeaguesPage'
 import NewLeaguePage from './pages/admin/NewLeaguePage'
 import LeagueSettingsPage from './pages/admin/LeagueSettingsPage'
+import HomePage from './pages/admin/HomePage'
 
 import LiveSessionPage from './pages/public/LiveSessionPage'
 import VotePage from './pages/public/VotePage'
@@ -75,7 +76,8 @@ export const routes: RouteObject[] = [
             path: ':slug',
             element: <AdminLeagueRoute />,
             children: [
-              { index: true, element: <Navigate to="history" replace /> },
+              { index: true, element: <Navigate to="home" replace /> },
+              { path: 'home', element: <HomePage /> },
               { path: 'history', element: <HistoryPage /> },
               { path: 'players', element: <PlayersPage /> },
               { path: 'settings', element: <LeagueSettingsPage /> },

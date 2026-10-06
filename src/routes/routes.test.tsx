@@ -46,6 +46,7 @@ vi.mock('../pages/admin/MatchTrackerPage', () => stub('MatchTrackerPage'))
 vi.mock('../pages/admin/AwardsPage', () => stub('AwardsPage'))
 vi.mock('../pages/admin/SessionDetailPage', () => stub('SessionDetailPage'))
 vi.mock('../pages/admin/HistoryPage', () => stub('HistoryPage'))
+vi.mock('../pages/admin/HomePage', () => stub('HomePage'))
 vi.mock('../pages/admin/LineupsPage', () => stub('LineupsPage'))
 vi.mock('../pages/admin/LineupEditorPage', () => stub('LineupEditorPage'))
 vi.mock('../pages/public/LiveSessionPage', () => stub('LiveSessionPage'))
@@ -117,13 +118,13 @@ describe('admin redirects', () => {
 
   it('/admin goes to the last-used league', async () => {
     const router = renderAt('/admin')
-    await expectPath(router, '/admin/tigers/history')
-    expect(await screen.findByText('HistoryPage')).toBeInTheDocument()
+    await expectPath(router, '/admin/tigers/home')
+    expect(await screen.findByText('HomePage')).toBeInTheDocument()
   })
   it('/admin falls back to the first league when the last one is not owned', async () => {
     localStorage.setItem('scoreleader.lastLeague', 'gone')
     const router = renderAt('/admin')
-    await expectPath(router, '/admin/eagles/history')
+    await expectPath(router, '/admin/eagles/home')
   })
   it('/admin/history keeps the page in the last-used league', async () => {
     const router = renderAt('/admin/history')
@@ -153,7 +154,7 @@ describe('admin redirects', () => {
   it('a slug the admin does not own goes back to /admin', async () => {
     localStorage.clear()
     const router = renderAt('/admin/other-league/history')
-    await expectPath(router, '/admin/eagles/history')
+    await expectPath(router, '/admin/eagles/home')
   })
   it('remembers the league that was opened', async () => {
     localStorage.clear()
@@ -162,9 +163,9 @@ describe('admin redirects', () => {
     expect(router.state.location.pathname).toBe('/admin/tigers/players')
     expect(localStorage.getItem('scoreleader.lastLeague')).toBe('tigers')
   })
-  it('the league index opens history', async () => {
+  it('the league index opens home', async () => {
     const router = renderAt('/admin/eagles')
-    await expectPath(router, '/admin/eagles/history')
+    await expectPath(router, '/admin/eagles/home')
   })
   it('coach board off sends lineups to history', async () => {
     h.profile = { profile: profile({ features: ['cards'] }), loading: false }
@@ -202,7 +203,7 @@ describe('role guards', () => {
   it('admin at /super goes to /admin', async () => {
     localStorage.setItem('scoreleader.lastLeague', 'tigers')
     const router = renderAt('/super')
-    await expectPath(router, '/admin/tigers/history')
+    await expectPath(router, '/admin/tigers/home')
   })
   it('signed-out user goes to /login', async () => {
     h.auth.user = null

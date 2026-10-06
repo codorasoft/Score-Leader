@@ -12,5 +12,5 @@ export function pickLeague(leagues: League[]): string | null {
 export default function AdminHome() {
   const { leagues } = useMyLeagues()
   const slug = pickLeague(leagues)
-  return <Navigate to={slug ? `/admin/${slug}/history` : '/admin/leagues/new'} replace />
+  return <Navigate to={slug ? `/admin/${slug}/home` : '/admin/leagues/new'} replace />
 }

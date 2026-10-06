@@ -4,8 +4,9 @@ describe('switchLeaguePath', () => {
   it.each([
     ['/admin/eagles/players', '/admin/tigers/players'],
     ['/admin/eagles/sessions/new', '/admin/tigers/sessions/new'],
-    ['/admin/eagles/sessions/abc/match/def', '/admin/tigers/history'],
-    ['/admin/eagles/lineups/xyz', '/admin/tigers/history'],
+    ['/admin/eagles/sessions/abc/match/def', '/admin/tigers/home'],
+    ['/admin/eagles/lineups/xyz', '/admin/tigers/home'],
+    ['/admin/eagles/home', '/admin/tigers/home'],
     ['/admin/eagles/settings', '/admin/tigers/settings'],
     ['/admin/eagles/history', '/admin/tigers/history'],
     ['/admin/eagles/lineups', '/admin/tigers/lineups'],

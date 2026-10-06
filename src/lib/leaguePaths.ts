@@ -1,12 +1,12 @@
 export const LEGACY_SLUG = 'eagles'
 
 const LAST_LEAGUE_KEY = 'scoreleader.lastLeague'
-const KEPT_PAGES = ['players', 'history', 'lineups', 'settings', 'sessions/new']
+const KEPT_PAGES = ['home', 'players', 'history', 'lineups', 'settings', 'sessions/new']
 
-// Keeps list-level pages when switching league; anything tied to an id falls back to history.
+// Keeps list-level pages when switching league; anything tied to an id falls back to home.
 export function switchLeaguePath(pathname: string, newSlug: string): string {
   const rest = pathname.split('/').slice(3).join('/')
-  const page = KEPT_PAGES.includes(rest) ? rest : 'history'
+  const page = KEPT_PAGES.includes(rest) ? rest : 'home'
   return `/admin/${newSlug}/${page}`
 }
 

@@ -13,6 +13,7 @@ const icon = (d: string) => (
 )
 
 const ICONS = {
+  home: icon('M3 11l9-8 9 8M5 9.5V21h5v-6h4v6h5V9.5'),
   players: icon('M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'),
   newSession: icon('M12 8v8M8 12h8M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20'),
   history: icon('M12 7v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20'),
@@ -21,9 +22,11 @@ const ICONS = {
   signOut: icon('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9'),
 }
 
-// History is home: the league root, history and everything inside an existing session
-function activeTab(pathname: string): 'players' | 'newSession' | 'history' | 'lineup' {
+// History covers the history list and everything inside an existing session
+function activeTab(pathname: string): 'home' | 'players' | 'newSession' | 'history' | 'lineup' | null {
   const [page, sub] = pathname.split('/').slice(3)
+  if (!page || page === 'home') return 'home'
+  if (page === 'settings') return null
   if (page === 'players') return 'players'
   if (page === 'lineups') return 'lineup'
   if (page === 'sessions' && sub === 'new') return 'newSession'
@@ -42,11 +45,12 @@ export default function AdminLayout() {
   const owned = leagues.find(l => l.id === league.id)
 
   type Tab = ReturnType<typeof activeTab>
-  const nav: { key: Tab; to: string; label: string }[] = [
+  const nav: { key: NonNullable<Tab>; to: string; label: string }[] = [
+    { key: 'home', to: adminPath('/home'), label: t('nav.home') },
     { key: 'players', to: adminPath('/players'), label: t('nav.players') },
     { key: 'newSession', to: adminPath('/sessions/new'), label: t('nav.newSession') },
     { key: 'history', to: adminPath('/history'), label: t('nav.history') },
-    ...(coachBoard ? [{ key: 'lineup' as Tab, to: adminPath('/lineups'), label: t('nav.lineup') }] : []),
+    ...(coachBoard ? [{ key: 'lineup' as const, to: adminPath('/lineups'), label: t('nav.lineup') }] : []),
   ]
 
   return (
@@ -82,7 +86,7 @@ export default function AdminLayout() {
           </div>
         </div>
 
-        <nav className={`sm:hidden grid ${coachBoard ? 'grid-cols-4' : 'grid-cols-3'} border-t border-gray-800`}>
+        <nav className={`sm:hidden grid ${coachBoard ? 'grid-cols-5' : 'grid-cols-4'} border-t border-gray-800`}>
           {nav.map(({ key, to, label }) => (
             <Link
               key={key}

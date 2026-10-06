@@ -35,7 +35,8 @@
     "leaderboard": "قائمة المتصدرين",
     "records": "الأرقام القياسية",
     "cards": "البطاقات",
-    "lineup": "لوحة المدرب"
+    "lineup": "لوحة المدرب",
+    "home": "الرئيسية"
   },
   "players": {
     "title": "اللاعبون",
@@ -686,5 +687,29 @@
     "duplicate": "هذا موجود بالفعل. استخدم اسمًا أو عنوانًا مختلفًا.",
     "otherLeague": "هذا اللاعب ينتمي إلى دوري آخر.",
     "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+  },
+  "home": {
+    "liveNow": "مباشر الآن",
+    "matchNumber": "المباراة {{n}}",
+    "resume": "متابعة المباراة",
+    "setupTitle": "جلسة {{date}}: لم تكتمل الفرق بعد",
+    "openTitle": "جلسة {{date}} ما زالت مفتوحة",
+    "continue": "متابعة",
+    "start": "ابدأ جلسة جديدة",
+    "lastPlayed": "آخر جلسة: {{when}}",
+    "neverPlayed": "لم تُلعب أي جلسة بعد",
+    "todo": "مهام",
+    "allDone": "لا توجد مهام ✓",
+    "todoVote": "تصويت {{award}} ({{date}}): {{votes}} حتى الآن. أغلِقه",
+    "todoStale": "جلسة {{date}} ما زالت مفتوحة. أنهِها",
+    "todoPhotos_zero": "لا يوجد لاعبون بدون صورة",
+    "todoPhotos_one": "لاعب واحد بدون صورة",
+    "todoPhotos_two": "لاعبان بدون صورة",
+    "todoPhotos_few": "{{count}} لاعبين بدون صورة",
+    "todoPhotos_many": "{{count}} لاعبًا بدون صورة",
+    "todoPhotos_other": "{{count}} لاعب بدون صورة",
+    "boardEdited": "آخر تعديل {{date}}",
+    "newBoard": "+ لوحة جديدة",
+    "firstBoard": "أنشئ أول لوحة"
   }
 }
