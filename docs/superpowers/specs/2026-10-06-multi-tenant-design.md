@@ -42,7 +42,7 @@ Rules fixed by the user:
 
 ## 3. Features and permissions
 
-**Always on (no switch):** players list (name, position, skill rating); sessions — create, team builder with manual picking and simple random split, match tracking (goals, assists, score, clock), results, history; the public live session page `/s/:token`; the league home page.
+**Always on (no switch):** players list (name, position, skill rating); sessions — create, team builder with manual picking and balancing by star rating, match tracking (goals, assists, score, clock), results, history; the public live session page `/s/:token`; the league home page.
 
 **Switchable features** — stored as keys in `admin_profiles.features`:
 
@@ -78,6 +78,7 @@ Rules fixed by the user:
 |---|---|---|
 | user_id | uuid PK | → `auth.users(id)` ON DELETE CASCADE |
 | role | text | `'superadmin'` or `'admin'` |
+| email | text | Copy of the login email, for the superadmin lists (set by `create-admin` / the migration) |
 | display_name | text | 1–80 chars |
 | max_leagues | int | ≥ 0; superadmin row uses 0 |
 | features | text[] | Subset of the 14 keys; CHECK enforces known keys and the three dependencies |
@@ -92,7 +93,7 @@ Accounts with no `admin_profiles` row have no access to anything beyond public r
 | id | uuid PK | |
 | owner_id | uuid | → `admin_profiles(user_id)`; cannot change after insert |
 | name | text | 1–80 chars, any language |
-| slug | text UNIQUE | `^[a-z0-9]+(-[a-z0-9]+)*$`, 3–40 chars; cannot change after insert |
+| slug | text UNIQUE | `^[a-z0-9]+(-[a-z0-9]+)*$`, 3–40 chars; not one of the reserved words `leagues, players, history, sessions, lineups, settings, new, super` (they clash with admin URLs); cannot change after insert |
 | logo_url | text | nullable; NULL shows the default "no logo" image (Section 9) |
 | created_at | timestamptz | |
 
@@ -212,7 +213,7 @@ Mobile-first, Arabic/English, same look as the admin area.
 | `coach_board` | Coach Board tab gone; its routes redirect to history |
 | `cards` | No card button; no suspension countdown |
 | `swaps` | No swap button or undo |
-| `smart_balancing` | Team builder shows manual picking and simple random split only |
+| `smart_balancing` | No "balance by" section (form slider, split-duos toggle); the shuffle/balance button balances by star rating only |
 | `awards` | "Finish session" ends the session directly |
 | `voting` | Awards offer "Admin picks" only; no vote section on session page |
 | `photos` | No photo upload; players show initials |
@@ -265,8 +266,8 @@ Each migration is a separate SQL file in `supabase/migrations/`, run in a transa
 It is safe to stop and run again at any point: until step 2, the player still uses the old file. At the end it prints a report and checks that every player's `photo_url` returns HTTP 200 and that no object remains outside a league folder. Old-path objects no player points at are listed in the report and left untouched for the user to decide.
 
 **Rollout order** — Claude runs every step, including the backup, migrations, Edge Function deploys and the photo move:
-1. Full backup of the live database: `supabase db dump` (schema) and `supabase db dump --data-only` (data), plus a download of every `player-photos` object, saved outside the repo.
-2. Rehearse on a local Supabase loaded with the backup: run Migration 1; compare the row count of every table before and after; check that no `league_id` is NULL.
+1. Full backup by a script (`scripts/backup.ts`; this machine has no Docker or `pg_dump`): every row of every `public` table as JSON, the `auth.users` id/email list, and a download of every `player-photos` object, saved to `E:Score-Leader-backups<timestamp>`, outside the repo. The schema is already in `supabase/migrations/`.
+2. Rehearse on the live database inside a transaction that always ends in `ROLLBACK` (no Docker for a local Supabase): run Migration 1 and the database rules tests; compare the row count of every table before and after; check that no `league_id` is NULL. Nothing is kept.
 3. Apply Migration 1 to the live database via the linked CLI.
 4. Run the photo move script against the live project and check its report.
 5. Deploy the Edge Functions; create the superadmin account `admin@codorasoft.com` (one-off, via the Auth admin API, password chosen by the user) and insert its `superadmin` profile.
@@ -287,7 +288,7 @@ It is safe to stop and run again at any point: until step 2, the player still us
 
 ## 13. Testing
 
-1. **Database rules** (SQL run against local Supabase, switching JWT claims per role):
+1. **Database rules** (SQL run inside a rolled-back transaction on the live database, after Migration 1 in the same transaction, switching role and JWT claims per test user):
    - Admin A cannot insert/update/delete rows of admin B's league; can in their own.
    - League insert over `max_leagues` fails; slug and owner updates fail.
    - An admin cannot update their own `admin_profiles` row; the superadmin can.
@@ -298,7 +299,7 @@ It is safe to stop and run again at any point: until step 2, the player still us
 2. **Migration rehearsal:** per-table row counts identical before/after; zero NULL `league_id`.
 3. **App tests** (vitest, alongside existing tests): feature dependency helper; slug validation and suggestion; `useFeature` gating of admin menu, match tracker buttons and public menu; league switcher limit state; redirects from old URLs; `loadLeague` filters by league.
 4. **Edge Functions:** non-superadmin caller is refused by all three; create-admin cleans up the auth user when the profile insert fails; delete-league refuses a wrong `confirm_name` and, on a test league, leaves no rows and no files under its folder.
-5. **Photo move script** (on the local rehearsal copy first): every moved photo URL returns 200; running it a second time changes nothing; a run interrupted after the copy step completes correctly on re-run.
+5. **Photo move script** (its planning logic unit-tested first; the live run is checked by its report): every moved photo URL returns 200; running it a second time changes nothing; a run interrupted after the copy step completes correctly on re-run.
 6. **Browser check** with three accounts — superadmin, an admin with all features, an admin with few features — through every screen in Sections 8–10.
 
 ---
