@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useFeature } from '../contexts/LeagueContext'
 import type { Player } from '../lib/types'
 import type { PlayerCard } from '../utils/playerCard'
 
@@ -10,6 +11,7 @@ export const TIER_STYLE = {
 
 export function PlayerCardView({ player, card, size = 'md' }: { player: Player; card: PlayerCard; size?: 'sm' | 'md' }) {
   const { t } = useTranslation()
+  const photosOn = useFeature('photos')
   const style = TIER_STYLE[card.tier]
   const small = size === 'sm'
   return (
@@ -29,7 +31,7 @@ export function PlayerCardView({ player, card, size = 'md' }: { player: Player; 
           <div className={`font-black ${small ? 'text-3xl' : 'text-5xl'}`}>{card.overall}</div>
           <div className={`font-bold mt-1 ${small ? 'text-xs' : 'text-sm'}`}>{player.position}</div>
         </div>
-        {player.photo_url ? (
+        {player.photo_url && photosOn ? (
           <img src={player.photo_url} alt="" className={`rounded-full object-cover border-2 border-white/60 ${small ? 'w-12 h-12' : 'w-20 h-20'}`} />
         ) : (
           <div className={`rounded-full bg-black/15 flex items-center justify-center font-black ${small ? 'w-12 h-12 text-xl' : 'w-20 h-20 text-3xl'}`}>

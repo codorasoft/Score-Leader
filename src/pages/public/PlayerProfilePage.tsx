@@ -47,6 +47,7 @@ export default function PlayerProfilePage() {
   const publicPath = usePublicPath()
   const showBadges = useFeature('badges')
   const showCards = useFeature('player_cards')
+  const photosOn = useFeature('photos')
   const hasLeaderboard = useFeature('leaderboard')
   const [loaded, setLoaded] = useState<{ key: string; data: ProfileData | 'missing' } | null>(null)
   const key = `${leagueInfo.id}:${playerId}`
@@ -103,7 +104,7 @@ export default function PlayerProfilePage() {
   const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
   const partners = partnersOf(partnerships(data.league), player.id, PARTNER_MIN_MATCHES)
   const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
-  const shareCard = async () => shareCanvas(await drawPlayerCard(player, card), `${player.name}-card.png`, player.name)
+  const shareCard = async () => shareCanvas(await drawPlayerCard(photosOn ? player : { ...player, photo_url: null }, card), `${player.name}-card.png`, player.name)
 
   const tiles = [
     { label: t('profile.sessions'), value: totals.sessions },
