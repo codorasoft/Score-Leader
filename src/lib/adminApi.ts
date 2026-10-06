@@ -1,12 +1,15 @@
 import { supabase } from './supabase'
 import type { FeatureKey } from './features'
 
-export type ApiResult = { ok: true } | { error: string }
+export type ApiResult = { ok: true; user_id?: string } | { error: string }
 
 async function call(name: string, body: Record<string, unknown>): Promise<ApiResult> {
   try {
-    const { error } = await supabase.functions.invoke(name, { body })
-    if (!error) return { ok: true }
+    const { data, error } = await supabase.functions.invoke(name, { body })
+    if (!error) {
+      const id = (data as { user_id?: unknown } | null)?.user_id
+      return typeof id === 'string' ? { ok: true, user_id: id } : { ok: true }
+    }
     const context = (error as { context?: Response }).context
     const parsed = context ? await context.json().catch(() => null) : null
     return { error: typeof parsed?.error === 'string' ? parsed.error : 'network' }

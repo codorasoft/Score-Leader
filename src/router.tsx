@@ -9,7 +9,6 @@ import AdminLeagueRoute from './routes/AdminLeagueRoute'
 import PublicLeagueRoute from './routes/PublicLeagueRoute'
 import SessionLeagueRoute from './routes/SessionLeagueRoute'
 import FeatureRoute from './routes/FeatureRoute'
-import SuperPlaceholder from './routes/SuperPlaceholder'
 import { LegacyAdminRedirect, LegacyPublicRedirect } from './routes/LegacyRedirects'
 
 import PlayersPage from './pages/admin/PlayersPage'
@@ -21,6 +20,9 @@ import SessionDetailPage from './pages/admin/SessionDetailPage'
 import HistoryPage from './pages/admin/HistoryPage'
 import LineupsPage from './pages/admin/LineupsPage'
 import LineupEditorPage from './pages/admin/LineupEditorPage'
+import SuperLayout from './layouts/SuperLayout'
+import AdminsPage from './pages/super/AdminsPage'
+import NewAdminPage from './pages/super/NewAdminPage'
 import NewLeaguePage from './pages/admin/NewLeaguePage'
 import LeagueSettingsPage from './pages/admin/LeagueSettingsPage'
 
@@ -42,7 +44,15 @@ export const routes: RouteObject[] = [
   {
     path: '/super',
     element: <RequireRole role="superadmin" />,
-    children: [{ index: true, element: <SuperPlaceholder /> }],
+    children: [
+      {
+        element: <SuperLayout />,
+        children: [
+          { index: true, element: <AdminsPage /> },
+          { path: 'admins/new', element: <NewAdminPage /> },
+        ],
+      },
+    ],
   },
   {
     path: '/admin',

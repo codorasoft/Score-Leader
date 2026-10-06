@@ -508,6 +508,61 @@
     "disabled": "Your account is disabled"
   },
   "super": {
-    "title": "Superadmin"
+    "title": "Superadmin",
+    "brand": "ScoreLeader · Superadmin",
+    "tabs": {
+      "admins": "Admins",
+      "leagues": "Leagues"
+    },
+    "admins": {
+      "title": "Admins",
+      "new": "+ New",
+      "empty": "No admins yet",
+      "leagues": "{{used}}/{{max}} leagues",
+      "features": "{{count}} features",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "newAdmin": {
+      "title": "New admin",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "show": "Show",
+      "hide": "Hide",
+      "maxLeagues": "Max leagues",
+      "features": "Features",
+      "create": "Create admin",
+      "creating": "Creating…",
+      "back": "Back"
+    },
+    "errors": {
+      "email": "Enter a valid email",
+      "password": "Password must be at least 8 characters",
+      "name": "Name must be 1-80 characters",
+      "maxLeagues": "Max leagues must be a whole number from 0 to 100",
+      "features": "Invalid features",
+      "network": "Could not reach the server. Try again.",
+      "generic": "Check the form and try again"
+    }
+  },
+  "features": {
+    "cards": "Cards & suspensions",
+    "swaps": "In-session player swaps",
+    "smart_balancing": "Smart team balancing",
+    "awards": "Session awards",
+    "voting": "Award voting",
+    "leaderboard": "Leaderboard",
+    "potm": "Player of the Month",
+    "profiles": "Player profiles",
+    "badges": "Badges",
+    "records": "Records",
+    "player_cards": "Player cards",
+    "photos": "Player photos",
+    "summary_share": "Session summary sharing",
+    "coach_board": "Coach Board",
+    "needs": "Needs {{feature}}",
+    "selectAll": "Select all",
+    "none": "None"
   }
 }
