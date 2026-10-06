@@ -27,9 +27,15 @@ BEGIN
   END LOOP;
 END $$;
 
-CREATE POLICY "owner write" ON public.award_votes FOR ALL TO authenticated
-  USING (public.owns_league(league_id))
+-- Opening a vote needs `voting`; an owner can still close or delete votes after it is turned
+-- off. Separate policies, because permissive policies are OR-ed (a FOR ALL one would let the
+-- insert through). The owner reads them through "league read".
+CREATE POLICY "owner write insert" ON public.award_votes FOR INSERT TO authenticated
   WITH CHECK (public.owns_league(league_id) AND public.league_has_feature(league_id, 'voting'));
+CREATE POLICY "owner write update" ON public.award_votes FOR UPDATE TO authenticated
+  USING (public.owns_league(league_id)) WITH CHECK (public.owns_league(league_id));
+CREATE POLICY "owner write delete" ON public.award_votes FOR DELETE TO authenticated
+  USING (public.owns_league(league_id));
 
 -- Visitors vote through the public link: an open vote, for a nominated player, in a league
 -- that has voting and whose owner is enabled. league_id is already set by the BEFORE trigger.

@@ -513,6 +513,11 @@ SELECT pg_temp.expect_error(
   $sql$INSERT INTO public.award_votes (session_id, award_type, status, decided_by, vote_token)
        VALUES ('bbbbbbbb-0000-4000-8000-000000000005', 'fair_play', 'open', 'vote', 'tenancy-vote-b2')$sql$,
   'row-level security');
+-- Spec 5: the voting check is for opening votes only; an open vote can still be closed
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.award_votes SET status = 'closed', winner_player_id = 'bbbbbbbb-0000-4000-8000-000000000003'
+       WHERE id = 'bbbbbbbb-0000-4000-8000-000000000011'$sql$,
+  1);
 RESET role;
 
 SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
