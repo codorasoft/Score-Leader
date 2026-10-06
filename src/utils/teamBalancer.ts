@@ -1,18 +1,11 @@
 import type { Player } from '../lib/types'
+import { shuffle } from './shuffle'
 
 export interface BalanceResult {
   teams: Player[][]
   needsGkAssignment: boolean
 }
 
-const shuffle = <T,>(items: T[]) => {
-  const arr = [...items]
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
-}
 
 // Shuffling first means equally strong players land differently on each "Shuffle All",
 // while the strength order (stable sort) still drives the balancing.

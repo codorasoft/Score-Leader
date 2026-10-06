@@ -82,3 +82,18 @@ it("goes to history for an unknown or another league's session", async () => {
   renderPage()
   expect(await screen.findByText('history page')).toBeInTheDocument()
 })
+
+it('describes the setup with Arabic plurals', async () => {
+  const { inArabic } = await import('../../test/arabic')
+  rows('sessions')[0].team_size = 11
+  await inArabic(async () => {
+    renderPage()
+    expect(await screen.findByText(/فريقان × 11 لاعباً/)).toBeInTheDocument()
+  })
+})
+
+it('describes the setup in English', async () => {
+  rows('sessions')[0].team_size = 11
+  renderPage()
+  expect(await screen.findByText(/2 teams × 11 players/)).toBeInTheDocument()
+})

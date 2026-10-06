@@ -18,3 +18,11 @@ it('names the teams after it in order', () => {
   render(<NextUp queue={['to', 'tp', 'tb']} teams={teams} />)
   expect(screen.getByText('Next up: Orange Team, then Purple Team, Blue Team')).toBeInTheDocument()
 })
+
+it('uses the Arabic comma between team names in Arabic', async () => {
+  const { inArabic } = await import('../test/arabic')
+  await inArabic(() => {
+    render(<NextUp queue={['to', 'tp', 'tb']} teams={teams} />)
+    expect(screen.getByText('التالي: فريق برتقالي، ثم فريق بنفسجي، فريق أزرق')).toBeInTheDocument()
+  })
+})

@@ -121,3 +121,10 @@ it("does not load another league's session", async () => {
   expect(screen.queryByText('Ali')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Confirm Teams & Start' })).toBeDisabled()
 })
+
+it('does not ask who plays first in a 2-team session (both always play)', async () => {
+  rows('sessions').find((x) => x.id === 's2')!.team_count = 2
+  renderPage()
+  await waitFor(() => expect(screen.getAllByText(/^3 players/)).toHaveLength(2))
+  expect(screen.queryByText('Who plays first?')).not.toBeInTheDocument()
+})

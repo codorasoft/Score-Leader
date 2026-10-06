@@ -205,7 +205,8 @@ export default function TeamBuilderPage() {
 
       <TeamSwapBoard teams={teams} colors={colors} onChange={setTeams} strengthOf={strengthOf} />
 
-      <FirstMatchPicker colors={colors} playing={firstPlaying} onChange={setFirstPlaying} />
+      {/* With two teams both always play, so there is nothing to choose */}
+      {colors.length > 2 && <FirstMatchPicker colors={colors} playing={firstPlaying} onChange={setFirstPlaying} />}
 
       <div className="mt-6">
         <button

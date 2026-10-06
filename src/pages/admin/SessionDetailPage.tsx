@@ -200,7 +200,7 @@ export default function SessionDetailPage() {
               </div>
             ))}
           </div>
-          {startNumber === 1 && <FirstMatchPicker colors={teams.map((tm) => tm.color)} playing={firstPlaying} onChange={setFirstPlaying} />}
+          {startNumber === 1 && teams.length > 2 && <FirstMatchPicker colors={teams.map((tm) => tm.color)} playing={firstPlaying} onChange={setFirstPlaying} />}
           <button
             onClick={startNextMatch}
             disabled={starting}
@@ -356,7 +356,7 @@ export default function SessionDetailPage() {
 
               {!isEditing && waiting.length > 0 && (
                 <p className="text-xs text-gray-500 mt-2 text-center">
-                  {t('common.waiting')}: {waiting.map(teamLabel).join(', ')}
+                  {t('common.waiting')}: {waiting.map(teamLabel).join(t('common.listSeparator'))}
                 </p>
               )}
               {!isEditing && m.is_draw && m.draw_resolved_by === 'penalties' && (

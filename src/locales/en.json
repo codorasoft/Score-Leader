@@ -22,7 +22,8 @@
     "returnNow": "RETURN NOW",
     "noStats": "No stats yet",
     "loadFailed": "Could not load. Check your connection.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "listSeparator": ", "
   },
   "login": {
     "emailPlaceholder": "Email",
@@ -72,7 +73,11 @@
     "upTo_one": "Up to {{count}} player",
     "upTo_other": "Up to {{count}} players",
     "create": "Create",
-    "setup": "{{teams}} teams × {{size}} players"
+    "setup": "{{teams}} × {{players}}",
+    "teamsCount_one": "{{count}} team",
+    "teamsCount_other": "{{count}} teams",
+    "playersCount_one": "{{count}} player",
+    "playersCount_other": "{{count}} players"
   },
   "teamBuilder": {
     "title": "Team Builder",
