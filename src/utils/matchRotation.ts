@@ -45,3 +45,21 @@ export function setupFirstMatch(
   if (Math.random() < 0.5) playing.reverse()
   return { team1Id: playing[0].id, team2Id: playing[1].id, waitingTeamId: waiting.id }
 }
+
+// The match to start when a session is under way but has none set up (e.g. the admin deleted
+// them): the rotation carries on from the last finished match, or match 1 starts afresh.
+// Null while a match is still pending or being played.
+export function nextMatchToStart(
+  matches: Match[],
+  teams: Team[],
+  firstWaitingTeamId?: string,
+): { matchNumber: number; team1Id: string; team2Id: string; waitingTeamId: string } | null {
+  if (teams.length !== 3 || matches.some((m) => m.status !== 'completed')) return null
+  const last = [...matches].sort((a, b) => b.match_number - a.match_number)[0]
+  if (!last?.winner_team_id) {
+    const first = setupFirstMatch(teams, firstWaitingTeamId)
+    return { matchNumber: (last?.match_number ?? 0) + 1, ...first }
+  }
+  const next = resolveMatch(last)
+  return { matchNumber: last.match_number + 1, team1Id: next.nextTeam1Id, team2Id: next.nextTeam2Id, waitingTeamId: next.nextWaitingTeamId }
+}
