@@ -69,8 +69,12 @@ export default function NewLeaguePage() {
           window.alert(t('league.logoFailed'))
         }
       }
-      // The league exists either way; a failed refresh must not block moving on.
-      await refresh().catch(() => {})
+      // The route looks the league up in the refreshed list, so navigating without it would bounce back.
+      const refreshed = await refresh().then(() => true, () => refresh().then(() => true, () => false))
+      if (!refreshed) {
+        setError(t('league.createdReload'))
+        return
+      }
       navigate(`/admin/${created.slug}/players`)
     } catch {
       setError(t('league.createFailed'))

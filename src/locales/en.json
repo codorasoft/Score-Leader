@@ -456,6 +456,7 @@
     "copy": "Copy",
     "copied": "Copied",
     "share": "Share on Messenger",
+    "createdReload": "League created. Reload the page to continue.",
     "slugReadOnly": "The link name cannot be changed."
   },
   "photo": {
