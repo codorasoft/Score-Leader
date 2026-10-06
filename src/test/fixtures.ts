@@ -11,7 +11,7 @@ export const player = (id: string, name: string, position: Player['position'], s
 export const team = (id: string, session_id: string, color: Team['color']): Team => ({ league_id: L, id, session_id, color, name: null })
 
 export const match = (id: string, extra: Partial<Match> = {}): Match => ({
-  league_id: L, id, session_id: 's1', match_number: 1, team1_id: 'tg', team2_id: 'tb', waiting_team_id: 'ty',
+  league_id: L, id, session_id: 's1', match_number: 1, team1_id: 'tg', team2_id: 'tb', waiting_team_id: 'ty', queue: ['ty'],
   status: 'pending', team1_score: 0, team2_score: 0, winner_team_id: null, is_draw: false, draw_resolved_by: null,
   timer_started_at: null, timer_elapsed_seconds: 0, timer_status: 'stopped', created_at: '2026-09-20T18:00:00Z', ...extra,
 })
@@ -32,7 +32,7 @@ export const players: Player[] = [
   player('px', 'Stranger', 'ATT', 5, { league_id: 'L2' }),
 ]
 
-export const session: Session = { league_id: L, id: 's1', date: '2026-09-20', status: 'completed', share_token: 'tok1', created_at: '2026-09-20T17:00:00Z' }
+export const session: Session = { league_id: L, id: 's1', date: '2026-09-20', status: 'completed', share_token: 'tok1', created_at: '2026-09-20T17:00:00Z', team_count: 3, team_size: 5 }
 
 export const teams: Team[] = [team('tg', 's1', 'green'), team('tb', 's1', 'blue'), team('ty', 's1', 'yellow')]
 
@@ -43,7 +43,7 @@ export const teamPlayers: TeamPlayer[] = [
 // Match 1: Green beat Blue 2–0 (Omar twice, Ali assisting the first). Match 2: Yellow beat Green 1–0 (Hadi).
 export const matches: Match[] = [
   match('m1', { status: 'completed', team1_score: 2, team2_score: 0, winner_team_id: 'tg', timer_elapsed_seconds: 600 }),
-  match('m2', { match_number: 2, team1_id: 'tg', team2_id: 'ty', waiting_team_id: 'tb', status: 'completed', team1_score: 0, team2_score: 1, winner_team_id: 'ty', timer_elapsed_seconds: 600 }),
+  match('m2', { match_number: 2, team1_id: 'tg', team2_id: 'ty', waiting_team_id: 'tb', queue: ['tb'], status: 'completed', team1_score: 0, team2_score: 1, winner_team_id: 'ty', timer_elapsed_seconds: 600 }),
 ]
 
 export const events: MatchEvent[] = [

@@ -17,7 +17,8 @@ export function resolveMatch(match: Match): NextMatchConfig {
   const loserTeamId = winner_team_id === team1_id ? team2_id : team1_id
   return {
     nextTeam1Id: winner_team_id,
-    nextTeam2Id: waiting_team_id,
+    // Nobody waiting (2 teams): the same two play again
+    nextTeam2Id: waiting_team_id ?? loserTeamId,
     nextWaitingTeamId: loserTeamId,
   }
 }

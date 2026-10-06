@@ -227,7 +227,7 @@ export default function SessionDetailPage() {
         {completed.map((m) => {
           const t1 = teamById[m.team1_id]
           const t2 = teamById[m.team2_id]
-          const waiting = teamById[m.waiting_team_id]
+          const waiting = m.waiting_team_id ? teamById[m.waiting_team_id] : undefined
           const winner = m.winner_team_id ? teamById[m.winner_team_id] : null
           const isEditing = editingId === m.id
           const matchEvents = events.filter((e) => e.match_id === m.id)

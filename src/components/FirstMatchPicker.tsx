@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { TeamColor } from '../lib/types'
 
 const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
-const colorDot: Record<TeamColor, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
 
 interface Props {
   // The team that sits out the first match; null means decide by coin flip
