@@ -12,7 +12,7 @@ export function NextUp({ queue, teams, className = '' }: { queue: string[]; team
   const [first, ...rest] = names
   return (
     <p className={className}>
-      {rest.length ? t('match.nextUpThen', { team: first, rest: rest.join(', ') }) : t('match.nextUp', { team: first })}
+      {rest.length ? t('match.nextUpThen', { team: first, rest: rest.join(t('common.listSeparator')) }) : t('match.nextUp', { team: first })}
     </p>
   )
 }

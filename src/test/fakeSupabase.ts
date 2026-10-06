@@ -16,6 +16,8 @@ export const db = {
   reads: 0,
   // Every request to a table listed here fails with this error (reads and writes)
   errors: {} as Record<string, ApiError>,
+  // Requests to a table listed here wait for this promise, to test what happens while one is in flight
+  holds: {} as Record<string, Promise<unknown>>,
   nextId: 1,
 }
 
@@ -24,6 +26,7 @@ export function resetDb(tables: Record<string, Row[]> = {}) {
   db.writes = []
   db.reads = 0
   db.errors = {}
+  db.holds = {}
   db.nextId = 1
   forgetCachedLeagues()
 }
@@ -108,6 +111,7 @@ function query(table: string) {
     range: (a: number, z: number) => { from = a; to = z; return b },
     limit: (n: number) => { to = from + n - 1; return b },
     single: async () => {
+      await db.holds[table]
       const res = run()
       const list = res.data as Row[] | null
       if (res.error) return res
@@ -115,11 +119,12 @@ function query(table: string) {
       return { ...res, data: list[0] }
     },
     maybeSingle: async () => {
+      await db.holds[table]
       const res = run()
       const list = res.data as Row[] | null
       return res.error ? res : { ...res, data: list?.[0] ?? null }
     },
-    then: <T>(ok: (v: ReturnType<typeof run>) => T, fail?: (e: unknown) => T) => Promise.resolve().then(run).then(ok, fail),
+    then: <T>(ok: (v: ReturnType<typeof run>) => T, fail?: (e: unknown) => T) => Promise.resolve(db.holds[table]).then(run).then(ok, fail),
   }
   return b
 }

@@ -22,7 +22,8 @@
     "returnNow": "عُد الآن",
     "noStats": "لا توجد إحصائيات بعد",
     "loadFailed": "تعذّر التحميل. تحقق من اتصالك.",
-    "retry": "إعادة المحاولة"
+    "retry": "إعادة المحاولة",
+    "listSeparator": "، "
   },
   "login": {
     "emailPlaceholder": "البريد الإلكتروني",
@@ -76,7 +77,19 @@
     "upTo_many": "حتى {{count}} لاعباً",
     "upTo_other": "حتى {{count}} لاعب",
     "create": "إنشاء",
-    "setup": "{{teams}} فرق × {{size}} لاعبين"
+    "setup": "{{teams}} × {{players}}",
+    "teamsCount_zero": "{{count}} فريق",
+    "teamsCount_one": "فريق واحد",
+    "teamsCount_two": "فريقان",
+    "teamsCount_few": "{{count}} فرق",
+    "teamsCount_many": "{{count}} فريقاً",
+    "teamsCount_other": "{{count}} فريق",
+    "playersCount_zero": "{{count}} لاعب",
+    "playersCount_one": "لاعب واحد",
+    "playersCount_two": "لاعبان",
+    "playersCount_few": "{{count}} لاعبين",
+    "playersCount_many": "{{count}} لاعباً",
+    "playersCount_other": "{{count}} لاعب"
   },
   "teamBuilder": {
     "title": "بناء الفرق",

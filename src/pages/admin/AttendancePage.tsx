@@ -103,7 +103,7 @@ export default function AttendancePage() {
     <div>
       <h1 className="text-xl font-bold mb-1">{t('session.attendeesTitle')}</h1>
       <p className="text-sm text-gray-300 mb-1">
-        {session.date} · {t('session.setup', { teams: session.team_count, size: session.team_size })}
+        {session.date} · {t('session.setup', { teams: t('session.teamsCount', { count: session.team_count }), players: t('session.playersCount', { count: session.team_size }) })}
       </p>
       <p className="text-gray-400 text-sm mb-4">{t('session.attendeesHint')}</p>
       <AttendancePicker players={players} selected={selected} limit={limit} onToggle={togglePlayer} />

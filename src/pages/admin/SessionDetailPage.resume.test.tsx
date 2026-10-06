@@ -71,3 +71,14 @@ it('four teams with all matches deleted: pick two to start, the other two queue'
   expect([newMatch().team1_id, newMatch().team2_id].sort()).toEqual(['tb', 'to'])
   expect(newMatch()).toMatchObject({ queue: ['tg', 'ty'], waiting_team_id: 'tg' })
 })
+
+it('two teams with all matches deleted: starts match 1 without asking who plays first', async () => {
+  resetDb({ players, teams: teams.slice(0, 2), team_players: teamPlayers.slice(0, 4), sessions: [{ ...session, status: 'active', team_count: 2 }], matches: [] })
+  const user = userEvent.setup()
+  renderPage()
+  const start = await screen.findByRole('button', { name: 'Start match 1' })
+  expect(screen.queryByText('Who plays first?')).not.toBeInTheDocument()
+  await user.click(start)
+  await waitFor(() => expect(screen.getByText(/^tracker/)).toBeInTheDocument())
+  expect(newMatch()).toMatchObject({ queue: [], waiting_team_id: null })
+})

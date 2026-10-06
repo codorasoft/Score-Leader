@@ -60,7 +60,7 @@ export function MatchResultDialog({ outcome, team1, team2, next, onContinue }: P
           {t('result.next', { team1: name(next.team1), team2: name(next.team2) })}
           {next.queue.length > 0 && <span className="block mt-1">
             {next.queue.length > 1
-              ? t('match.nextUpThen', { team: name(next.queue[0]), rest: next.queue.slice(1).map(name).join(', ') })
+              ? t('match.nextUpThen', { team: name(next.queue[0]), rest: next.queue.slice(1).map(name).join(t('common.listSeparator')) })
               : t('match.nextUp', { team: name(next.queue[0]) })}
           </span>}
         </p>

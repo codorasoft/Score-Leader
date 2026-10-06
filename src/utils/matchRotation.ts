@@ -1,5 +1,6 @@
 import type { Match, Team } from '../lib/types'
 import { TEAM_COLORS } from '../lib/teamColors'
+import { shuffle } from './shuffle'
 
 // The next match: who plays, and the teams waiting to come on in order (first comes on next).
 export interface NextMatch {
@@ -46,7 +47,7 @@ export function decideResult(params: Pick<Match, 'team1_score' | 'team2_score' |
 export function setupFirstMatch(teams: Team[], playing?: [string, string]): NextMatch {
   const chosen = playing && playing[0] !== playing[1] && playing.every((id) => teams.some((tm) => tm.id === id))
     ? [...playing]
-    : [...teams].sort(() => Math.random() - 0.5).slice(0, 2).map((tm) => tm.id)
+    : shuffle(teams).slice(0, 2).map((tm) => tm.id)
   if (Math.random() < 0.5) chosen.reverse()
   const queue = teams
     .filter((tm) => !chosen.includes(tm.id))

@@ -152,3 +152,16 @@ describe('nextMatchToStart', () => {
     expect(nextMatchToStart([], teamsOf('g'))).toBeNull()
   })
 })
+
+it('a random first match gives every pair of teams the same chance', () => {
+  const teams = teamsOf('g', 'b', 'y', 'o')
+  const counts: Record<string, number> = {}
+  const runs = 12000
+  for (let i = 0; i < runs; i++) {
+    const { team1Id, team2Id } = setupFirstMatch(teams)
+    const key = [team1Id, team2Id].sort().join('')
+    counts[key] = (counts[key] ?? 0) + 1
+  }
+  expect(Object.keys(counts)).toHaveLength(6)
+  for (const n of Object.values(counts)) expect(Math.abs(n / runs - 1 / 6)).toBeLessThan(0.02)
+})

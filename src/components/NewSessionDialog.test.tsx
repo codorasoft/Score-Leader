@@ -60,10 +60,10 @@ it('keeps the numbers within 2–6 teams and 3–11 players per team', async () 
   await waitFor(() => expect(teamsValue()).toHaveTextContent('3'))
   for (let i = 0; i < 6; i++) await user.click(screen.getByRole('button', { name: 'Fewer teams' }))
   expect(teamsValue()).toHaveTextContent('2')
-  expect(screen.getByRole('button', { name: 'Fewer teams' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Fewer teams' })).toHaveAttribute('aria-disabled', 'true')
   for (let i = 0; i < 6; i++) await user.click(screen.getByRole('button', { name: 'More teams' }))
   expect(teamsValue()).toHaveTextContent('6')
-  expect(screen.getByRole('button', { name: 'More teams' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'More teams' })).toHaveAttribute('aria-disabled', 'true')
   for (let i = 0; i < 10; i++) await user.click(screen.getByRole('button', { name: 'More players per team' }))
   expect(perTeamValue()).toHaveTextContent('11')
   for (let i = 0; i < 10; i++) await user.click(screen.getByRole('button', { name: 'Fewer players per team' }))
@@ -103,4 +103,58 @@ it('stays open with the error when the session cannot be saved', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
   expect(screen.getByRole('dialog', { name: 'New session' })).toBeInTheDocument()
   expect(onClose).not.toHaveBeenCalled()
+})
+
+describe('polish', () => {
+  const hold = () => {
+    let release = () => {}
+    const p = new Promise<void>((r) => { release = r })
+    return { p, release }
+  }
+
+  it('cannot be cancelled while the session is being saved', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    const onClose = renderDialog()
+    await waitFor(() => expect(teamsValue()).toHaveTextContent('3'))
+    const saving = hold()
+    db.holds.sessions = saving.p
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    saving.release()
+    expect(await screen.findByText(/^attendance/)).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('keeps keyboard focus on a stepper button that reaches its limit', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    const onClose = renderDialog()
+    await waitFor(() => expect(teamsValue()).toHaveTextContent('3'))
+    const more = screen.getByRole('button', { name: 'More teams' })
+    more.focus()
+    for (let i = 0; i < 5; i++) await user.keyboard('{Enter}')
+    expect(teamsValue()).toHaveTextContent('6')
+    expect(more).toHaveFocus()
+    expect(more).toHaveAttribute('aria-disabled', 'true')
+    await user.keyboard('{Enter}')
+    expect(teamsValue()).toHaveTextContent('6')
+    // Still inside the dialog, so Escape works
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not overwrite a choice made before the last session's setup arrives", async () => {
+    resetDb({ sessions: [{ ...session, id: 'last', team_count: 4, team_size: 6 }] })
+    const loading = hold()
+    db.holds.sessions = loading.p
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('button', { name: 'Fewer teams' }))
+    expect(teamsValue()).toHaveTextContent('2')
+    loading.release()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(teamsValue()).toHaveTextContent('2')
+    expect(perTeamValue()).toHaveTextContent('5')
+  })
 })
