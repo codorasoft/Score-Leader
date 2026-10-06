@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useLeague, useAdminPath } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
 import { PositionBadge } from './PlayersPage'
 import type { Player } from '../../lib/types'
@@ -45,6 +46,8 @@ export function AttendancePicker({ players, selected, onToggle }: AttendancePick
 
 export default function NewSessionPage() {
   const navigate = useNavigate()
+  const league = useLeague()
+  const adminPath = useAdminPath()
   const { t } = useTranslation()
   const [step, setStep] = useState<'date' | 'attendance'>('date')
   const [sessionDate, setSessionDate] = useState('')
@@ -56,15 +59,16 @@ export default function NewSessionPage() {
     supabase
       .from('players')
       .select('*')
+      .eq('league_id', league.id)
       .eq('is_active', true)
       .order('name')
       .then(({ data }) => { if (data) setPlayers(data as Player[]) })
-  }, [])
+  }, [league.id])
 
   const handleCreateSession = async () => {
     const { data } = await supabase
       .from('sessions')
-      .insert({ date: sessionDate, status: 'draft', share_token: crypto.randomUUID() })
+      .insert({ league_id: league.id, date: sessionDate, status: 'draft', share_token: crypto.randomUUID() })
       .select()
       .single()
     if (data) {
@@ -89,7 +93,7 @@ export default function NewSessionPage() {
     if (!sessionId) return
     const rows = Array.from(selected).map((playerId) => ({ session_id: sessionId, player_id: playerId }))
     await supabase.from('session_players').insert(rows)
-    navigate(`/admin/sessions/${sessionId}/teams`)
+    navigate(adminPath(`/sessions/${sessionId}/teams`))
   }
 
   if (step === 'date') {

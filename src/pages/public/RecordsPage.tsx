@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { loadLeague } from '../../lib/league'
+import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import { computeRecords, type LeagueRecord, type RecordHolder } from '../../utils/records'
 import { formatMatchClock } from '../../utils/matchClock'
 
@@ -11,9 +12,18 @@ const dot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500'
 
 export default function RecordsPage() {
   const { t } = useTranslation()
-  const [records, setRecords] = useState<LeagueRecord[] | null>(null)
+  const league = useLeague()
+  const publicPath = usePublicPath()
+  const profiles = useFeature('profiles')
+  const [loaded, setLoaded] = useState<{ leagueId: string; records: LeagueRecord[] } | null>(null)
 
-  useEffect(() => { loadLeague().then((league) => setRecords(computeRecords(league))) }, [])
+  useEffect(() => {
+    let stale = false
+    loadLeague(league.id).then((data) => { if (!stale) setLoaded({ leagueId: league.id, records: computeRecords(data) }) })
+    return () => { stale = true }
+  }, [league.id])
+
+  const records = loaded?.leagueId === league.id ? loaded.records : null
 
   if (!records) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
@@ -36,7 +46,9 @@ export default function RecordsPage() {
     if (h.kind === 'player') {
       return (
         <li key={i} className="flex items-center justify-between gap-2 text-sm">
-          <Link to={`/players/${h.playerId}`} className="font-semibold hover:underline truncate">{h.name}</Link>
+          {profiles
+            ? <Link to={publicPath(`/players/${h.playerId}`)} className="font-semibold hover:underline truncate">{h.name}</Link>
+            : <span className="font-semibold truncate">{h.name}</span>}
           {h.date && <span className="text-xs text-gray-400 shrink-0" dir="ltr">{h.date}</span>}
         </li>
       )

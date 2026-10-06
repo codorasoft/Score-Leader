@@ -12,6 +12,9 @@ import { PlayerCardView } from '../../components/PlayerCardView'
 import { cardsForLeague } from '../../utils/leagueCards'
 import { partnerships, partnersOf, type Partner } from '../../utils/playerMatches'
 import { drawPlayerCard, shareCanvas } from '../../lib/shareImage'
+import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
+import NotAvailablePage from '../NotAvailablePage'
+import { PlayerAvatar } from '../../components/PlayerAvatar'
 
 const PARTNER_MIN_MATCHES = 5
 import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team } from '../../lib/types'
@@ -40,18 +43,28 @@ interface ProfileData {
 export default function PlayerProfilePage() {
   const { playerId } = useParams<{ playerId: string }>()
   const { t } = useTranslation()
-  const [data, setData] = useState<ProfileData | null | 'missing'>(null)
+  const leagueInfo = useLeague()
+  const publicPath = usePublicPath()
+  const showBadges = useFeature('badges')
+  const showCards = useFeature('player_cards')
+  const photosOn = useFeature('photos')
+  const hasLeaderboard = useFeature('leaderboard')
+  const [loaded, setLoaded] = useState<{ key: string; data: ProfileData | 'missing' } | null>(null)
+  const key = `${leagueInfo.id}:${playerId}`
+  const data = loaded?.key === key ? loaded.data : null
 
   useEffect(() => {
+    let stale = false
+    const done = (d: ProfileData | 'missing') => { if (!stale) setLoaded({ key, data: d }) }
     const load = async () => {
       const [{ data: player }, { data: tpRows }, { data: events }, { data: awards }, league] = await Promise.all([
         supabase.from('players').select('*').eq('id', playerId).maybeSingle(),
         supabase.from('team_players').select('team_id').eq('player_id', playerId),
         supabase.from('match_events').select('*').eq('player_id', playerId),
         supabase.from('session_awards').select('*').eq('winner_player_id', playerId),
-        loadLeague(),
+        loadLeague(leagueInfo.id),
       ])
-      if (!player) { setData('missing'); return }
+      if (!player || (player as Player).league_id !== leagueInfo.id) { done('missing'); return }
 
       const teamIds = (tpRows ?? []).map((r: { team_id: string }) => r.team_id)
       const { data: teams } = teamIds.length
@@ -65,7 +78,7 @@ export default function PlayerProfilePage() {
           ])
         : [{ data: [] }, { data: [] }]
 
-      setData({
+      done({
         player: player as Player,
         sessions: (sessions ?? []) as Session[],
         teams: (teams ?? []) as Team[],
@@ -76,10 +89,11 @@ export default function PlayerProfilePage() {
       })
     }
     load()
-  }, [playerId])
+    return () => { stale = true }
+  }, [playerId, leagueInfo.id])
 
   if (data === null) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
-  if (data === 'missing') return <p className="max-w-lg mx-auto p-4 text-gray-400 text-center">{t('profile.notFound')}</p>
+  if (data === 'missing') return <NotAvailablePage kind="page" embedded />
 
   const { player } = data
   const history = buildPlayerHistory({ position: player.position, ...data })
@@ -90,7 +104,7 @@ export default function PlayerProfilePage() {
   const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
   const partners = partnersOf(partnerships(data.league), player.id, PARTNER_MIN_MATCHES)
   const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
-  const shareCard = async () => shareCanvas(await drawPlayerCard(player, card), `${player.name}-card.png`, player.name)
+  const shareCard = async () => shareCanvas(await drawPlayerCard(photosOn ? player : { ...player, photo_url: null }, card), `${player.name}-card.png`, player.name)
 
   const tiles = [
     { label: t('profile.sessions'), value: totals.sessions },
@@ -105,14 +119,23 @@ export default function PlayerProfilePage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <Link to="/leaderboard" className="text-gray-400 hover:text-white text-sm">← {t('profile.back')}</Link>
+      <Link to={hasLeaderboard ? publicPath('/leaderboard') : publicPath()} className="text-gray-400 hover:text-white text-sm">← {t('profile.back')}</Link>
 
       <h1 className="sr-only">{player.name}</h1>
       <div className="flex flex-col items-center gap-3 mt-4 mb-6">
-        <PlayerCardView player={player} card={card} />
-        <button onClick={shareCard} className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-sm font-semibold">
-          🖼️ {t('cards.share')}
-        </button>
+        {showCards ? (
+          <>
+            <PlayerCardView player={player} card={card} />
+            <button onClick={shareCard} className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-sm font-semibold">
+              🖼️ {t('cards.share')}
+            </button>
+          </>
+        ) : (
+          <>
+            <PlayerAvatar player={player} size="lg" />
+            <p className="text-xl font-bold">{player.name}</p>
+          </>
+        )}
       </div>
 
       {totals.sessions === 0 ? (
@@ -142,7 +165,7 @@ export default function PlayerProfilePage() {
             </section>
           )}
 
-          <PlayerBadges earned={badges.earned} next={badges.next} potmMonths={potmMonths} />
+          {showBadges && <PlayerBadges earned={badges.earned} next={badges.next} potmMonths={potmMonths} />}
 
           <section className="mb-6" aria-labelledby="partners-title">
             <h2 id="partners-title" className="text-xs uppercase text-gray-400 mb-2">🤝 {t('partners.title')}</h2>
@@ -209,13 +232,14 @@ export default function PlayerProfilePage() {
 
 function PartnerList({ title, rows, nameOf, good = false }: { title: string; rows: Partner[]; nameOf: (id: string) => string; good?: boolean }) {
   const { t } = useTranslation()
+  const publicPath = usePublicPath()
   return (
     <div className="bg-gray-800 rounded-xl p-3">
       <h3 className="text-xs text-gray-400 mb-2">{title}</h3>
       <ul className="space-y-1.5">
         {rows.map((r) => (
           <li key={r.partnerId} className="flex items-center justify-between gap-2 text-sm">
-            <Link to={`/players/${r.partnerId}`} className="font-semibold truncate hover:underline">{nameOf(r.partnerId)}</Link>
+            <Link to={publicPath(`/players/${r.partnerId}`)} className="font-semibold truncate hover:underline">{nameOf(r.partnerId)}</Link>
             <span className="shrink-0 text-xs text-gray-400">
               {t('partners.record', { wins: r.wins, matches: r.matches })}
               <span className={`ms-2 font-bold ${good ? 'text-green-400' : 'text-red-300'}`}>{Math.round(r.winRate * 100)}%</span>

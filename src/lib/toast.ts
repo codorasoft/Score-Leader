@@ -1,4 +1,4 @@
-export type ToastKind = 'network' | 'requestFailed'
+export type ToastKind = 'network' | 'requestFailed' | 'success'
 
 export interface ToastMessage {
   id: number

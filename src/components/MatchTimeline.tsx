@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { MatchEvent, Player, Team } from '../lib/types'
 import { buildTimeline } from '../utils/timeline'
 import { formatMatchClock } from '../utils/matchClock'
+import { useFeature } from '../contexts/LeagueContext'
 
 const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
 
@@ -13,7 +14,11 @@ interface Props {
 
 export function MatchTimeline({ events, teams, players }: Props) {
   const { t } = useTranslation()
-  const entries = buildTimeline(events)
+  const cards = useFeature('cards')
+  const swaps = useFeature('swaps')
+  const entries = buildTimeline(events).filter(
+    (e) => !((e.kind === 'yellow_card' || e.kind === 'red_card') && !cards) && !(e.kind === 'swap' && !swaps),
+  )
   const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
   const team = (id: string) => teams.find((tm) => tm.id === id)
   const teamName = (id: string) => {

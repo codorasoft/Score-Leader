@@ -1,7 +1,7 @@
 import { photoPath, storagePathFromUrl } from './playerPhoto'
 
 it('names uploads per player with a timestamp so a new photo never shows a cached old one', () => {
-  expect(photoPath('p1', 1700000000000)).toBe('players/p1-1700000000000.jpg')
+  expect(photoPath('L', 'p1', 1700000000000)).toBe('L/players/p1-1700000000000.jpg')
 })
 
 describe('storagePathFromUrl', () => {

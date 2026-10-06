@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
+import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { PitchBoard } from '../../components/PitchBoard'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { BoardToolbar } from '../../components/BoardToolbar'
@@ -15,6 +16,9 @@ export default function LineupEditorPage() {
   const isNew = !lineupId
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const league = useLeague()
+  const photosOn = useFeature('photos')
+  const adminPath = useAdminPath()
   const [players, setPlayers] = useState<Player[]>([])
   const [name, setName] = useState('')
   const [board, setBoard] = useState<BoardPlayer[]>([])
@@ -30,17 +34,23 @@ export default function LineupEditorPage() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [guests, setGuests] = useState<Guest[]>([])
 
+  // Latest league, so a slow response for a league we have left is dropped
+  const currentLeague = useRef(league.id)
+  currentLeague.current = league.id
+
   useEffect(() => {
+    const forLeague = league.id
     const load = async () => {
       // Inactive players stay visible on boards they were already placed on
-      const { data: pData } = await supabase.from('players').select('*').order('name')
+      const { data: pData } = await supabase.from('players').select('*').eq('league_id', league.id).order('name')
+      if (forLeague !== currentLeague.current) return
       setPlayers((pData ?? []) as Player[])
       if (lineupId) {
         const [{ data: lineup }, { data: spots }] = await Promise.all([
-          supabase.from('lineups').select('*').eq('id', lineupId).single(),
+          supabase.from('lineups').select('*').eq('id', lineupId).eq('league_id', league.id).single(),
           supabase.from('lineup_players').select('*').eq('lineup_id', lineupId),
         ])
-        if (!lineup) { navigate('/admin/lineups', { replace: true }); return }
+        if (!lineup) { navigate(adminPath('/lineups'), { replace: true }); return }
         const rows = (spots ?? []) as { player_id: string; x: number; y: number }[]
         setName((lineup as { name: string }).name)
         setDrawings(parseDrawings((lineup as { drawings?: unknown }).drawings))
@@ -51,7 +61,7 @@ export default function LineupEditorPage() {
       setLoaded(true)
     }
     load()
-  }, [lineupId])
+  }, [lineupId, league.id])
 
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players])
   const onBoard = board.map((b) => ({ ...b, player: byId.get(b.playerId) })).filter((b): b is BoardPlayer & { player: Player } => !!b.player)
@@ -89,7 +99,7 @@ export default function LineupEditorPage() {
     setSaving(true)
     const id = lineupId ?? crypto.randomUUID()
     const { error } = isNew
-      ? await supabase.from('lineups').insert({ id, name: trimmed, drawings, guests })
+      ? await supabase.from('lineups').insert({ id, league_id: league.id, name: trimmed, drawings, guests })
       : await supabase.from('lineups').update({ name: trimmed, drawings, guests, updated_at: new Date().toISOString() }).eq('id', id)
     if (!error) {
       const { remove: gone, upsert } = lineupChanges(id, savedIds, board)
@@ -102,7 +112,7 @@ export default function LineupEditorPage() {
       if (!saved.error) {
         setSavedIds(board.map((b) => b.playerId))
         setDirty(false)
-        if (isNew) navigate(`/admin/lineups/${id}`, { replace: true })
+        if (isNew) navigate(adminPath(`/lineups/${id}`), { replace: true })
       }
     }
     setSaving(false)
@@ -112,7 +122,7 @@ export default function LineupEditorPage() {
     const canvas = await drawBoardImage({
       title: name.trim() || t('lineups.untitled'),
       subtitle: t('lineups.playerCount', { count: pitchPlayers.length }),
-      players: pitchPlayers.map((b) => ({ name: b.player.name, photo_url: b.player.photo_url, x: b.x, y: b.y, guest: 'guest' in b })),
+      players: pitchPlayers.map((b) => ({ name: b.player.name, photo_url: photosOn ? b.player.photo_url : null, x: b.x, y: b.y, guest: 'guest' in b })),
       drawings,
       footer: 'ScoreLeader',
     })
@@ -122,7 +132,7 @@ export default function LineupEditorPage() {
   const deleteLineup = async () => {
     if (!lineupId) return
     const { error } = await supabase.from('lineups').delete().eq('id', lineupId)
-    if (!error) navigate('/admin/lineups', { replace: true })
+    if (!error) navigate(adminPath('/lineups'), { replace: true })
   }
 
   if (!loaded) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
@@ -131,7 +141,7 @@ export default function LineupEditorPage() {
 
   return (
     <div className="max-w-md mx-auto">
-      <Link to="/admin/lineups" className="text-gray-400 hover:text-white text-sm">← {t('lineups.title')}</Link>
+      <Link to={adminPath('/lineups')} className="text-gray-400 hover:text-white text-sm">← {t('lineups.title')}</Link>
 
       <input
         value={name}

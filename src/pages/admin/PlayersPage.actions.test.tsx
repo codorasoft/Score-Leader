@@ -9,11 +9,11 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {
     from: () => ({
       select: () => ({
-        eq: () => ({
+        eq: () => ({ eq: () => ({
           order: () => Promise.resolve({
             data: [{ id: 'p1', name: 'Ali', position: 'MID', skill_rating: 3, photo_url: null, is_active: true, created_at: '' }],
           }),
-        }),
+        }) }),
       }),
       update: (payload: unknown) => { update(payload); return { eq: updateEq } },
     }),
@@ -21,8 +21,9 @@ vi.mock('../../lib/supabase', () => ({
 }))
 
 import PlayersPage from './PlayersPage'
+import { InLeague } from '../../test/league'
 
-const renderPage = () => render(<MemoryRouter><PlayersPage /></MemoryRouter>)
+const renderPage = () => render(<MemoryRouter><InLeague><PlayersPage /></InLeague></MemoryRouter>)
 
 it('shows separate, clearly labelled Edit and Remove buttons for each player', async () => {
   renderPage()

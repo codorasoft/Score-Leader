@@ -26,3 +26,39 @@ it('shows the selected count', () => {
   render(<AttendancePicker players={players} selected={selected} onToggle={vi.fn()} />)
   expect(screen.getByText('3 / 15')).toBeInTheDocument()
 })
+
+it('creates the session in the league and goes to its team builder', async () => {
+  vi.resetModules()
+  const sessionInsert = vi.fn()
+  const q: Record<string, unknown> = {}
+  q.eq = () => q
+  q.order = () => Promise.resolve({ data: [{ ...mkPlayer(1), id: 'p1' }] })
+  const sessions = {
+    insert: (row: unknown) => { sessionInsert(row); return { select: () => ({ single: () => Promise.resolve({ data: { id: 's9' } }) }) } },
+  }
+  const sp = { insert: () => Promise.resolve({ error: null }) }
+  vi.doMock('../../lib/supabase', () => ({
+    supabase: { from: (t: string) => (t === 'players' ? { select: () => q } : t === 'sessions' ? sessions : sp) },
+  }))
+  const { default: Page } = await import('./NewSessionPage')
+  const { InLeague } = await import('../../test/league')
+  const { MemoryRouter, Routes, Route } = await import('react-router-dom')
+  const { waitFor, container } = { ...(await import('@testing-library/react')), container: null }
+  render(
+    <MemoryRouter initialEntries={['/admin/eagles/sessions/new']}>
+      <InLeague>
+        <Routes>
+          <Route path="/admin/eagles/sessions/new" element={<Page />} />
+          <Route path="/admin/eagles/sessions/:id/teams" element={<p>teams page</p>} />
+        </Routes>
+      </InLeague>
+    </MemoryRouter>,
+  )
+  void container
+  fireEvent.change(document.querySelector('input[type="date"]')!, { target: { value: '2026-10-06' } })
+  fireEvent.click(screen.getAllByRole('button').find((b) => !b.hasAttribute('disabled'))!)
+  await waitFor(() => expect(sessionInsert).toHaveBeenCalledWith(expect.objectContaining({ league_id: 'L1' })))
+  fireEvent.click(await screen.findByTestId('player-p1'))
+  fireEvent.click(screen.getAllByRole('button').filter((b) => !b.hasAttribute('disabled')).pop()!)
+  expect(await screen.findByText('teams page')).toBeInTheDocument()
+})

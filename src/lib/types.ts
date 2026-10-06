@@ -8,6 +8,7 @@ export type AwardType = 'mvp' | 'best_goalkeeper' | 'best_assister' | 'best_goal
 export type AwardDecidedBy = 'auto_stat' | 'admin_direct' | 'vote'
 
 export interface Player {
+  league_id: string
   id: string
   name: string
   position: PlayerPosition
@@ -18,6 +19,7 @@ export interface Player {
 }
 
 export interface Session {
+  league_id: string
   id: string
   date: string
   status: SessionStatus
@@ -26,6 +28,7 @@ export interface Session {
 }
 
 export interface Team {
+  league_id: string
   id: string
   session_id: string
   color: TeamColor
@@ -33,6 +36,7 @@ export interface Team {
 }
 
 export interface Match {
+  league_id: string
   id: string
   session_id: string
   match_number: number
@@ -52,6 +56,7 @@ export interface Match {
 }
 
 export interface MatchEvent {
+  league_id: string
   id: string
   match_id: string
   player_id: string
@@ -67,6 +72,7 @@ export interface MatchEvent {
 }
 
 export interface AwardVote {
+  league_id: string
   id: string
   session_id: string
   award_type: 'mvp' | 'fair_play' | 'best_goalkeeper'
@@ -78,11 +84,13 @@ export interface AwardVote {
 }
 
 export interface AwardVoteNomination {
+  league_id: string
   award_vote_id: string
   player_id: string
 }
 
 export interface AwardVoteEntry {
+  league_id: string
   id: string
   award_vote_id: string
   voter_fingerprint: string
@@ -91,6 +99,7 @@ export interface AwardVoteEntry {
 }
 
 export interface SessionAward {
+  league_id: string
   id: string
   session_id: string
   award_type: AwardType
@@ -100,6 +109,7 @@ export interface SessionAward {
 }
 
 export interface TeamPlayer {
+  league_id: string
   team_id: string
   player_id: string
 }

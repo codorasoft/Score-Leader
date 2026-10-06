@@ -9,9 +9,9 @@ const NEW = 'https://x.supabase.co/storage/v1/object/public/player-photos/player
 vi.mock('../../lib/supabase', () => ({
   supabase: {
     from: () => ({
-      select: () => ({ eq: () => ({ order: () => Promise.resolve({
+      select: () => ({ eq: () => ({ eq: () => ({ order: () => Promise.resolve({
         data: [{ id: 'p1', name: 'Ali', position: 'MID', skill_rating: 3, photo_url: OLD, is_active: true, created_at: '' }],
-      }) }) }),
+      }) }) }) }),
       update: (payload: unknown) => { update(payload); return { eq: () => Promise.resolve({ error: null }) } },
     }),
   },
@@ -32,6 +32,7 @@ vi.mock('../../components/PhotoCropper', () => ({
 }))
 
 import PlayersPage from './PlayersPage'
+import { InLeague } from '../../test/league'
 
 beforeAll(() => {
   URL.createObjectURL = vi.fn(() => 'blob:preview')
@@ -39,7 +40,7 @@ beforeAll(() => {
 })
 
 it('opens the adjuster for a chosen photo, uploads the adjusted photo and deletes the old file', async () => {
-  render(<MemoryRouter><PlayersPage /></MemoryRouter>)
+  render(<MemoryRouter><InLeague><PlayersPage /></InLeague></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Ali' }))
 
   const file = new File(['x'], 'me.jpg', { type: 'image/jpeg' })
@@ -50,14 +51,14 @@ it('opens the adjuster for a chosen photo, uploads the adjusted photo and delete
 
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ photo_url: NEW })))
-  expect(uploadPlayerPhoto).toHaveBeenCalledWith('p1', CROPPED)
+  expect(uploadPlayerPhoto).toHaveBeenCalledWith('L1', 'p1', CROPPED)
   expect(deletePlayerPhoto).toHaveBeenCalledWith(OLD)
 })
 
 it('removes a photo and deletes its file', async () => {
   update.mockClear()
   deletePlayerPhoto.mockClear()
-  render(<MemoryRouter><PlayersPage /></MemoryRouter>)
+  render(<MemoryRouter><InLeague><PlayersPage /></InLeague></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Ali' }))
   fireEvent.click(screen.getByRole('button', { name: 'Remove photo' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -66,7 +67,7 @@ it('removes a photo and deletes its file', async () => {
 })
 
 it('re-opens the saved photo in the adjuster', async () => {
-  render(<MemoryRouter><PlayersPage /></MemoryRouter>)
+  render(<MemoryRouter><InLeague><PlayersPage /></InLeague></MemoryRouter>)
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Ali' }))
   fireEvent.click(screen.getByRole('button', { name: /Adjust/ }))
   expect(screen.getByRole('button', { name: `adjusting ${OLD}` })).toBeInTheDocument()

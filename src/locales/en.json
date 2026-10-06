@@ -17,7 +17,9 @@
     "vs": "vs",
     "match": "Match #{{number}}",
     "returnNow": "RETURN NOW",
-    "noStats": "No stats yet"
+    "noStats": "No stats yet",
+    "loadFailed": "Could not load. Check your connection.",
+    "retry": "Retry"
   },
   "login": {
     "emailPlaceholder": "Email",
@@ -245,7 +247,6 @@
   },
   "profile": {
     "back": "Leaderboard",
-    "notFound": "Player not found",
     "noSessions": "Hasn’t played a session yet",
     "sessions": "Sessions",
     "matches": "Matches",
@@ -424,6 +425,39 @@
     "addGuest": "Add guest",
     "guestTag": "Guest"
   },
+  "league": {
+    "noLogo": "No logo",
+    "limitReached": "League limit reached ({{used}}/{{max}})",
+    "newLeague": "+ New league ({{used}}/{{max}})",
+    "switch": "Switch league",
+    "settings": "League settings",
+    "new": "New league",
+    "createFirst": "Create your first league",
+    "name": "League name",
+    "slug": "Link name",
+    "slugHelp": "Lowercase letters, numbers and dashes. It cannot be changed later.",
+    "slugFormat": "Use only lowercase English letters, numbers and single dashes.",
+    "slugLength": "The link name must be 3 to 40 characters.",
+    "slugReserved": "This link name is reserved. Choose another.",
+    "slugTaken": "This link name is already taken.",
+    "publicLink": "Public link",
+    "logo": "Logo",
+    "chooseLogo": "Choose logo",
+    "changeLogo": "Change logo",
+    "removeLogo": "Remove logo",
+    "create": "Create league",
+    "creating": "Creating…",
+    "back": "Back",
+    "createFailed": "The league could not be created. Try again.",
+    "logoFailed": "The league was created but the logo could not be uploaded. You can add it in league settings.",
+    "saveFailed": "Could not save. Try again.",
+    "saved": "Saved",
+    "copy": "Copy",
+    "copied": "Copied",
+    "share": "Share on Messenger",
+    "createdReload": "League created. Reload the page to continue.",
+    "slugReadOnly": "The link name cannot be changed."
+  },
   "photo": {
     "adjust": "Adjust",
     "adjustTitle": "Adjust photo",
@@ -461,5 +495,98 @@
       "erase": "Tap an arrow or zone to remove it."
     },
     "confirmClear": "Remove all arrows and zones?"
+  },
+  "leagueHome": {
+    "liveNow": "Live now",
+    "recentSessions": "Recent sessions",
+    "noSessions": "No sessions yet."
+  },
+  "notAvailable": {
+    "league": "League not available",
+    "page": "Page not found",
+    "disabled": "Your account is disabled"
+  },
+  "super": {
+    "title": "Superadmin",
+    "brand": "ScoreLeader · Superadmin",
+    "tabs": {
+      "admins": "Admins",
+      "leagues": "Leagues"
+    },
+    "admins": {
+      "title": "Admins",
+      "new": "+ New",
+      "empty": "No admins yet",
+      "leagues": "{{used}}/{{max}} leagues",
+      "features": "{{count}} features",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "newAdmin": {
+      "title": "New admin",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "show": "Show",
+      "hide": "Hide",
+      "maxLeagues": "Max leagues",
+      "features": "Features",
+      "create": "Create admin",
+      "creating": "Creating…",
+      "back": "Back"
+    },
+    "errors": {
+      "email": "Enter a valid email",
+      "password": "Password must be at least 8 characters",
+      "name": "Name must be 1-80 characters",
+      "maxLeagues": "Max leagues must be a whole number from 0 to 100",
+      "features": "Invalid features",
+      "network": "Could not reach the server. Try again.",
+      "generic": "Check the form and try again"
+    },
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions",
+    "deleteLeague": {
+      "open": "Delete league",
+      "title": "Delete {{name}}?",
+      "warning": "All of this league's players, sessions, photos and its logo will be deleted permanently. This cannot be undone.",
+      "typeName": "Type \"{{name}}\" to confirm",
+      "confirm": "Delete permanently",
+      "deleting": "Deleting…"
+    },
+    "detail": {
+      "saved": "Saved",
+      "passwordReset": "Password reset",
+      "notFound": "Admin not found",
+      "enable": "Enable",
+      "disable": "Disable",
+      "newPassword": "New password",
+      "resetPassword": "Reset password",
+      "leagues": "Leagues",
+      "noLeagues": "No leagues yet"
+    },
+    "leagues": {
+      "title": "All leagues",
+      "empty": "No leagues yet"
+    }
+  },
+  "features": {
+    "cards": "Cards & suspensions",
+    "swaps": "In-session player swaps",
+    "smart_balancing": "Smart team balancing",
+    "awards": "Session awards",
+    "voting": "Award voting",
+    "leaderboard": "Leaderboard",
+    "potm": "Player of the Month",
+    "profiles": "Player profiles",
+    "badges": "Badges",
+    "records": "Records",
+    "player_cards": "Player cards",
+    "photos": "Player photos",
+    "summary_share": "Session summary sharing",
+    "coach_board": "Coach Board",
+    "needs": "Needs {{feature}}",
+    "selectAll": "Select all",
+    "none": "None"
   }
 }

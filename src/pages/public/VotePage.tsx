@@ -3,11 +3,13 @@ import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { getFingerprint } from '../../utils/fingerprint'
+import { useFeature } from '../../contexts/LeagueContext'
 import type { AwardVote, Player } from '../../lib/types'
 
 export default function VotePage() {
   const { voteToken } = useParams<{ voteToken: string }>()
   const { t } = useTranslation()
+  const votingOn = useFeature('voting')
   const [vote, setVote] = useState<AwardVote | null>(null)
   const [nominees, setNominees] = useState<Player[]>([])
   const [chosen, setChosen] = useState<string | null>(null)
@@ -62,7 +64,7 @@ export default function VotePage() {
 
   if (loading) return <div className="p-4 text-gray-400 text-center">{t('common.loading')}</div>
   if (!vote) return <div className="p-4 text-red-400 text-center">{t('vote.notFound')}</div>
-  if (vote.status === 'closed') return <div className="p-4 text-center"><p className="text-gray-400">{t('vote.closed')}</p></div>
+  if (vote.status === 'closed' || !votingOn) return <div className="p-4 text-center"><p className="text-gray-400">{t('vote.closed')}</p></div>
   if (alreadyVoted || submitted) return (
     <div className="p-4 text-center">
       <div className="text-4xl mb-3">✓</div>

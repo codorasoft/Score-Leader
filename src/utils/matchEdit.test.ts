@@ -75,3 +75,18 @@ it('marks a new draw as penalties in match 1 and late_team afterwards', () => {
   expect(recomputeResult({ ...match, match_number: 1 }, []).draw_resolved_by).toBe('penalties')
   expect(recomputeResult({ ...match, match_number: 3 }, []).draw_resolved_by).toBe('late_team')
 })
+
+import { undoAllowed } from './matchEdit'
+
+describe('undoAllowed', () => {
+  const on = { cards: true, swaps: true }
+  it('hides undo of a swap when swaps is off', () => {
+    expect(undoAllowed('swap', { ...on, swaps: false })).toBe(false)
+    expect(undoAllowed('swap', on)).toBe(true)
+  })
+  it('hides undo of a card when cards is off', () => {
+    expect(undoAllowed('yellow_card', { ...on, cards: false })).toBe(false)
+    expect(undoAllowed('red_card', { ...on, cards: false })).toBe(false)
+    expect(undoAllowed('goal', { cards: false, swaps: false })).toBe(true)
+  })
+})
