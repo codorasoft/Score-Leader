@@ -501,6 +501,9 @@
     "addGuest": "إضافة ضيف",
     "guestTag": "ضيف"
   },
+  "league": {
+    "noLogo": "بدون شعار"
+  },
   "photo": {
     "adjust": "ضبط",
     "adjustTitle": "ضبط الصورة",

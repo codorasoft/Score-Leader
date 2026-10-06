@@ -424,6 +424,9 @@
     "addGuest": "Add guest",
     "guestTag": "Guest"
   },
+  "league": {
+    "noLogo": "No logo"
+  },
   "photo": {
     "adjust": "Adjust",
     "adjustTitle": "Adjust photo",

@@ -84,7 +84,7 @@ export default function AwardsPage() {
   const handleSave = async () => {
     if (!sessionId || notEnoughNominees) return
     setSaving(true)
-    const awards: Omit<SessionAward, 'id'>[] = []
+    const awards: Omit<SessionAward, 'id' | 'league_id'>[] = []
     const votes: CreatedVote[] = []
 
     if (bestScorer.winner) {
