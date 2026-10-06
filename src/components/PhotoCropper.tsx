@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { clampOffset, cropRect, MAX_ZOOM, type Offset } from '../lib/photoCrop'
+import { clampOffset, minZoom, photoPlacement, MAX_ZOOM, type Offset } from '../lib/photoCrop'
 
 const VIEW = 280
 const OUTPUT_PX = 512
 const JPEG_QUALITY = 0.85
 const ZOOM_STEP = 0.25
+// Parts of the circle the photo doesn't cover; same colour as the avatar background (gray-700)
+const BACKGROUND = '#374151'
 
 interface Props {
   // An object URL for a newly picked file, or the player's saved photo URL
@@ -14,7 +16,7 @@ interface Props {
   onDone: (photo: Blob) => void
 }
 
-// Frame a photo inside the round avatar: drag to move, pinch / slider / wheel to zoom.
+// Frame a photo inside the round avatar: drag any part of it to the centre, pinch / slider / wheel to zoom in or out.
 export function PhotoCropper({ src, onCancel, onDone }: Props) {
   const { t } = useTranslation()
   const imgRef = useRef<HTMLImageElement>(null)
@@ -28,7 +30,7 @@ export function PhotoCropper({ src, onCancel, onDone }: Props) {
 
   const apply = (nextZoom: number, nextOffset: Offset) => {
     if (!size) return
-    const z = Math.min(MAX_ZOOM, Math.max(1, nextZoom))
+    const z = Math.min(MAX_ZOOM, Math.max(minZoom(size.w, size.h), nextZoom))
     setZoom(z)
     setOffset(clampOffset(nextOffset, size.w, size.h, VIEW, z))
   }
@@ -54,16 +56,20 @@ export function PhotoCropper({ src, onCancel, onDone }: Props) {
   const done = () => {
     const img = imgRef.current
     if (!img || !size) return
-    const { sx, sy, size: side } = cropRect(size.w, size.h, VIEW, zoom, offset)
+    // Draw exactly what the viewer shows, scaled up to the saved size
+    const k = OUTPUT_PX / VIEW
+    const p = photoPlacement(size.w, size.h, VIEW, zoom, offset)
     const canvas = document.createElement('canvas')
     canvas.width = OUTPUT_PX
     canvas.height = OUTPUT_PX
-    canvas.getContext('2d')!.drawImage(img, sx, sy, side, side, 0, 0, OUTPUT_PX, OUTPUT_PX)
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = BACKGROUND
+    ctx.fillRect(0, 0, OUTPUT_PX, OUTPUT_PX)
+    ctx.drawImage(img, p.left * k, p.top * k, p.width * k, p.height * k)
     canvas.toBlob((blob) => { if (blob) onDone(blob) }, 'image/jpeg', JPEG_QUALITY)
   }
 
-  const scale = size ? (VIEW / Math.min(size.w, size.h)) * zoom : 1
-  const shown = size ? { w: size.w * scale, h: size.h * scale } : { w: VIEW, h: VIEW }
+  const shown = size ? photoPlacement(size.w, size.h, VIEW, zoom, offset) : { left: 0, top: 0, width: VIEW, height: VIEW }
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={onCancel}>
@@ -72,7 +78,7 @@ export function PhotoCropper({ src, onCancel, onDone }: Props) {
         <p className="text-xs text-gray-400 mb-3">{t('photo.adjustHelp')}</p>
 
         <div
-          className="relative mx-auto overflow-hidden rounded-lg bg-gray-900 touch-none select-none cursor-grab"
+          className="relative mx-auto overflow-hidden rounded-lg bg-gray-700 touch-none select-none cursor-grab"
           style={{ width: VIEW, height: VIEW }}
           onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY }) }}
           onPointerMove={onPointerMove}
@@ -90,10 +96,10 @@ export function PhotoCropper({ src, onCancel, onDone }: Props) {
             onError={() => setFailed(true)}
             className="absolute max-w-none pointer-events-none"
             style={{
-              width: shown.w,
-              height: shown.h,
-              left: VIEW / 2 + offset.x - shown.w / 2,
-              top: VIEW / 2 + offset.y - shown.h / 2,
+              width: shown.width,
+              height: shown.height,
+              left: shown.left,
+              top: shown.top,
               visibility: size ? 'visible' : 'hidden',
             }}
           />
@@ -105,7 +111,7 @@ export function PhotoCropper({ src, onCancel, onDone }: Props) {
         <div className="flex items-center gap-3 mt-4">
           <button type="button" onClick={() => apply(zoom - ZOOM_STEP, offset)} aria-label={t('photo.zoomOut')} className="w-9 h-9 rounded-lg bg-gray-700 text-lg font-bold">−</button>
           <input
-            type="range" min={1} max={MAX_ZOOM} step={0.01} value={zoom}
+            type="range" min={size ? minZoom(size.w, size.h) : 1} max={MAX_ZOOM} step={0.01} value={zoom}
             onChange={(e) => apply(Number(e.target.value), offset)}
             aria-label={t('photo.zoom')}
             className="flex-1 accent-blue-500"
