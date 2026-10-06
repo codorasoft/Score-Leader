@@ -79,4 +79,35 @@ describe('PlayersPage in a league', () => {
     rerender(ui('L2'))
     await waitFor(() => expect(eqs).toContainEqual(['league_id', 'L2']))
   })
+
+  it('ignores a slow response from the league we left', async () => {
+    vi.resetModules()
+    const pending: Record<string, (v: unknown) => void> = {}
+    const mk = () => {
+      let id = ''
+      const q: Record<string, unknown> = {}
+      q.eq = (k: string, v: string) => { if (k === 'league_id') id = v; return q }
+      q.order = () => new Promise((res) => { pending[id] = res })
+      return q
+    }
+    vi.doMock('../../lib/supabase', () => ({ supabase: { from: () => ({ select: () => mk() }) } }))
+    const { default: Page } = await import('./PlayersPage')
+    const { LeagueProvider } = await import('../../contexts/LeagueContext')
+    const { testLeague } = await import('../../test/league')
+    const { MemoryRouter } = await import('react-router-dom')
+    const ui = (id: string) => (
+      <MemoryRouter><LeagueProvider league={{ ...testLeague(), id }}><Page /></LeagueProvider></MemoryRouter>
+    )
+    const row = (name: string) => ({ id: name, name, position: 'MID', skill_rating: 3, photo_url: null, is_active: true, created_at: '' })
+    const { rerender } = render(ui('L1'))
+    await waitFor(() => expect(pending.L1).toBeDefined())
+    rerender(ui('L2'))
+    await waitFor(() => expect(pending.L2).toBeDefined())
+    pending.L2({ data: [row('Beta')] })
+    await screen.findByText('Beta')
+    pending.L1({ data: [row('Alpha')] })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByText('Alpha')).toBeNull()
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+  })
 })

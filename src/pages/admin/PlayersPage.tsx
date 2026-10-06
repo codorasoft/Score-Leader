@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
@@ -56,14 +56,19 @@ export default function PlayersPage() {
   useEffect(() => () => { if (newPhotoUrl) URL.revokeObjectURL(newPhotoUrl) }, [newPhotoUrl])
   const previewUrl = newPhotoUrl ?? (removePhoto ? null : form.photo_url || null)
 
+  // Latest league, so a slow response for a league we have left is dropped
+  const currentLeague = useRef(league.id)
+  currentLeague.current = league.id
+
   const fetchPlayers = async () => {
+    const forLeague = league.id
     const { data } = await supabase
       .from('players')
       .select('*')
       .eq('league_id', league.id)
       .eq('is_active', true)
       .order('name')
-    if (data) setPlayers(data as Player[])
+    if (data && forLeague === currentLeague.current) setPlayers(data as Player[])
   }
 
   useEffect(() => {
@@ -72,7 +77,7 @@ export default function PlayersPage() {
     setDialogOpen(false)
     setEditingPlayer(null)
     setConfirmRemove(null)
-    setCropSrc(null)
+    resetPhoto()
     fetchPlayers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league.id])
