@@ -2,7 +2,7 @@
 // Safe to re-run. Usage: SUPABASE_SERVICE_ROLE_KEY=... node scripts/move-photos.ts [--dry-run]
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
-import { planPhotoMoves, strayObjects } from './photoMoves.ts'
+import { groupMovesByFrom, planPhotoMoves, strayObjects } from './photoMoves.ts'
 
 const PAGE = 1000
 const BUCKET = 'player-photos'
@@ -99,25 +99,29 @@ if (dryRun) {
   return
 }
 
-for (const m of moves) {
-  const copy = await store.copy(m.from, m.to)
-  if (copy.error && !/already exists|duplicate/i.test(copy.error.message)) {
-    failed.push({ playerId: m.playerId, step: 'copy', error: copy.error.message })
-    continue
+for (const g of groupMovesByFrom(moves)) {
+  let allMoved = true
+  for (const t of g.targets) {
+    const copy = await store.copy(g.from, t.to)
+    if (copy.error && !/already exists|duplicate/i.test(copy.error.message)) {
+      failed.push({ playerId: t.playerId, step: 'copy', error: copy.error.message })
+      allMoved = false
+      continue
+    }
+    if (copy.error) alreadyDone++
+    const newUrl = store.getPublicUrl(t.to).data.publicUrl
+    const upd = await supabase.from('players').update({ photo_url: newUrl }).eq('id', t.playerId)
+    if (upd.error) {
+      failed.push({ playerId: t.playerId, step: 'update', error: upd.error.message })
+      allMoved = false
+      continue
+    }
+    moved++
   }
-  if (copy.error) alreadyDone++
-  const newUrl = store.getPublicUrl(m.to).data.publicUrl
-  const upd = await supabase.from('players').update({ photo_url: newUrl }).eq('id', m.playerId)
-  if (upd.error) {
-    failed.push({ playerId: m.playerId, step: 'update', error: upd.error.message })
-    continue
-  }
-  const rm = await store.remove([m.from])
-  if (rm.error) {
-    failed.push({ playerId: m.playerId, step: 'remove', error: rm.error.message })
-    continue
-  }
-  moved++
+  // the old object goes only after every player that used it has moved
+  if (!allMoved) continue
+  const rm = await store.remove([g.from])
+  if (rm.error) failed.push({ playerId: g.targets[0].playerId, step: 'remove', error: rm.error.message })
 }
 
 players = await fetchPlayers()

@@ -26,3 +26,16 @@ export function planPhotoMoves(players: PlayerRow[], publicPrefix: string): Phot
 export function strayObjects(allPaths: string[], referenced: Set<string>): string[] {
   return allPaths.filter((p) => !inLeagueFolder(p) && !referenced.has(p))
 }
+
+export type MoveGroup = { from: string; targets: { playerId: string; to: string }[] }
+
+// One group per legacy object: several players may share it, and it may only be removed after all of them moved.
+export function groupMovesByFrom(moves: PhotoMove[]): MoveGroup[] {
+  const groups = new Map<string, MoveGroup>()
+  for (const m of moves) {
+    const g = groups.get(m.from) ?? { from: m.from, targets: [] }
+    g.targets.push({ playerId: m.playerId, to: m.to })
+    groups.set(m.from, g)
+  }
+  return [...groups.values()]
+}

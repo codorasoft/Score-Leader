@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planPhotoMoves, strayObjects } from './photoMoves.ts'
+import { groupMovesByFrom, planPhotoMoves, strayObjects } from './photoMoves.ts'
 
 const P = 'https://x.supabase.co/storage/v1/object/public/player-photos/'
 const L = '11111111-1111-1111-1111-111111111111'
@@ -22,4 +22,22 @@ describe('planPhotoMoves', () => {
 describe('strayObjects', () => {
   it('lists unreferenced legacy objects', () =>
     expect(strayObjects(['players/a.jpg', 'players/b.jpg', `${L}/players/c.jpg`], new Set(['players/a.jpg']))).toEqual(['players/b.jpg']))
+})
+
+describe('groupMovesByFrom', () => {
+  it('groups players sharing one legacy path into a single group', () => {
+    const L2 = '22222222-2222-2222-2222-222222222222'
+    const moves = planPhotoMoves([
+      { id: 'a', league_id: L, photo_url: P + 'players/shared.jpg' },
+      { id: 'b', league_id: L2, photo_url: P + 'players/shared.jpg' },
+      { id: 'c', league_id: L, photo_url: P + 'players/c.jpg' },
+    ], P)
+    expect(groupMovesByFrom(moves)).toEqual([
+      { from: 'players/shared.jpg', targets: [
+        { playerId: 'a', to: `${L}/players/shared.jpg` },
+        { playerId: 'b', to: `${L2}/players/shared.jpg` },
+      ] },
+      { from: 'players/c.jpg', targets: [{ playerId: 'c', to: `${L}/players/c.jpg` }] },
+    ])
+  })
 })
