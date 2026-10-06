@@ -1,7 +1,7 @@
 import { corsHeaders, json, readJson, requireSuperadmin } from '../_shared/superadmin.ts'
 import { validateCreateAdmin } from '../_shared/validate.ts'
 
-Deno.serve(async (req) => {
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 400)
 
@@ -29,4 +29,13 @@ Deno.serve(async (req) => {
     return json({ error: profileError.message }, 500)
   }
   return json({ ok: true, user_id: data.user.id })
+}
+
+// Unexpected failures still answer JSON with CORS headers, so the browser sees the error.
+Deno.serve(async (req) => {
+  try {
+    return await handle(req)
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : 'internal error' }, 500)
+  }
 })

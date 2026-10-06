@@ -1,11 +1,11 @@
-// Read-only backup of every public table, auth users (id/email/created_at) and player photos.
+// Read-only backup of every public table, auth users (id/email/created_at) and player photos and league logos.
 // Usage: SUPABASE_SERVICE_ROLE_KEY=... node scripts/backup.ts
 import { createClient } from '@supabase/supabase-js'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 const PAGE = 1000
-const BUCKET = 'player-photos'
+const BUCKETS = ['player-photos', 'league-logos']
 const OUT_ROOT = 'E:/Score-Leader-backups'
 
 // table -> order columns (stable paging)
@@ -24,7 +24,7 @@ const TABLES: Record<string, string[]> = {
   lineups: ['id'],
   lineup_players: ['lineup_id', 'player_id'],
   // arrive with the multi-tenant migration; skipped while absent
-  admin_profiles: ['id'],
+  admin_profiles: ['user_id'],
   leagues: ['id'],
 }
 
@@ -87,16 +87,16 @@ async function dumpTable(table: string, order: string[]): Promise<number | null>
   return rows.length
 }
 
-async function listFiles(prefix: string): Promise<string[]> {
+async function listFiles(bucket: string, prefix: string): Promise<string[]> {
   const files: string[] = []
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase.storage
-      .from(BUCKET)
+      .from(bucket)
       .list(prefix, { limit: PAGE, offset, sortBy: { column: 'name', order: 'asc' } })
     if (error) throw new Error(`list ${prefix}: ${error.message}`)
     for (const e of data) {
       const path = prefix ? `${prefix}/${e.name}` : e.name
-      if (e.id === null) files.push(...(await listFiles(path)))
+      if (e.id === null) files.push(...(await listFiles(bucket, path)))
       else files.push(path)
     }
     if (data.length < PAGE) break
@@ -126,17 +126,31 @@ for (let page = 1; ; page++) {
 }
 save('auth-users.json', JSON.stringify(users, null, 2))
 
-const photos = await listFiles('')
+const files: Record<string, number> = {}
 let totalBytes = 0
-for (const path of photos) {
-  const { data, error } = await supabase.storage.from(BUCKET).download(path)
-  if (error) throw new Error(`download ${path}: ${error.message}`)
-  const buf = new Uint8Array(await data.arrayBuffer())
-  totalBytes += buf.length
-  save(join('storage', BUCKET, path), buf)
+for (const bucket of BUCKETS) {
+  let paths: string[]
+  try {
+    paths = await listFiles(bucket, '')
+  } catch (e) {
+    // league-logos arrives with the multi-tenant migration; skipped while the bucket is absent
+    if (bucket === 'league-logos' && /not found|does not exist/i.test(String(e))) {
+      console.log(`skip bucket ${bucket} (does not exist)`)
+      continue
+    }
+    throw e
+  }
+  for (const path of paths) {
+    const { data, error } = await supabase.storage.from(bucket).download(path)
+    if (error) throw new Error(`download ${bucket}/${path}: ${error.message}`)
+    const buf = new Uint8Array(await data.arrayBuffer())
+    totalBytes += buf.length
+    save(join('storage', bucket, path), buf)
+  }
+  files[bucket] = paths.length
 }
 
-Object.assign(manifest, counts, { skippedTables: skipped, authUsers: users.length, photos: photos.length, totalBytes })
+Object.assign(manifest, counts, { skippedTables: skipped, authUsers: users.length, photos: files['player-photos'] ?? 0, logos: files['league-logos'] ?? 0, totalBytes })
 save('manifest.json', JSON.stringify(manifest, null, 2))
 console.log(`Backup written to ${outDir}`)
 console.log(JSON.stringify(manifest, null, 2))
