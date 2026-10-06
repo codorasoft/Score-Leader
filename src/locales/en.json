@@ -464,7 +464,7 @@
   "photo": {
     "adjust": "Adjust",
     "adjustTitle": "Adjust photo",
-    "adjustHelp": "Drag to move. Pinch, scroll or use the slider to zoom.",
+    "adjustHelp": "Drag the player into the circle, even from the edge of the photo. Pinch, scroll or use the slider to zoom in or out.",
     "zoom": "Zoom",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
