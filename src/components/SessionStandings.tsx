@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import type { Match, Team } from '../lib/types'
 import { computeStandings } from '../utils/standings'
+import { styleMap } from '../lib/teamColors'
 
-const colorDot: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-500', yellow: 'bg-yellow-400' }
+const colorDot = styleMap('dot')
 const MEDALS = ['🥇', '🥈', '🥉']
 
 export function SessionStandings({ teams, matches }: { teams: Team[]; matches: Match[] }) {

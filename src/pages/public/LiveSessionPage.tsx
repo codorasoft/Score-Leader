@@ -11,12 +11,9 @@ import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import LoadFailed from '../../components/LoadFailed'
 import NotAvailablePage from '../NotAvailablePage'
 import type { Session, Match, Team, MatchEvent, Player, TeamPlayer } from '../../lib/types'
+import { styleMap } from '../../lib/teamColors'
 
-const colorBg: Record<string, string> = {
-  green: 'bg-green-900/40 border-green-600',
-  blue: 'bg-blue-900/40 border-blue-600',
-  yellow: 'bg-yellow-900/40 border-yellow-600',
-}
+const colorBg = styleMap('card')
 
 export default function LiveSessionPage() {
   const { token } = useParams<{ token: string }>()

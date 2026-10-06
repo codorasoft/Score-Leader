@@ -3,14 +3,11 @@ import { useTranslation } from 'react-i18next'
 import type { Player, TeamColor } from '../lib/types'
 import { PositionBadge } from '../pages/admin/PlayersPage'
 import { movePlayer, swapPlayers, teamStars, type ThreeTeams } from '../utils/teamEdit'
+import { styleMap } from '../lib/teamColors'
 
 const COLORS: TeamColor[] = ['green', 'blue', 'yellow']
 
-const colorStyles: Record<string, string> = {
-  green: 'border-green-500 bg-green-900/20',
-  blue: 'border-blue-500 bg-blue-900/20',
-  yellow: 'border-yellow-500 bg-yellow-900/20',
-}
+const colorStyles = styleMap('board')
 
 interface Props {
   teams: ThreeTeams

@@ -16,12 +16,9 @@ import { FirstMatchPicker } from '../../components/FirstMatchPicker'
 import { nextMatchToStart } from '../../utils/matchRotation'
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
+import { styleMap } from '../../lib/teamColors'
 
-const colorDot: Record<string, string> = {
-  green: 'bg-green-500',
-  blue: 'bg-blue-500',
-  yellow: 'bg-yellow-400',
-}
+const colorDot = styleMap('dot')
 
 const isGoal = (e: MatchEvent) => e.event_type === 'goal' || e.event_type === 'penalty_goal'
 

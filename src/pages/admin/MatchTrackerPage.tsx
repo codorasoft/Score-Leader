@@ -26,12 +26,9 @@ import { overlayPending } from '../../lib/outboxOverlay'
 import type { OutboxOp } from '../../lib/outbox'
 import { goalOps, cardOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
+import { styleMap } from '../../lib/teamColors'
 
-const colorBg: Record<string, string> = {
-  green: 'bg-green-900/40 border-green-600',
-  blue: 'bg-blue-900/40 border-blue-600',
-  yellow: 'bg-yellow-900/40 border-yellow-600',
-}
+const colorBg = styleMap('card')
 
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
