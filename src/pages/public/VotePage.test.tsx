@@ -63,3 +63,29 @@ it('says when the vote link is unknown', async () => {
   expect(await screen.findByText('Vote not found')).toBeInTheDocument()
   expect(db.writes).toEqual([])
 })
+
+it('keeps the choice and says so when the vote could not be saved', async () => {
+  resetDb({ award_votes: [vote()], award_vote_nominations: nominations, players })
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'Hadi' }))
+  db.errors.award_vote_entries = { message: 'Failed to fetch' }
+  await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
+  expect(screen.queryByText('Your vote has been recorded.')).not.toBeInTheDocument()
+
+  delete db.errors.award_vote_entries
+  await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
+  expect(await screen.findByText('Your vote has been recorded.')).toBeInTheDocument()
+  expect(rows('award_vote_entries')).toHaveLength(1)
+})
+
+it('counts a duplicate vote from this device as already recorded', async () => {
+  resetDb({ award_votes: [vote()], award_vote_nominations: nominations, players })
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'Hadi' }))
+  db.errors.award_vote_entries = { message: 'duplicate key value violates unique constraint', code: '23505' }
+  await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
+  expect(await screen.findByText('Your vote has been recorded.')).toBeInTheDocument()
+})
