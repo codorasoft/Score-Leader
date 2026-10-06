@@ -1,5 +1,6 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders, json, readJson, requireSuperadmin } from '../_shared/superadmin.ts'
+import { internalError } from '../_shared/errors.ts'
 import { validateDeleteLeague } from '../_shared/validate.ts'
 
 // Collect every file path under prefix, recursing into folders (entries with id === null).
@@ -50,7 +51,7 @@ async function handle(req: Request): Promise<Response> {
     .select('id, name')
     .eq('id', league_id)
     .maybeSingle()
-  if (loadError) return json({ error: loadError.message }, 500)
+  if (loadError) return json(internalError('load league', loadError), 500)
   if (!league) return json({ error: 'league not found' }, 404)
   if (confirm_name !== league.name) return json({ error: 'name does not match' }, 400)
 
@@ -59,11 +60,11 @@ async function handle(req: Request): Promise<Response> {
       await emptyPrefix(admin, bucket, league.id)
     }
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : 'storage cleanup failed' }, 500)
+    return json(internalError('storage cleanup', e), 500)
   }
 
   const { error } = await admin.from('leagues').delete().eq('id', league_id)
-  if (error) return json({ error: error.message }, 500)
+  if (error) return json(internalError('delete league', error), 500)
   return json({ ok: true })
 }
 
@@ -72,6 +73,6 @@ Deno.serve(async (req) => {
   try {
     return await handle(req)
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : 'internal error' }, 500)
+    return json(internalError('unhandled', e), 500)
   }
 })
