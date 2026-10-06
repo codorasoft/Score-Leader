@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
+import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
 import { recomputeResult } from '../../utils/matchEdit'
 import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
@@ -24,6 +25,10 @@ const isGoal = (e: MatchEvent) => e.event_type === 'goal' || e.event_type === 'p
 export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const { t } = useTranslation()
+  const adminPath = useAdminPath()
+  const summaryShare = useFeature('summary_share')
+  const voting = useFeature('voting')
+  const awardsOn = useFeature('awards')
   const [session, setSession] = useState<Session | null>(null)
   const [awards, setAwards] = useState<SessionAward[]>([])
   const [matches, setMatches] = useState<Match[]>([])
@@ -128,15 +133,15 @@ export default function SessionDetailPage() {
   return (
     <div className="max-w-lg mx-auto p-4">
       <div className="flex items-center gap-3 mb-5">
-        <Link to="/admin" className="text-gray-400 hover:text-white text-sm">← {t('sessionDetail.back')}</Link>
+        <Link to={adminPath()} className="text-gray-400 hover:text-white text-sm">← {t('sessionDetail.back')}</Link>
         <h1 className="text-xl font-bold">{session?.date ?? '…'}</h1>
       </div>
 
-      {session && completed.length > 0 && (
+      {summaryShare && session && completed.length > 0 && (
         <div className="mb-6">
           <SessionSummaryShare
             parts={buildSummaryParts({
-              t, date: session.date, teams, players, matches, events, awards,
+              t, date: session.date, teams, players, matches, events, awards: awardsOn ? awards : [],
               url: `${window.location.origin}/s/${session.share_token}`,
             })}
           />
@@ -145,7 +150,7 @@ export default function SessionDetailPage() {
 
       <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
       <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
-      {sessionId && <div className="mb-6"><SessionVotes sessionId={sessionId} /></div>}
+      {voting && sessionId && <div className="mb-6"><SessionVotes sessionId={sessionId} /></div>}
 
       {completed.length === 0 && (
         <p className="text-gray-500 text-center py-8">{t('sessionDetail.noMatches')}</p>

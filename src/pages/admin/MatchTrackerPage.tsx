@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
+import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
 import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
@@ -35,6 +36,10 @@ const colorBg: Record<string, string> = {
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
   const navigate = useNavigate()
+  const adminPath = useAdminPath()
+  const cards = useFeature('cards')
+  const swaps = useFeature('swaps')
+  const awards = useFeature('awards')
   const { t } = useTranslation()
 
   const [match, setMatch] = useState<Match | null>(null)
@@ -287,7 +292,12 @@ export default function MatchTrackerPage() {
     setPenaltyMode(false)
     setPenaltyT1(0)
     setPenaltyT2(0)
-    navigate(nextId ? `/admin/sessions/${sessionId}/match/${nextId}` : `/admin/sessions/${sessionId}/awards`)
+    if (nextId) { navigate(adminPath(`/sessions/${sessionId}/match/${nextId}`)); return }
+    if (awards) { navigate(adminPath(`/sessions/${sessionId}/awards`)); return }
+    // No awards step: close the session here, as AwardsPage would
+    supabase.from('sessions').update({ status: 'completed' }).eq('id', sessionId).then(() => {
+      navigate(adminPath(`/sessions/${sessionId}`))
+    })
   }
 
   const teamsWithPlayers = teams
@@ -348,7 +358,7 @@ export default function MatchTrackerPage() {
       )}
 
       {/* Suspensions */}
-      {activeSuspensions.length > 0 && (
+      {cards && activeSuspensions.length > 0 && (
         <div className="mb-4">
           <h3 className="text-xs uppercase text-gray-400 mb-2">{t('match.suspended')}</h3>
           <div className="space-y-2">
@@ -363,8 +373,8 @@ export default function MatchTrackerPage() {
       {!penaltyMode && (
         <div className="flex gap-3 mb-4">
           <button onClick={() => openEventDialog('goal')} disabled={!inProgress} className="flex-1 py-3 bg-green-700 rounded font-semibold disabled:opacity-40">{t('match.goal')}</button>
-          <button onClick={() => openEventDialog('card')} disabled={!inProgress} className="flex-1 py-3 bg-yellow-700 rounded font-semibold disabled:opacity-40">{t('match.card')}</button>
-          <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>
+          {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className="flex-1 py-3 bg-yellow-700 rounded font-semibold disabled:opacity-40">{t('match.card')}</button>}
+          {swaps && <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>}
         </div>
       )}
 
@@ -500,10 +510,10 @@ export default function MatchTrackerPage() {
       {dialog === 'goal' && (
         <GoalDialog teams={playingTeams} onConfirm={handleGoalConfirm} onClose={() => setDialog(null)} />
       )}
-      {dialog === 'card' && (
+      {cards && dialog === 'card' && (
         <CardDialog teams={playingTeams} onConfirm={handleCardConfirm} onClose={() => setDialog(null)} />
       )}
-      {dialog === 'swap' && (
+      {swaps && dialog === 'swap' && (
         <SwapDialog teams={teamsWithPlayers} onSwap={handleSwap} onClose={() => setDialog(null)} />
       )}
     </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
+import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
 import { computePlayerStats, getAutoAwardWinner } from '../../utils/stats'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { VoteLinks, type CreatedVote } from '../../components/VoteLinks'
@@ -27,6 +28,8 @@ const MIN_NOMINEES = 2
 export default function AwardsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  const adminPath = useAdminPath()
+  const voting = useFeature('voting')
   const { t } = useTranslation()
 
   const [players, setPlayers] = useState<Player[]>([])
@@ -122,10 +125,10 @@ export default function AwardsPage() {
     await supabase.from('sessions').update({ status: 'completed' }).eq('id', sessionId)
     setSaving(false)
     if (votes.length > 0) setCreatedVotes(votes)
-    else navigate('/admin/history')
+    else navigate(adminPath('/history'))
   }
 
-  if (createdVotes) return <VoteLinks votes={createdVotes} onDone={() => navigate(`/admin/sessions/${sessionId}`)} />
+  if (createdVotes) return <VoteLinks votes={createdVotes} onDone={() => navigate(adminPath(`/sessions/${sessionId}`))} />
 
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
@@ -144,6 +147,7 @@ export default function AwardsPage() {
           key={type}
           title={t(labelKey)}
           choice={choices[type]}
+          voting={voting}
           players={type === 'best_goalkeeper' ? goalkeepersFirst(players) : players}
           hint={type === 'best_goalkeeper' ? t('awards.gkFirst') : undefined}
           onChange={(patch) => update(type, patch)}
@@ -166,8 +170,9 @@ export default function AwardsPage() {
 const goalkeepersFirst = (players: Player[]) =>
   [...players].sort((a, b) => Number(b.position === 'GK') - Number(a.position === 'GK'))
 
-function AwardChoiceSection({ title, choice, players, hint, onChange }: {
+function AwardChoiceSection({ title, choice, players, hint, voting, onChange }: {
   title: string
+  voting: boolean
   choice: Choice
   players: Player[]
   hint?: string
@@ -192,7 +197,7 @@ function AwardChoiceSection({ title, choice, players, hint, onChange }: {
       <h2 className="font-semibold">{title}</h2>
       <div className="flex gap-2">
         {tab('admin_direct', t('awards.adminPicks'))}
-        {tab('vote', t('awards.openVote'))}
+        {voting && tab('vote', t('awards.openVote'))}
       </div>
       {hint && <p className="text-xs text-gray-400">{hint}</p>}
       <div className="grid grid-cols-2 gap-2">

@@ -9,11 +9,11 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {
     from: (table: string) => {
       if (table === 'players') {
-        return { select: () => ({ order: () => Promise.resolve({ data: [
+        return { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [
           { id: 'ali', name: 'Ali', position: 'MID', photo_url: null, is_active: true },
           { id: 'omar', name: 'Omar', position: 'GK', photo_url: null, is_active: true },
           { id: 'old', name: 'Retired', position: 'MID', photo_url: null, is_active: false },
-        ] }) }) }
+        ] }) }) }) }
       }
       if (table === 'lineups') return { insert }
       return { upsert }
@@ -21,16 +21,17 @@ vi.mock('../../lib/supabase', () => ({
   },
 }))
 
+import { InLeague } from '../../test/league'
 import LineupEditorPage from './LineupEditorPage'
 
 it('creates a lineup with the chosen players at their starting spots', async () => {
   render(
-    <MemoryRouter initialEntries={['/admin/lineups/new']}>
+    <InLeague><MemoryRouter initialEntries={['/admin/eagles/lineups/new']}>
       <Routes>
-        <Route path="/admin/lineups/new" element={<LineupEditorPage />} />
-        <Route path="/admin/lineups/:lineupId" element={<p>saved page</p>} />
+        <Route path="/admin/eagles/lineups/new" element={<LineupEditorPage />} />
+        <Route path="/admin/eagles/lineups/:lineupId" element={<p>saved page</p>} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter></InLeague>,
   )
   fireEvent.change(await screen.findByLabelText('Board name'), { target: { value: '  Friday 5s  ' } })
   fireEvent.click(screen.getByRole('button', { name: /Add players/ }))
@@ -45,7 +46,7 @@ it('creates a lineup with the chosen players at their starting spots', async () 
   fireEvent.click(screen.getByRole('button', { name: /Save/ }))
 
   await waitFor(() => expect(upsert).toHaveBeenCalled())
-  expect(insert).toHaveBeenCalledWith(expect.objectContaining({ name: 'Friday 5s' }))
+  expect(insert).toHaveBeenCalledWith(expect.objectContaining({ name: 'Friday 5s', league_id: 'L1' }))
   const lineupId = insert.mock.calls[0][0].id
   expect(upsert.mock.calls[0][0]).toEqual([
     { lineup_id: lineupId, player_id: 'ali', x: 0.2, y: 0.85 },
@@ -55,7 +56,7 @@ it('creates a lineup with the chosen players at their starting spots', async () 
 })
 
 it('will not save a lineup without a name', async () => {
-  render(<MemoryRouter initialEntries={['/admin/lineups/new']}><Routes><Route path="/admin/lineups/new" element={<LineupEditorPage />} /></Routes></MemoryRouter>)
+  render(<InLeague><MemoryRouter initialEntries={['/admin/eagles/lineups/new']}><Routes><Route path="/admin/eagles/lineups/new" element={<LineupEditorPage />} /></Routes></MemoryRouter></InLeague>)
   expect(await screen.findByRole('button', { name: /Save/ })).toBeDisabled()
   expect(screen.getByText('Give the board a name to save it.')).toBeInTheDocument()
 })
@@ -65,12 +66,12 @@ it('saves arrows drawn on the board', async () => {
   HTMLElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 300, right: 200, bottom: 300, x: 0, y: 0, toJSON: () => ({}) })
   HTMLElement.prototype.setPointerCapture = () => {}
   render(
-    <MemoryRouter initialEntries={['/admin/lineups/new']}>
+    <InLeague><MemoryRouter initialEntries={['/admin/eagles/lineups/new']}>
       <Routes>
-        <Route path="/admin/lineups/new" element={<LineupEditorPage />} />
-        <Route path="/admin/lineups/:lineupId" element={<p>saved page</p>} />
+        <Route path="/admin/eagles/lineups/new" element={<LineupEditorPage />} />
+        <Route path="/admin/eagles/lineups/:lineupId" element={<p>saved page</p>} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter></InLeague>,
   )
   fireEvent.change(await screen.findByLabelText('Board name'), { target: { value: 'Tactics' } })
   fireEvent.click(screen.getByRole('button', { name: /Pass/ }))
@@ -87,12 +88,12 @@ it('saves arrows drawn on the board', async () => {
 it('adds a guest by name, shows them on the pitch and saves them with the board', async () => {
   insert.mockClear()
   render(
-    <MemoryRouter initialEntries={['/admin/lineups/new']}>
+    <InLeague><MemoryRouter initialEntries={['/admin/eagles/lineups/new']}>
       <Routes>
-        <Route path="/admin/lineups/new" element={<LineupEditorPage />} />
-        <Route path="/admin/lineups/:lineupId" element={<p>saved page</p>} />
+        <Route path="/admin/eagles/lineups/new" element={<LineupEditorPage />} />
+        <Route path="/admin/eagles/lineups/:lineupId" element={<p>saved page</p>} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter></InLeague>,
   )
   fireEvent.change(await screen.findByLabelText('Board name'), { target: { value: 'With guests' } })
   fireEvent.click(screen.getByRole('button', { name: /Add players/ }))
