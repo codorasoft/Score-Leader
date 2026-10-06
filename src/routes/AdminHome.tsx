@@ -10,8 +10,7 @@ export function pickLeague(leagues: League[]): string | null {
 }
 
 export default function AdminHome() {
-  const { leagues, profile } = useMyLeagues()
-  if (profile.role === 'superadmin') return <Navigate to="/super" replace />
+  const { leagues } = useMyLeagues()
   const slug = pickLeague(leagues)
   return <Navigate to={slug ? `/admin/${slug}/history` : '/admin/leagues/new'} replace />
 }

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
-import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
+import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { recomputeResult } from '../../utils/matchEdit'
 import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
@@ -26,6 +26,8 @@ export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const { t } = useTranslation()
   const adminPath = useAdminPath()
+  const league = useLeague()
+  const navigate = useNavigate()
   const summaryShare = useFeature('summary_share')
   const voting = useFeature('voting')
   const awardsOn = useFeature('awards')
@@ -44,11 +46,13 @@ export default function SessionDetailPage() {
 
   const load = async () => {
     const [{ data: sess }, { data: matchData }, { data: teamData }, { data: awardData }] = await Promise.all([
-      supabase.from('sessions').select('*').eq('id', sessionId).single(),
+      supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).single(),
       supabase.from('matches').select('*').eq('session_id', sessionId).order('match_number'),
       supabase.from('teams').select('*').eq('session_id', sessionId),
       supabase.from('session_awards').select('*').eq('session_id', sessionId),
     ])
+    // Not found, or another league's session
+    if (!sess) { navigate(adminPath('/history'), { replace: true }); return }
     setAwards((awardData ?? []) as SessionAward[])
     const matchRows = (matchData ?? []) as Match[]
     const teamRows = (teamData ?? []) as Team[]
@@ -73,7 +77,7 @@ export default function SessionDetailPage() {
     }
   }
 
-  useEffect(() => { load() }, [sessionId])
+  useEffect(() => { load() }, [sessionId, league.id])
 
   const teamById = Object.fromEntries(teams.map((tm) => [tm.id, tm]))
   const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'

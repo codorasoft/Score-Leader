@@ -247,7 +247,6 @@
   },
   "profile": {
     "back": "Leaderboard",
-    "notFound": "Player not found",
     "noSessions": "Hasn’t played a session yet",
     "sessions": "Sessions",
     "matches": "Matches",

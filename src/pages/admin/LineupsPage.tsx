@@ -23,7 +23,7 @@ export default function LineupsPage() {
     const load = async () => {
       const [{ data: rows }, { data: spots }] = await Promise.all([
         supabase.from('lineups').select('id, name, updated_at').eq('league_id', league.id).order('updated_at', { ascending: false }),
-        supabase.from('lineup_players').select('lineup_id'),
+        supabase.from('lineup_players').select('lineup_id').eq('league_id', league.id),
       ])
       if (forLeague !== currentLeague.current) return
       const tally: Record<string, number> = {}

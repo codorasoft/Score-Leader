@@ -46,8 +46,10 @@ export async function fetchMyLeagues(): Promise<League[]> {
   return (data as League[] | null) ?? []
 }
 
+// Throws when the request fails; null means no such league.
 async function fetchInfo(column: 'slug' | 'id', value: string): Promise<LeagueInfo | null> {
-  const { data } = await supabase.from('league_directory').select('*').eq(column, value).maybeSingle()
+  const { data, error } = await supabase.from('league_directory').select('*').eq(column, value).maybeSingle()
+  if (error) throw error
   return (data as LeagueInfo | null) ?? null
 }
 export const fetchLeagueInfoBySlug = (slug: string) => fetchInfo('slug', slug)

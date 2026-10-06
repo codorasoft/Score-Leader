@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   leagues: [] as unknown[],
   leaguesError: false,
   infoBySlug: null as unknown,
+  infoFails: false,
   infoById: null as unknown,
   sessionRow: null as unknown,
 }))
@@ -27,7 +28,10 @@ vi.mock('../lib/tenancy', () => ({
     if (h.leaguesError) throw new Error('offline')
     return h.leagues
   }),
-  fetchLeagueInfoBySlug: vi.fn(async () => h.infoBySlug),
+  fetchLeagueInfoBySlug: vi.fn(async () => {
+    if (h.infoFails) throw new Error('offline')
+    return h.infoBySlug
+  }),
   fetchLeagueInfoById: vi.fn(async () => h.infoById),
 }))
 vi.mock('../lib/supabase', () => {
@@ -84,6 +88,7 @@ beforeEach(() => {
   h.profile = { profile: profile(), loading: false }
   h.leagues = [league('eagles'), league('tigers')]
   h.infoBySlug = info()
+  h.infoFails = false
   h.infoById = info()
   h.sessionRow = null
 })
@@ -248,6 +253,15 @@ describe('public league', () => {
     h.infoBySlug = info({ is_available: false })
     renderAt('/l/eagles/leaderboard')
     expect(await screen.findByText('League not available')).toBeInTheDocument()
+  })
+  it('a failed request shows Retry, not League not available, and retry recovers', async () => {
+    h.infoFails = true
+    renderAt('/l/eagles')
+    const retry = await screen.findByText('Retry')
+    expect(screen.queryByText('League not available')).not.toBeInTheDocument()
+    h.infoFails = false
+    fireEvent.click(retry)
+    expect(await screen.findByText('LeagueHomePage')).toBeInTheDocument()
   })
   it('league index renders the league home page', async () => {
     const router = renderAt('/l/eagles')

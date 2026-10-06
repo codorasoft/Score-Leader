@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
-import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
+import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { PitchBoard } from '../../components/PitchBoard'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { BoardToolbar } from '../../components/BoardToolbar'
@@ -17,6 +17,7 @@ export default function LineupEditorPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const league = useLeague()
+  const photosOn = useFeature('photos')
   const adminPath = useAdminPath()
   const [players, setPlayers] = useState<Player[]>([])
   const [name, setName] = useState('')
@@ -46,7 +47,7 @@ export default function LineupEditorPage() {
       setPlayers((pData ?? []) as Player[])
       if (lineupId) {
         const [{ data: lineup }, { data: spots }] = await Promise.all([
-          supabase.from('lineups').select('*').eq('id', lineupId).single(),
+          supabase.from('lineups').select('*').eq('id', lineupId).eq('league_id', league.id).single(),
           supabase.from('lineup_players').select('*').eq('lineup_id', lineupId),
         ])
         if (!lineup) { navigate(adminPath('/lineups'), { replace: true }); return }
@@ -121,7 +122,7 @@ export default function LineupEditorPage() {
     const canvas = await drawBoardImage({
       title: name.trim() || t('lineups.untitled'),
       subtitle: t('lineups.playerCount', { count: pitchPlayers.length }),
-      players: pitchPlayers.map((b) => ({ name: b.player.name, photo_url: b.player.photo_url, x: b.x, y: b.y, guest: 'guest' in b })),
+      players: pitchPlayers.map((b) => ({ name: b.player.name, photo_url: photosOn ? b.player.photo_url : null, x: b.x, y: b.y, guest: 'guest' in b })),
       drawings,
       footer: 'ScoreLeader',
     })
