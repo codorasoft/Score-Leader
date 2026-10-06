@@ -464,5 +464,13 @@
       "erase": "Tap an arrow or zone to remove it."
     },
     "confirmClear": "Remove all arrows and zones?"
+  },
+  "notAvailable": {
+    "league": "League not available",
+    "page": "Page not found",
+    "disabled": "Your account is disabled"
+  },
+  "super": {
+    "title": "Superadmin"
   }
 }

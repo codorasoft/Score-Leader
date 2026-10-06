@@ -1,8 +1,16 @@
-import { createBrowserRouter } from 'react-router-dom'
-import AuthGuard from './components/AuthGuard'
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import RequireRole from './components/RequireRole'
 import LoginPage from './pages/LoginPage'
-import AdminLayout from './layouts/AdminLayout'
-import PublicLayout from './layouts/PublicLayout'
+import NotAvailablePage from './pages/NotAvailablePage'
+import { MyLeaguesRoute } from './contexts/MyLeaguesContext'
+import AdminHome from './routes/AdminHome'
+import AdminLeagueRoute from './routes/AdminLeagueRoute'
+import PublicLeagueRoute from './routes/PublicLeagueRoute'
+import SessionLeagueRoute from './routes/SessionLeagueRoute'
+import FeatureRoute from './routes/FeatureRoute'
+import SuperPlaceholder from './routes/SuperPlaceholder'
+import { LegacyAdminRedirect, LegacyPublicRedirect } from './routes/LegacyRedirects'
 
 import PlayersPage from './pages/admin/PlayersPage'
 import NewSessionPage from './pages/admin/NewSessionPage'
@@ -21,35 +29,75 @@ import PlayerProfilePage from './pages/public/PlayerProfilePage'
 import RecordsPage from './pages/public/RecordsPage'
 import CardsPage from './pages/public/CardsPage'
 
-export const router = createBrowserRouter([
+const legacyPublic = { element: <LegacyPublicRedirect /> }
+const legacyAdmin = { element: <LegacyAdminRedirect /> }
+const coachBoard = (page: ReactNode) => <FeatureRoute name="coach_board" fallback="history">{page}</FeatureRoute>
+
+export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
-  { path: '/leaderboard', element: <PublicLayout />, children: [{ index: true, element: <LeaderboardPage /> }] },
-  { path: '/records', element: <PublicLayout />, children: [{ index: true, element: <RecordsPage /> }] },
-  { path: '/cards', element: <PublicLayout />, children: [{ index: true, element: <CardsPage /> }] },
-  { path: '/players/:playerId', element: <PublicLayout />, children: [{ index: true, element: <PlayerProfilePage /> }] },
-  { path: '/s/vote/:voteToken', element: <PublicLayout />, children: [{ index: true, element: <VotePage /> }] },
-  { path: '/s/:token', element: <PublicLayout />, children: [{ index: true, element: <LiveSessionPage /> }] },
+  { path: '/', element: <LoginPage /> },
+  {
+    path: '/super',
+    element: <RequireRole role="superadmin" />,
+    children: [{ index: true, element: <SuperPlaceholder /> }],
+  },
   {
     path: '/admin',
-    element: <AuthGuard />,
+    element: <RequireRole role="admin" />,
     children: [
       {
-        element: <AdminLayout />,
+        element: <MyLeaguesRoute />,
         children: [
-          { index: true, element: <HistoryPage /> },
-          { path: 'players', element: <PlayersPage /> },
-          { path: 'sessions/new', element: <NewSessionPage /> },
-          { path: 'sessions/:sessionId', element: <SessionDetailPage /> },
-          { path: 'sessions/:sessionId/teams', element: <TeamBuilderPage /> },
-          { path: 'sessions/:sessionId/match/:matchId', element: <MatchTrackerPage /> },
-          { path: 'sessions/:sessionId/awards', element: <AwardsPage /> },
-          { path: 'history', element: <HistoryPage /> },
-          { path: 'lineups', element: <LineupsPage /> },
-          { path: 'lineups/new', element: <LineupEditorPage /> },
-          { path: 'lineups/:lineupId', element: <LineupEditorPage /> },
+          { index: true, element: <AdminHome /> },
+          // Placeholder until the create-league page exists; keeps /admin from looping for admins with no league.
+          { path: 'leagues/new', element: <NotAvailablePage kind="page" /> },
+          { path: 'players', ...legacyAdmin },
+          { path: 'history', ...legacyAdmin },
+          { path: 'lineups/*', ...legacyAdmin },
+          { path: 'sessions/*', ...legacyAdmin },
+          {
+            path: ':slug',
+            element: <AdminLeagueRoute />,
+            children: [
+              { index: true, element: <Navigate to="history" replace /> },
+              { path: 'history', element: <HistoryPage /> },
+              { path: 'players', element: <PlayersPage /> },
+              { path: 'sessions/new', element: <NewSessionPage /> },
+              { path: 'sessions/:sessionId', element: <SessionDetailPage /> },
+              { path: 'sessions/:sessionId/teams', element: <TeamBuilderPage /> },
+              { path: 'sessions/:sessionId/match/:matchId', element: <MatchTrackerPage /> },
+              {
+                path: 'sessions/:sessionId/awards',
+                element: <FeatureRoute name="awards" fallback="history"><AwardsPage /></FeatureRoute>,
+              },
+              { path: 'lineups', element: coachBoard(<LineupsPage />) },
+              { path: 'lineups/new', element: coachBoard(<LineupEditorPage />) },
+              { path: 'lineups/:lineupId', element: coachBoard(<LineupEditorPage />) },
+            ],
+          },
         ],
       },
     ],
   },
-  { path: '/', element: <LoginPage /> },
-])
+  {
+    path: '/l/:slug',
+    element: <PublicLeagueRoute />,
+    children: [
+      // The league home page replaces this redirect later.
+      { index: true, element: <Navigate to="leaderboard" replace /> },
+      { path: 'leaderboard', element: <FeatureRoute name="leaderboard" fallback="notFound"><LeaderboardPage /></FeatureRoute> },
+      { path: 'records', element: <FeatureRoute name="records" fallback="notFound"><RecordsPage /></FeatureRoute> },
+      { path: 'cards', element: <FeatureRoute name="player_cards" fallback="notFound"><CardsPage /></FeatureRoute> },
+      { path: 'players/:playerId', element: <FeatureRoute name="profiles" fallback="notFound"><PlayerProfilePage /></FeatureRoute> },
+    ],
+  },
+  { path: '/s/vote/:voteToken', element: <SessionLeagueRoute />, children: [{ index: true, element: <VotePage /> }] },
+  { path: '/s/:token', element: <SessionLeagueRoute />, children: [{ index: true, element: <LiveSessionPage /> }] },
+  { path: '/leaderboard', ...legacyPublic },
+  { path: '/records', ...legacyPublic },
+  { path: '/cards', ...legacyPublic },
+  { path: '/players/:playerId', ...legacyPublic },
+  { path: '*', element: <NotAvailablePage kind="page" /> },
+]
+
+export const router = createBrowserRouter(routes)
