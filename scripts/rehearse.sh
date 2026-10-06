@@ -77,6 +77,15 @@ if [ $status -ne 0 ]; then
   echo "REHEARSAL FAILED (exit $status)" >&2
   exit $status
 fi
+# Exit 0 alone is not enough: the tests must have reached their last line
+case "$result" in
+  *"TENANCY TESTS PASSED"*) ;;
+  *)
+    echo "$result" >&2
+    echo "REHEARSAL FAILED (no TENANCY TESTS PASSED in the output)" >&2
+    exit 1
+    ;;
+esac
 
 # Print the last result row; fall back to the raw output if it is not the expected JSON
 printf '%s' "$result" | node -e '

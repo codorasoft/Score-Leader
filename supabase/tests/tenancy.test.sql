@@ -6,10 +6,12 @@
 --   prefix aaaaaaaa = admin A (max_leagues 2, all features), league a-league
 --   prefix bbbbbbbb = admin B (all features), league b-league
 --   prefix cccccccc = superadmin S
---   prefix dddddddd = admin D (disabled, owns no league)
+--   prefix dddddddd = admin D (disabled; d-league is created in the security rules tests)
+--   prefix eeeeeeee = rows the Eagles admin inserts without league_id (old app)
 --   suffix ...0001 user, ...0002 league, ...0003 / ...0004 players, ...0005 session,
 --          ...0006 / ...0007 / ...0008 teams (green / blue / yellow), ...0009 match
---          (team 1 vs team 2, team 3 waiting). S and D only have ...0001.
+--          (team 1 vs team 2, team 3 waiting), ...0010 match event, ...0011 open vote,
+--          ...0012 coach board. S only has ...0001.
 -- Acting as a user: SELECT pg_temp.act_as('<user id>'); ... RESET role;
 -- Acting as a visitor: SELECT pg_temp.act_as(NULL); ... RESET role;
 
@@ -294,6 +296,303 @@ SELECT pg_temp.expect(
   (SELECT NOT is_available FROM public.league_directory WHERE slug = 'b-league'),
   'league_directory shows b-league as unavailable');
 UPDATE public.admin_profiles SET is_disabled = false WHERE user_id = 'bbbbbbbb-0000-4000-8000-000000000001';
+
+-- ===== Open votes (...0011) with one nominee each, used by the tests below
+
+INSERT INTO public.award_votes (id, session_id, award_type, status, decided_by, vote_token) VALUES
+  ('aaaaaaaa-0000-4000-8000-000000000011', 'aaaaaaaa-0000-4000-8000-000000000005', 'mvp', 'open', 'vote', 'tenancy-vote-a'),
+  ('bbbbbbbb-0000-4000-8000-000000000011', 'bbbbbbbb-0000-4000-8000-000000000005', 'mvp', 'open', 'vote', 'tenancy-vote-b');
+INSERT INTO public.award_vote_nominations (award_vote_id, player_id) VALUES
+  ('aaaaaaaa-0000-4000-8000-000000000011', 'aaaaaaaa-0000-4000-8000-000000000003'),
+  ('bbbbbbbb-0000-4000-8000-000000000011', 'bbbbbbbb-0000-4000-8000-000000000003');
+
+-- ===== Child-row checks also run on UPDATE (the vote winner is only ever set by UPDATE)
+
+SELECT pg_temp.expect_error(
+  $sql$UPDATE public.award_votes SET winner_player_id = 'bbbbbbbb-0000-4000-8000-000000000003'
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000011'$sql$,
+  'player belongs to another league');
+SELECT pg_temp.expect_error(
+  $sql$UPDATE public.match_events SET league_id = 'bbbbbbbb-0000-4000-8000-000000000002'
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000010'$sql$,
+  'league mismatch');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.award_votes SET winner_player_id = 'aaaaaaaa-0000-4000-8000-000000000003'
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000011'$sql$,
+  1);
+UPDATE public.award_votes SET winner_player_id = NULL WHERE id = 'aaaaaaaa-0000-4000-8000-000000000011';
+
+-- ===== Security rules: an admin writes only in their own league
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.players (league_id, name, position, skill_rating)
+       VALUES ('bbbbbbbb-0000-4000-8000-000000000002', 'Intruder', 'MID', 3)$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.players SET name = 'Renamed' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000003'$sql$,
+  0);
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM public.sessions WHERE id = 'bbbbbbbb-0000-4000-8000-000000000005'$sql$,
+  0);
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.players SET name = 'A Player 1' WHERE id = 'aaaaaaaa-0000-4000-8000-000000000003'$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.players (league_id, name, position, skill_rating)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'A Player 3', 'MID', 3)$sql$,
+  1);
+-- No league_id: the temporary default puts the row in Eagles, which A does not own
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.players (name, position, skill_rating) VALUES ('No League', 'MID', 3)$sql$,
+  'row-level security');
+-- Reading another available league is allowed (public pages)
+SELECT pg_temp.expect(
+  (SELECT count(*) = 2 FROM public.players WHERE league_id = 'bbbbbbbb-0000-4000-8000-000000000002'),
+  'A can read b-league players');
+RESET role;
+
+-- ===== The app deployed today (no league_id) keeps working for the Eagles admin
+
+SELECT pg_temp.act_as((SELECT id FROM auth.users WHERE email = 'info@codorasoft.com'));
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.players (id, name, position, skill_rating)
+       VALUES ('eeeeeeee-0000-4000-8000-000000000003', 'Old App Player', 'MID', 3)$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.sessions (id, date, share_token)
+       VALUES ('eeeeeeee-0000-4000-8000-000000000005', '2026-10-06', 'tenancy-test-old-app')$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.teams (id, session_id, color)
+       VALUES ('eeeeeeee-0000-4000-8000-000000000006', 'eeeeeeee-0000-4000-8000-000000000005', 'green')$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.lineups (id, name) VALUES ('eeeeeeee-0000-4000-8000-000000000012', 'Old App Board')$sql$,
+  1);
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT bool_and(league_id = (SELECT id FROM public.leagues WHERE slug = 'eagles')) AND count(*) = 4
+   FROM (
+     SELECT league_id FROM public.players WHERE id = 'eeeeeeee-0000-4000-8000-000000000003'
+     UNION ALL SELECT league_id FROM public.sessions WHERE id = 'eeeeeeee-0000-4000-8000-000000000005'
+     UNION ALL SELECT league_id FROM public.teams WHERE id = 'eeeeeeee-0000-4000-8000-000000000006'
+     UNION ALL SELECT league_id FROM public.lineups WHERE id = 'eeeeeeee-0000-4000-8000-000000000012') r),
+  'old-app inserts without league_id land in eagles');
+
+-- ===== Admin accounts and leagues
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.admin_profiles SET max_leagues = 5 WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001'$sql$,
+  0);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM public.admin_profiles WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001')
+  AND (SELECT count(*) = 1 FROM public.admin_profiles),
+  'A reads only own profile');
+SELECT pg_temp.expect(
+  (SELECT array_agg(slug) = '{a-league}' FROM public.leagues),
+  'A reads only own league');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.leagues SET name = 'Taken' WHERE id = 'bbbbbbbb-0000-4000-8000-000000000002'$sql$,
+  0);
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.leagues SET name = 'League A' WHERE id = 'aaaaaaaa-0000-4000-8000-000000000002'$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM public.leagues WHERE id = 'aaaaaaaa-0000-4000-8000-000000000002'$sql$,
+  0);
+RESET role;
+-- B gets room for a 2nd league, so only the security rule can refuse A creating it for B
+UPDATE public.admin_profiles SET max_leagues = 2 WHERE user_id = 'bbbbbbbb-0000-4000-8000-000000000001';
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.leagues (owner_id, name, slug) VALUES ('bbbbbbbb-0000-4000-8000-000000000001', 'For B', 'for-b')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.leagues (owner_id, name, slug) VALUES ('aaaaaaaa-0000-4000-8000-000000000001', 'League A2', 'a-league-2')$sql$,
+  1);
+RESET role;
+DELETE FROM public.leagues WHERE slug = 'a-league-2';
+UPDATE public.admin_profiles SET max_leagues = 1 WHERE user_id = 'bbbbbbbb-0000-4000-8000-000000000001';
+
+SELECT pg_temp.act_as('cccccccc-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.admin_profiles SET max_leagues = 2 WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001'$sql$,
+  1);
+SELECT pg_temp.expect(
+  (SELECT count(*) >= 5 FROM public.admin_profiles) AND (SELECT count(*) >= 3 FROM public.leagues),
+  'superadmin reads every profile and league');
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM public.leagues WHERE id = 'bbbbbbbb-0000-4000-8000-000000000002'$sql$,
+  0);
+RESET role;
+
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.admin_profiles) AND (SELECT count(*) = 0 FROM public.leagues),
+  'visitors read no profiles or leagues');
+RESET role;
+
+-- ===== A disabled admin's league (d-league, ...0002) is closed to everyone but the superadmin
+
+UPDATE public.admin_profiles SET is_disabled = false WHERE user_id = 'dddddddd-0000-4000-8000-000000000001';
+INSERT INTO public.leagues (id, owner_id, name, slug) VALUES
+  ('dddddddd-0000-4000-8000-000000000002', 'dddddddd-0000-4000-8000-000000000001', 'League D', 'd-league');
+UPDATE public.admin_profiles SET is_disabled = true WHERE user_id = 'dddddddd-0000-4000-8000-000000000001';
+INSERT INTO public.players (id, league_id, name, position, skill_rating) VALUES
+  ('dddddddd-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000002', 'D Player 1', 'MID', 3);
+INSERT INTO public.sessions (id, league_id, date, share_token) VALUES
+  ('dddddddd-0000-4000-8000-000000000005', 'dddddddd-0000-4000-8000-000000000002', '2026-10-06', 'tenancy-test-d');
+INSERT INTO public.award_votes (id, session_id, award_type, status, decided_by, vote_token) VALUES
+  ('dddddddd-0000-4000-8000-000000000011', 'dddddddd-0000-4000-8000-000000000005', 'mvp', 'open', 'vote', 'tenancy-vote-d');
+INSERT INTO public.award_vote_nominations (award_vote_id, player_id) VALUES
+  ('dddddddd-0000-4000-8000-000000000011', 'dddddddd-0000-4000-8000-000000000003');
+
+SELECT pg_temp.act_as('dddddddd-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.players (league_id, name, position, skill_rating)
+       VALUES ('dddddddd-0000-4000-8000-000000000002', 'D Player 2', 'MID', 3)$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.players SET name = 'Renamed' WHERE id = 'dddddddd-0000-4000-8000-000000000003'$sql$,
+  0);
+RESET role;
+
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.players WHERE league_id = 'dddddddd-0000-4000-8000-000000000002'),
+  'visitors cannot read a disabled admin''s players');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 3 FROM public.players WHERE league_id = 'aaaaaaaa-0000-4000-8000-000000000002'),
+  'visitors can read an available league''s players');
+-- Review Focus 3: owner disabled
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.award_vote_entries (award_vote_id, voter_fingerprint, player_id)
+       VALUES ('dddddddd-0000-4000-8000-000000000011', 'fp-d', 'dddddddd-0000-4000-8000-000000000003')$sql$,
+  'row-level security');
+RESET role;
+
+SELECT pg_temp.act_as('cccccccc-0000-4000-8000-000000000001');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM public.players WHERE league_id = 'dddddddd-0000-4000-8000-000000000002'),
+  'superadmin reads a disabled admin''s players');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.players SET name = 'Renamed' WHERE id = 'dddddddd-0000-4000-8000-000000000003'$sql$,
+  0);
+RESET role;
+
+-- ===== Voting (Review Focus 3: voting off)
+
+UPDATE public.admin_profiles SET features = array_remove(array_remove(features, 'voting'), 'awards')
+WHERE user_id = 'bbbbbbbb-0000-4000-8000-000000000001';
+
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.award_vote_entries (award_vote_id, voter_fingerprint, player_id)
+       VALUES ('bbbbbbbb-0000-4000-8000-000000000011', 'fp-b', 'bbbbbbbb-0000-4000-8000-000000000003')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.award_vote_entries (award_vote_id, voter_fingerprint, player_id)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000011', 'fp-a', 'aaaaaaaa-0000-4000-8000-000000000003')$sql$,
+  1);
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.award_vote_entries (award_vote_id, voter_fingerprint, player_id)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000011', 'fp-a2', 'aaaaaaaa-0000-4000-8000-000000000004')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.award_votes SET status = 'closed' WHERE id = 'aaaaaaaa-0000-4000-8000-000000000011'$sql$,
+  0);
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT league_id = 'aaaaaaaa-0000-4000-8000-000000000002' FROM public.award_vote_entries WHERE voter_fingerprint = 'fp-a'),
+  'a visitor''s vote takes the vote''s league');
+
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.award_votes (session_id, award_type, status, decided_by, vote_token)
+       VALUES ('bbbbbbbb-0000-4000-8000-000000000005', 'fair_play', 'open', 'vote', 'tenancy-vote-b2')$sql$,
+  'row-level security');
+RESET role;
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.award_votes (session_id, award_type, status, decided_by, vote_token)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000005', 'fair_play', 'open', 'vote', 'tenancy-vote-a2')$sql$,
+  1);
+RESET role;
+
+-- ===== Coach board: owner only, and only with coach_board
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.lineups (id, league_id, name)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000012', 'aaaaaaaa-0000-4000-8000-000000000002', 'A Board')$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.lineup_players (lineup_id, player_id, x, y)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000012', 'aaaaaaaa-0000-4000-8000-000000000003', 0.5, 0.5)$sql$,
+  1);
+RESET role;
+
+UPDATE public.admin_profiles SET features = array_remove(features, 'coach_board')
+WHERE user_id = 'bbbbbbbb-0000-4000-8000-000000000001';
+
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.lineups (league_id, name) VALUES ('bbbbbbbb-0000-4000-8000-000000000002', 'B Board')$sql$,
+  'row-level security');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.lineups) AND (SELECT count(*) = 0 FROM public.lineup_players),
+  'B cannot read A''s coach boards');
+RESET role;
+
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.lineups) AND (SELECT count(*) = 0 FROM public.lineup_players),
+  'visitors read no coach boards');
+RESET role;
+
+-- ===== Storage: the first folder is a league the caller owns (and has photos, for player photos)
+
+SELECT pg_temp.expect(
+  (SELECT public AND file_size_limit = 2097152 AND allowed_mime_types = '{image/jpeg,image/png,image/webp}'
+   FROM storage.buckets WHERE id = 'league-logos'),
+  'league-logos is public, 2 MB, jpeg/png/webp');
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('player-photos', 'aaaaaaaa-0000-4000-8000-000000000002/players/x.jpg')$sql$,
+  1);
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('player-photos', 'bbbbbbbb-0000-4000-8000-000000000002/players/x.jpg')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('player-photos', 'players/x.jpg')$sql$,
+  'row-level security');
+-- 36 characters of [0-9a-f-] but not a uuid: denied, not a cast error
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('player-photos', '------------------------------------/players/x.jpg')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('league-logos', 'aaaaaaaa-0000-4000-8000-000000000002/logo-1.jpg')$sql$,
+  1);
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('league-logos', 'bbbbbbbb-0000-4000-8000-000000000002/logo-1.jpg')$sql$,
+  'row-level security');
+RESET role;
+
+UPDATE public.admin_profiles SET features = array_remove(features, 'photos')
+WHERE user_id = 'bbbbbbbb-0000-4000-8000-000000000001';
+
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('player-photos', 'bbbbbbbb-0000-4000-8000-000000000002/players/y.jpg')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO storage.objects (bucket_id, name) VALUES ('league-logos', 'bbbbbbbb-0000-4000-8000-000000000002/logo-1.jpg')$sql$,
+  1);
+RESET role;
 
 -- Later tests go above this line.
 SELECT 'TENANCY TESTS PASSED' AS result;

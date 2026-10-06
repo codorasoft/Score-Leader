@@ -241,25 +241,26 @@ BEGIN
   END LOOP;
 END $$;
 
--- ===== Child tables take their parent's league (after the backfill, so it is not affected)
+-- ===== Child tables take their parent's league (after the backfill, so it is not affected).
+-- Also on UPDATE: award_votes.winner_player_id is only ever set by an UPDATE.
 
-CREATE TRIGGER session_players_set_league BEFORE INSERT ON public.session_players
+CREATE TRIGGER session_players_set_league BEFORE INSERT OR UPDATE ON public.session_players
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('sessions', 'session_id', 'player_id');
-CREATE TRIGGER teams_set_league BEFORE INSERT ON public.teams
+CREATE TRIGGER teams_set_league BEFORE INSERT OR UPDATE ON public.teams
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('sessions', 'session_id');
-CREATE TRIGGER team_players_set_league BEFORE INSERT ON public.team_players
+CREATE TRIGGER team_players_set_league BEFORE INSERT OR UPDATE ON public.team_players
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('teams', 'team_id', 'player_id');
-CREATE TRIGGER matches_set_league BEFORE INSERT ON public.matches
+CREATE TRIGGER matches_set_league BEFORE INSERT OR UPDATE ON public.matches
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('sessions', 'session_id');
-CREATE TRIGGER match_events_set_league BEFORE INSERT ON public.match_events
+CREATE TRIGGER match_events_set_league BEFORE INSERT OR UPDATE ON public.match_events
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('matches', 'match_id', 'player_id');
-CREATE TRIGGER award_votes_set_league BEFORE INSERT ON public.award_votes
+CREATE TRIGGER award_votes_set_league BEFORE INSERT OR UPDATE ON public.award_votes
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('sessions', 'session_id', 'winner_player_id');
-CREATE TRIGGER award_vote_nominations_set_league BEFORE INSERT ON public.award_vote_nominations
+CREATE TRIGGER award_vote_nominations_set_league BEFORE INSERT OR UPDATE ON public.award_vote_nominations
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('award_votes', 'award_vote_id', 'player_id');
-CREATE TRIGGER award_vote_entries_set_league BEFORE INSERT ON public.award_vote_entries
+CREATE TRIGGER award_vote_entries_set_league BEFORE INSERT OR UPDATE ON public.award_vote_entries
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('award_votes', 'award_vote_id', 'player_id');
-CREATE TRIGGER session_awards_set_league BEFORE INSERT ON public.session_awards
+CREATE TRIGGER session_awards_set_league BEFORE INSERT OR UPDATE ON public.session_awards
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('sessions', 'session_id', 'winner_player_id');
-CREATE TRIGGER lineup_players_set_league BEFORE INSERT ON public.lineup_players
+CREATE TRIGGER lineup_players_set_league BEFORE INSERT OR UPDATE ON public.lineup_players
   FOR EACH ROW EXECUTE FUNCTION public.set_league_from_parent('lineups', 'lineup_id', 'player_id');
