@@ -1,4 +1,4 @@
-import { resolveMatch, decideResult, setupFirstMatch } from './matchRotation'
+import { resolveMatch, decideResult, setupFirstMatch, nextMatchToStart } from './matchRotation'
 import type { Match } from '../lib/types'
 
 const base = (o: Partial<Match> = {}): Match => ({
@@ -66,5 +66,35 @@ describe('setupFirstMatch', () => {
   it('picks a random pairing of three distinct teams when no team is chosen', () => {
     const first = setupFirstMatch(teams)
     expect(new Set([first.team1Id, first.team2Id, first.waitingTeamId])).toEqual(new Set(['green', 'blue', 'yellow']))
+  })
+})
+
+describe('nextMatchToStart', () => {
+  const teams = ['g', 'b', 'y'].map((id) => ({ id, session_id: 's', color: 'green', name: null, league_id: 'L' })) as never
+  const done = (n: number, t1: string, t2: string, w: string, winner: string) =>
+    ({ id: `m${n}`, match_number: n, team1_id: t1, team2_id: t2, waiting_team_id: w, winner_team_id: winner, status: 'completed' }) as Match
+
+  it('starts match 1 with the chosen waiting team when no matches are left', () => {
+    const next = nextMatchToStart([], teams, 'b')!
+    expect(next.matchNumber).toBe(1)
+    expect(next.waitingTeamId).toBe('b')
+    expect([next.team1Id, next.team2Id].sort()).toEqual(['g', 'y'])
+  })
+
+  it('carries the rotation on from the last finished match', () => {
+    const next = nextMatchToStart([done(1, 'g', 'b', 'y', 'g'), done(2, 'g', 'y', 'b', 'y')], teams)
+    expect(next).toEqual({ matchNumber: 3, team1Id: 'y', team2Id: 'b', waitingTeamId: 'g' })
+  })
+
+  it('numbers after the highest finished match even when later ones were deleted', () => {
+    expect(nextMatchToStart([done(4, 'g', 'b', 'y', 'b')], teams)?.matchNumber).toBe(5)
+  })
+
+  it('is null while a match is still pending or being played', () => {
+    expect(nextMatchToStart([done(1, 'g', 'b', 'y', 'g'), { ...done(2, 'g', 'y', 'b', 'g'), status: 'pending', winner_team_id: null }], teams)).toBeNull()
+  })
+
+  it('is null without three teams', () => {
+    expect(nextMatchToStart([], [])).toBeNull()
   })
 })

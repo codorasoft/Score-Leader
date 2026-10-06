@@ -202,7 +202,9 @@
     "assistBy": "assist: {{name}}",
     "done": "Done",
     "noGoals": "No goals",
-    "rotationNote": "Changing this result won’t reshuffle matches played after it."
+    "rotationNote": "Changing this result won’t reshuffle matches played after it.",
+    "noMatchSetUp": "No match is set up. Start the next one to carry on.",
+    "startMatch": "Start match {{number}}"
   },
   "leaderboard": {
     "title": "Leaderboard",

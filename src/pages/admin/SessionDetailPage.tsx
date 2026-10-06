@@ -12,8 +12,10 @@ import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { SessionVotes } from '../../components/SessionVotes'
 import { SessionSummaryShare } from '../../components/SessionSummaryShare'
 import LoadFailed from '../../components/LoadFailed'
+import { FirstMatchPicker } from '../../components/FirstMatchPicker'
+import { nextMatchToStart } from '../../utils/matchRotation'
 import { buildSummaryParts } from '../../utils/sessionSummary'
-import type { Match, Team, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
+import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 
 const colorDot: Record<string, string> = {
   green: 'bg-green-500',
@@ -45,6 +47,8 @@ export default function SessionDetailPage() {
   const [confirmDeleteMatchId, setConfirmDeleteMatchId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
+  const [firstWaiting, setFirstWaiting] = useState<TeamColor | null>(null)
+  const [starting, setStarting] = useState(false)
 
   const load = async () => {
     const [sessRes, matchRes, teamRes, awardRes] = await Promise.all([
@@ -67,9 +71,12 @@ export default function SessionDetailPage() {
     setMatches(matchRows)
     setTeams(teamRows)
 
-    if (matchRows.length === 0 || teamRows.length === 0) return
+    // Teams are loaded even with no matches, so a session whose matches were deleted still shows them
+    if (teamRows.length === 0) return
     const [{ data: evData, error: evError }, { data: tpData, error: tpError }] = await Promise.all([
-      supabase.from('match_events').select('*').in('match_id', matchRows.map((m) => m.id)),
+      matchRows.length
+        ? supabase.from('match_events').select('*').in('match_id', matchRows.map((m) => m.id))
+        : Promise.resolve({ data: [], error: null }),
       supabase.from('team_players').select('*').in('team_id', teamRows.map((tm) => tm.id)),
     ])
     if (evError || tpError) { setLoadFailed(true); return }
@@ -136,6 +143,27 @@ export default function SessionDetailPage() {
       await supabase.from('matches').update({ winner_team_id: teamId }).eq('id', match.id)
     })
 
+  // An under-way session with no match set up (all deleted, or the upcoming one deleted) can carry on from here
+  const canStart = session?.status === 'active' && nextMatchToStart(matches, teams) !== null
+  const startNumber = canStart ? nextMatchToStart(matches, teams)!.matchNumber : 0
+
+  const startNextMatch = async () => {
+    const waitingId = teams.find((tm) => tm.color === firstWaiting)?.id
+    const next = nextMatchToStart(matches, teams, waitingId)
+    if (!next || starting) return
+    setStarting(true)
+    const { data } = await supabase.from('matches').insert({
+      session_id: sessionId,
+      match_number: next.matchNumber,
+      team1_id: next.team1Id,
+      team2_id: next.team2Id,
+      waiting_team_id: next.waitingTeamId,
+      status: 'pending',
+    }).select().single()
+    setStarting(false)
+    if (data) navigate(adminPath(`/sessions/${sessionId}/match/${(data as Match).id}`))
+  }
+
   const deleteMatch = async (matchId: string) => {
     setConfirmDeleteMatchId(null)
     // match_events are removed by ON DELETE CASCADE
@@ -161,6 +189,30 @@ export default function SessionDetailPage() {
             })}
           />
         </div>
+      )}
+
+      {canStart && (
+        <section className="mb-6 bg-gray-800 rounded-xl p-4">
+          <p className="text-sm text-gray-300 mb-3">{t('sessionDetail.noMatchSetUp')}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {teams.map((team) => (
+              <div key={team.id} className="bg-gray-900/60 rounded-lg p-2">
+                <TeamChip team={team} />
+                <ul className="mt-1 ps-5 text-sm text-gray-300">
+                  {teamPlayers.filter((tp) => tp.team_id === team.id).map((tp) => <li key={tp.player_id}>{playerName(tp.player_id)}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+          {startNumber === 1 && <FirstMatchPicker waiting={firstWaiting} onChange={setFirstWaiting} />}
+          <button
+            onClick={startNextMatch}
+            disabled={starting}
+            className="mt-4 w-full py-3 bg-green-600 rounded-xl font-bold hover:bg-green-700 disabled:opacity-50"
+          >
+            {t('sessionDetail.startMatch', { number: startNumber })}
+          </button>
+        </section>
       )}
 
       <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
