@@ -89,3 +89,14 @@ it('counts a duplicate vote from this device as already recorded', async () => {
   await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
   expect(await screen.findByText('Your vote has been recorded.')).toBeInTheDocument()
 })
+
+it('shows the vote as closed when it closed while the page was open', async () => {
+  resetDb({ award_votes: [vote()], award_vote_nominations: nominations, players })
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'Hadi' }))
+  db.errors.award_vote_entries = { message: 'new row violates row-level security policy for table "award_vote_entries"', code: '42501' }
+  await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
+  expect(await screen.findByText('This vote is closed.')).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
