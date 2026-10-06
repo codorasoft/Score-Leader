@@ -42,6 +42,10 @@ describe('validateDeleteLeague', () => {
   it('accepts valid', () => {
     expect(validateDeleteLeague({ league_id: UUID, confirm_name: 'Eagles' }).ok).toBe(true)
   })
+  it('lowercases league_id', () => {
+    const r = validateDeleteLeague({ league_id: UUID.toUpperCase(), confirm_name: 'Eagles' })
+    expect(r.ok && r.value.league_id).toBe(UUID)
+  })
   it('rejects missing confirm_name', () => {
     expect(validateDeleteLeague({ league_id: UUID }).ok).toBe(false)
   })

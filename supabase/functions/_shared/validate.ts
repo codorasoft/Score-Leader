@@ -52,5 +52,5 @@ export function validateDeleteLeague(body: unknown): Result<{ league_id: string;
   if (!b) return { ok: false, error: 'invalid body' }
   if (typeof b.league_id !== 'string' || !UUID_RE.test(b.league_id)) return { ok: false, error: 'invalid league_id' }
   if (typeof b.confirm_name !== 'string' || b.confirm_name === '') return { ok: false, error: 'confirm_name required' }
-  return { ok: true, value: { league_id: b.league_id, confirm_name: b.confirm_name } }
+  return { ok: true, value: { league_id: b.league_id.toLowerCase(), confirm_name: b.confirm_name } }
 }

@@ -26,8 +26,9 @@ async function emptyPrefix(admin: SupabaseClient, bucket: string, prefix: string
     const paths = await listFiles(admin, bucket, prefix)
     if (paths.length === 0) return
     for (let i = 0; i < paths.length; i += 1000) {
-      const { error } = await admin.storage.from(bucket).remove(paths.slice(i, i + 1000))
+      const { data, error } = await admin.storage.from(bucket).remove(paths.slice(i, i + 1000))
       if (error) throw new Error(error.message)
+      if (!data || data.length === 0) throw new Error('storage remove made no progress')
     }
   }
 }
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
 
   try {
     for (const bucket of ['player-photos', 'league-logos']) {
-      await emptyPrefix(admin, bucket, league_id)
+      await emptyPrefix(admin, bucket, league.id)
     }
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'storage cleanup failed' }, 500)
