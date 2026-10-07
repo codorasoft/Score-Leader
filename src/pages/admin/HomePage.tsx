@@ -20,6 +20,9 @@ const bigButton = 'min-h-[52px] rounded-xl font-bold text-base flex items-center
 
 interface Board { id: string; name: string; updated_at: string }
 interface HomeData { live: LiveState; teams: Team[]; todo: TodoItem[]; board: Board | null }
+type Count = { count: number }[]
+interface OpenSession { id: string; status: Session['status']; matches: Match[]; teams: Team[]; session_players: Count }
+interface VoteRow { id: string; award_type: AwardVote['award_type']; session_id: string; award_vote_entries: Count }
 
 const todayString = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -38,39 +41,36 @@ export default function HomePage() {
   useEffect(() => {
     const forLeague = league.id
     const load = async () => {
-      const { data: sessionRows } = await supabase.from('sessions').select('*').eq('league_id', forLeague).order('date', { ascending: false })
-      const sessions = (sessionRows ?? []) as Session[]
-      const openIds = sessions.filter((s) => s.status !== 'completed').map((s) => s.id)
-      const draftIds = sessions.filter((s) => s.status === 'draft').map((s) => s.id)
-
-      const [matchRes, teamRes, voteRes, photoRes, boardRes, attendRes] = await Promise.all([
-        openIds.length ? supabase.from('matches').select('*').in('session_id', openIds) : Promise.resolve({ data: [] }),
-        openIds.length ? supabase.from('teams').select('*').in('session_id', openIds) : Promise.resolve({ data: [] }),
-        voting ? supabase.from('award_votes').select('id, award_type, session_id').eq('league_id', forLeague).eq('status', 'open') : Promise.resolve({ data: [] }),
+      // Every question goes out at once; none waits for another's answer
+      const [sessionRes, openRes, voteRes, photoRes, boardRes] = await Promise.all([
+        supabase.from('sessions').select('*').eq('league_id', forLeague).order('date', { ascending: false }),
+        // What the live card needs, for unfinished sessions only, so old history is not downloaded
+        supabase.from('sessions').select('id, status, matches(*), teams(*), session_players(count)').eq('league_id', forLeague).neq('status', 'completed'),
+        voting
+          ? supabase.from('award_votes').select('id, award_type, session_id, award_vote_entries(count)').eq('league_id', forLeague).eq('status', 'open')
+          : Promise.resolve({ data: [] }),
         photos
           ? supabase.from('players').select('id', { count: 'exact', head: true }).eq('league_id', forLeague).eq('is_active', true).is('photo_url', null)
           : Promise.resolve({ count: 0 }),
         coachBoard
           ? supabase.from('lineups').select('id, name, updated_at').eq('league_id', forLeague).order('updated_at', { ascending: false }).limit(1)
           : Promise.resolve({ data: [] }),
-        draftIds.length ? supabase.from('session_players').select('session_id').in('session_id', draftIds) : Promise.resolve({ data: [] }),
       ])
-
-      const openVotes = (voteRes.data ?? []) as { id: string; award_type: AwardVote['award_type']; session_id: string }[]
-      const tally: Record<string, number> = {}
-      if (openVotes.length) {
-        const { data: entries } = await supabase.from('award_vote_entries').select('award_vote_id').in('award_vote_id', openVotes.map((v) => v.id))
-        for (const e of (entries ?? []) as { award_vote_id: string }[]) tally[e.award_vote_id] = (tally[e.award_vote_id] ?? 0) + 1
-      }
       if (forLeague !== currentLeague.current) return
 
+      const sessions = (sessionRes.data ?? []) as Session[]
+      const open = (openRes.data ?? []) as OpenSession[]
+      const openVotes = (voteRes.data ?? []) as VoteRow[]
       const dateOf = (id: string) => sessions.find((s) => s.id === id)?.date ?? ''
-      const votes: OpenVote[] = openVotes.map((v) => ({ id: v.id, sessionId: v.session_id, sessionDate: dateOf(v.session_id), awardType: v.award_type, votes: tally[v.id] ?? 0 }))
+      const votes: OpenVote[] = openVotes.map((v) => ({
+        id: v.id, sessionId: v.session_id, sessionDate: dateOf(v.session_id), awardType: v.award_type, votes: v.award_vote_entries[0]?.count ?? 0,
+      }))
+      const draftsWithPlayers = open.filter((s) => s.status === 'draft' && (s.session_players[0]?.count ?? 0) > 0).map((s) => s.id)
       setData({
         leagueId: forLeague,
         value: {
-          live: liveState(sessions, (matchRes.data ?? []) as Match[], ((attendRes.data ?? []) as { session_id: string }[]).map((r) => r.session_id)),
-          teams: (teamRes.data ?? []) as Team[],
+          live: liveState(sessions, open.flatMap((s) => s.matches), draftsWithPlayers),
+          teams: open.flatMap((s) => s.teams),
           todo: todoItems({ votes, stale: staleSessions(sessions, todayString()), missingPhotos: photoRes.count ?? 0, voting, photos }),
           board: ((boardRes.data ?? []) as Board[])[0] ?? null,
         },

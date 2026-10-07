@@ -5,6 +5,7 @@ export interface SessionData {
   session: Session
   teams: Team[]
   teamPlayers: TeamPlayer[]
+  // In match order
   matches: Match[]
   // Every match's goals, cards and swaps
   events: MatchEvent[]
@@ -38,13 +39,16 @@ export function unpackSession({ teams: teamRows, matches: matchRows, ...session 
       if (p) players.set(p.id, p)
     }
     return match
-  })
+  }).sort((a, b) => a.match_number - b.match_number)
   return { session, teams, teamPlayers, matches, events, players: [...players.values()] }
 }
 
-// By share link (public live page) or id (admin). Throws when the request fails; null means no such session.
-export async function fetchSession(by: 'share_token' | 'id', value: string): Promise<SessionData | null> {
-  const { data, error } = await supabase.from('sessions').select(SELECT).eq(by, value).maybeSingle()
+// By share link (public live page) or id (admin, only within the given league).
+// Throws the request's error when it fails; null means no such session.
+export async function fetchSession(by: 'share_token' | 'id', value: string, leagueId?: string): Promise<SessionData | null> {
+  let query = supabase.from('sessions').select(SELECT).eq(by, value)
+  if (leagueId) query = query.eq('league_id', leagueId)
+  const { data, error } = await query.maybeSingle()
   if (error) throw error
   return data ? unpackSession(data as unknown as Row) : null
 }
