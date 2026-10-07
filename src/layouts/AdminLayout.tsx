@@ -83,7 +83,8 @@ export default function AdminLayout() {
           </div>
         </div>
 
-        <nav className={`sm:hidden grid ${coachBoard ? 'grid-cols-5' : 'grid-cols-4'} border-t border-gray-800`}>
+        {/* One equal column per tab, so the tabs always fill the whole width */}
+        <nav className="sm:hidden grid border-t border-gray-800" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
           {nav.map(({ key, to, label }) => (
             <Link
               key={key}

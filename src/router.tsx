@@ -8,11 +8,14 @@ import FeatureRoute from './routes/FeatureRoute'
 import { LegacyAdminRedirect, LegacyPublicRedirect } from './routes/LegacyRedirects'
 import { MyLeaguesRoute } from './contexts/MyLeaguesContext'
 import { lazyPage } from './lib/lazyPage'
+// Route wrappers come with the app so a reload never waits for them one after another;
+// only pages are separate files, and they load inside an already dark layout.
+import RequireRole from './components/RequireRole'
+import LoginPage from './pages/LoginPage'
+import AdminHome from './routes/AdminHome'
+import AdminLeagueRoute from './routes/AdminLeagueRoute'
+import SuperLayout from './layouts/SuperLayout'
 
-const RequireRole = lazyPage(() => import('./components/RequireRole'))
-const LoginPage = lazyPage(() => import('./pages/LoginPage'))
-const AdminHome = lazyPage(() => import('./routes/AdminHome'))
-const AdminLeagueRoute = lazyPage(() => import('./routes/AdminLeagueRoute'))
 const PlayersPage = lazyPage(() => import('./pages/admin/PlayersPage'))
 const AttendancePage = lazyPage(() => import('./pages/admin/AttendancePage'))
 const TeamBuilderPage = lazyPage(() => import('./pages/admin/TeamBuilderPage'))
@@ -22,7 +25,6 @@ const SessionDetailPage = lazyPage(() => import('./pages/admin/SessionDetailPage
 const HistoryPage = lazyPage(() => import('./pages/admin/HistoryPage'))
 const LineupsPage = lazyPage(() => import('./pages/admin/LineupsPage'))
 const LineupEditorPage = lazyPage(() => import('./pages/admin/LineupEditorPage'))
-const SuperLayout = lazyPage(() => import('./layouts/SuperLayout'))
 const AdminsPage = lazyPage(() => import('./pages/super/AdminsPage'))
 const NewAdminPage = lazyPage(() => import('./pages/super/NewAdminPage'))
 const AdminDetailPage = lazyPage(() => import('./pages/super/AdminDetailPage'))
@@ -52,14 +54,14 @@ const legacyAdmin = { element: <LegacyAdminRedirect /> }
 const coachBoard = (page: ReactNode) => <FeatureRoute name="coach_board" fallback="history">{page}</FeatureRoute>
 
 export const routes: RouteObject[] = [
-  { path: '/login', element: page(<LoginPage />) },
-  { path: '/', element: page(<LoginPage />) },
+  { path: '/login', element: <LoginPage /> },
+  { path: '/', element: <LoginPage /> },
   {
     path: '/super',
-    element: page(<RequireRole role="superadmin" />),
+    element: <RequireRole role="superadmin" />,
     children: [
       {
-        element: page(<SuperLayout />),
+        element: <SuperLayout />,
         children: [
           { index: true, element: page(<AdminsPage />) },
           { path: 'admins/new', element: page(<NewAdminPage />) },
@@ -71,12 +73,12 @@ export const routes: RouteObject[] = [
   },
   {
     path: '/admin',
-    element: page(<RequireRole role="admin" />),
+    element: <RequireRole role="admin" />,
     children: [
       {
         element: <MyLeaguesRoute />,
         children: [
-          { index: true, element: page(<AdminHome />) },
+          { index: true, element: <AdminHome /> },
           { path: 'leagues/new', element: page(<NewLeaguePage />) },
           { path: 'players', ...legacyAdmin },
           { path: 'history', ...legacyAdmin },
@@ -84,7 +86,7 @@ export const routes: RouteObject[] = [
           { path: 'sessions/*', ...legacyAdmin },
           {
             path: ':slug',
-            element: page(<AdminLeagueRoute />),
+            element: <AdminLeagueRoute />,
             children: [
               { index: true, element: <Navigate to="home" replace /> },
               { path: 'home', element: page(<HomePage />) },

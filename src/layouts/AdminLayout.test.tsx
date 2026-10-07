@@ -41,3 +41,15 @@ it('without the coach board there are three tabs', () => {
   const nav = renderAt('/admin/eagles/home', ['cards'])
   expect(nav.getAllByRole('link')).toHaveLength(3)
 })
+
+it('the phone tab bar splits its full width between the tabs it has', () => {
+  const bar = renderAt('/admin/eagles/home')
+  const nav = bar.getAllByRole('link')[0].closest('nav') as HTMLElement
+  expect(nav.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))')
+})
+
+it('the phone tab bar has three equal columns without the coach board', () => {
+  const bar = renderAt('/admin/eagles/home', ['cards'])
+  const nav = bar.getAllByRole('link')[0].closest('nav') as HTMLElement
+  expect(nav.style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))')
+})
