@@ -33,6 +33,55 @@ export function resetDb(tables: Record<string, Row[]> = {}) {
 
 export const rows = (table: string) => (db.tables[table] ??= [])
 
+// Linked tables in a select, like 'sessions' in '*, sessions(count)' or 'teams(*, team_players(*))'
+interface Embed { table: string; cols: Column[] }
+type Column = string | Embed
+
+function parseColumns(text: string): Column[] {
+  const cols: Column[] = []
+  let depth = 0
+  let start = 0
+  const add = (part: string) => {
+    part = part.trim()
+    const open = part.indexOf('(')
+    if (open < 0) { if (part) cols.push(part); return }
+    cols.push({ table: part.slice(0, open).trim(), cols: parseColumns(part.slice(open + 1, -1)) })
+  }
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '(') depth++
+    else if (text[i] === ')') depth--
+    else if (text[i] === ',' && depth === 0) { add(text.slice(start, i)); start = i + 1 }
+  }
+  add(text.slice(start))
+  return cols
+}
+
+const embeddedTables = (cols: Column[]): string[] =>
+  cols.flatMap((c) => (typeof c === 'string' ? [] : [c.table, ...embeddedTables(c.cols)]))
+
+// A link is found by column name: matches.session_id points at sessions, so a session lists its
+// matches, and match_events.player_id points at players, so an event carries its one player.
+const idColumns = (table: string) => [`${table.slice(0, -1)}_id`, `${table.slice(0, -2)}_id`]
+
+function shape(table: string, row: Row, cols: Column[]): Row {
+  const out: Row = cols.includes('*') ? { ...row } : {}
+  for (const c of cols) {
+    if (typeof c === 'string') { if (c !== '*') out[c] = row[c]; continue }
+    const toOne = idColumns(c.table).find((k) => k in row)
+    if (toOne) {
+      const target = rows(c.table).find((r) => r.id === row[toOne])
+      out[c.table] = target ? shape(c.table, target, c.cols) : null
+      continue
+    }
+    const back = idColumns(table).find((k) => rows(c.table).some((r) => k in r)) ?? ''
+    const children = rows(c.table).filter((r) => r[back] === row.id)
+    out[c.table] = c.cols.length === 1 && c.cols[0] === 'count'
+      ? [{ count: children.length }]
+      : children.map((r) => shape(c.table, r, c.cols))
+  }
+  return out
+}
+
 function query(table: string) {
   const filters: Filter[] = []
   const described: string[] = []
@@ -44,11 +93,13 @@ function query(table: string) {
   let orderBy: { col: string; asc: boolean }[] = []
   let from = 0
   let to = Infinity
+  let columns: Column[] = ['*']
 
   const where = (desc: string, f: Filter) => { filters.push(f); described.push(desc); return b }
 
   const run = (): { data: unknown; error: ApiError | null; count: number | null; status: number } => {
-    const error = db.errors[table]
+    // Like the real API, a failing linked table fails the whole request
+    const error = [table, ...embeddedTables(columns)].map((name) => db.errors[name]).find(Boolean)
     if (error) return { data: null, error, count: null, status: 400 }
     const all = rows(table)
     const hit = all.filter((r) => filters.every((f) => f(r)))
@@ -83,12 +134,13 @@ function query(table: string) {
       out.sort((a, c) => (String(a[col]) < String(c[col]) ? -1 : String(a[col]) > String(c[col]) ? 1 : 0) * (asc ? 1 : -1))
     }
     out = out.slice(from, to + 1)
+    if (embeddedTables(columns).length) out = out.map((r) => shape(table, r, columns))
     return { data: head ? null : out, error: null, count: count ? hit.length : null, status: 200 }
   }
 
   const b = {
-    select: (_cols?: string, opts?: { count?: string; head?: boolean }) => {
-      if (op === 'select') { count = opts?.count; head = !!opts?.head } else returning = true
+    select: (cols?: string, opts?: { count?: string; head?: boolean }) => {
+      if (op === 'select') { count = opts?.count; head = !!opts?.head; columns = parseColumns(cols ?? '*') } else returning = true
       return b
     },
     insert: (values: unknown) => { op = 'insert'; payload = values; return b },
