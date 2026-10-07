@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '../../lib/supabase'
+import { fetchLiveSession, type LiveSession } from '../../lib/liveSession'
 import { useRealtime } from '../../hooks/useRealtime'
 import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
 import { MatchTimeline } from '../../components/MatchTimeline'
@@ -12,7 +12,7 @@ import LoadFailed from '../../components/LoadFailed'
 import { NextUp } from '../../components/NextUp'
 import { waitingQueue } from '../../utils/matchRotation'
 import NotAvailablePage from '../NotAvailablePage'
-import type { Session, Match, Team, MatchEvent, Player, TeamPlayer } from '../../lib/types'
+import type { Session, Match, Team, MatchEvent, Player } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 
 const colorBg = styleMap('card')
@@ -29,40 +29,21 @@ export default function LiveSessionPage() {
   const [status, setStatus] = useState<'loading' | 'missing' | 'failed' | 'ready'>('loading')
 
   const load = useCallback(async () => {
-    const { data: sess, error } = await supabase.from('sessions').select('*').eq('share_token', token).maybeSingle()
-    // A failed live refresh keeps what is on screen; only a failed first load needs the retry screen
-    if (error) { setStatus((s) => (s === 'ready' ? s : 'failed')); return }
-    if (!sess) { setStatus('missing'); return }
-    setStatus('ready')
-    const sessionId = (sess as Session).id
-    setSession(sess as Session)
-
-    const [{ data: teamsData }, { data: matchData }] = await Promise.all([
-      supabase.from('teams').select('*').eq('session_id', sessionId),
-      supabase.from('matches').select('*').eq('session_id', sessionId),
-    ])
-    const teamRows = (teamsData ?? []) as Team[]
-    const matchRows = (matchData ?? []) as Match[]
-    setTeams(teamRows)
-    setMatches(matchRows)
-    if (teamRows.length === 0 || matchRows.length === 0) return
-
-    const [{ data: evData }, { data: tpData }] = await Promise.all([
-      supabase.from('match_events').select('*').in('match_id', matchRows.map((m) => m.id)),
-      supabase.from('team_players').select('player_id').in('team_id', teamRows.map((tm) => tm.id)),
-    ])
-    const evRows = (evData ?? []) as MatchEvent[]
-    setEvents(evRows)
-
-    // Session roster plus anyone named in an event, so swapped players still have names
-    const pIds = [...new Set([
-      ...((tpData ?? []) as Pick<TeamPlayer, 'player_id'>[]).map((r) => r.player_id),
-      ...evRows.map((e) => e.player_id),
-    ])]
-    if (pIds.length > 0) {
-      const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
-      setPlayers((pData ?? []) as Player[])
+    let live: LiveSession | null
+    try {
+      live = await fetchLiveSession(token ?? '')
+    } catch {
+      // A failed live refresh keeps what is on screen; only a failed first load needs the retry screen
+      setStatus((s) => (s === 'ready' ? s : 'failed'))
+      return
     }
+    if (!live) { setStatus('missing'); return }
+    setSession(live.session)
+    setTeams(live.teams)
+    setMatches(live.matches)
+    setEvents(live.events)
+    setPlayers(live.players)
+    setStatus('ready')
   }, [token])
 
   useEffect(() => { load() }, [load])

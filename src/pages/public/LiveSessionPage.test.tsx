@@ -43,6 +43,24 @@ it('shows the day and results when no match is being played', async () => {
   expect(screen.getAllByText('Omar').length).toBeGreaterThan(0)
 })
 
+it('loads the session, teams, matches, goals and players in one request', async () => {
+  resetDb(finishedLeague())
+  renderPage()
+  expect(await screen.findByText('No active match')).toBeInTheDocument()
+  expect(screen.getAllByText('Omar').length).toBeGreaterThan(0)
+  expect(db.reads).toBe(1)
+})
+
+it('names a player who came on in a swap even though they are not on a team list', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    match_events: [...league.match_events, event('e9', 'm1', 'p7', 'tg', 'goal')],
+  })
+  renderPage()
+  expect((await screen.findAllByText('Retired')).length).toBeGreaterThan(0)
+})
+
 it('says the page is not found when the link is unknown', async () => {
   resetDb()
   renderPage()
