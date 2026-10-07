@@ -1,6 +1,24 @@
 # Move the Database from Singapore to Zurich: Plan
 
-**Status:** Draft for review. Nothing has been changed yet.
+**Status (2026-10-07):** Phases 1 and 2 are done. Phase 3 (the switch) is waiting for a time and the Vercel change.
+
+## Progress log
+- New project `eogjqaquveigkqhmimjs` ("Score-Leader-max", `eu-central-2`). The CLI login only covers the old project, so changes to the new database go over the session pooler (`aws-0-eu-central-2.pooler.supabase.com:5432`) and management calls use a full-access token. Both are kept in the git-ignored `.env.zurich.local`.
+- Migrations: the first 15 were applied, then the 2 logins were copied (`20261006000001` needs `info@codorasoft.com` to exist), then the remaining 7. All 22 are applied.
+- Structure compared by name and definition: all 534 items match. The only difference is CRLF line endings inside the 10 function bodies, which doesn't affect how they run.
+- Supabase doesn't allow `session_replication_role`, so the copy runs with triggers on, parents first, in one `DO` block. The live data passes every trigger.
+- Rehearsal copy: `scripts/copy-project.ts --verify` reports all 17 tables (15 public, 2 auth) the **same by full-content fingerprint**. The 1 photo is copied and loads from Zurich (HTTP 200).
+- The 3 server functions are deployed to Zurich. Auth settings (site URL and redirect list) are copied, and there are no other non-secret differences.
+- Measured on the real API: **232 ms (Singapore) vs 109 ms (Zurich)** per request, median of 5.
+- Local app against Zurich: `VITE_SUPABASE_URL=<zurich> VITE_SUPABASE_ANON_KEY=<publishable> npx vite --port 5199`.
+
+## Cleanup after the move
+- Reset the Zurich database password: it was posted in chat. Then update `ZURICH_DB_URL` locally.
+- Delete the personal access token used for the move: it was posted in chat.
+- Pause the Singapore project after one week.
+
+## Note
+- Both projects' Auth "Site URL" is `https://score-leader-codorasoft.vercel.app/`, while the app is used at `score-leader-drab.vercel.app`. Password sign-in doesn't use it. Only email links (e.g. password reset emails) would point at the codorasoft address.
 
 ## Why
 The Supabase project `tunwvypccjsbzlclmxrk` is in Singapore (`ap-southeast-1`). Measured from Palestine, a round trip there takes **~196 ms**; to Zurich (`eu-central-2`) it takes **~57 ms**. The database itself answers in ~1 ms, so nearly all the waiting is distance.
