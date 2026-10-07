@@ -24,6 +24,7 @@ import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { SyncStatus } from '../../components/SyncStatus'
 import { outbox, newId } from '../../lib/pitchOutbox'
 import { overlayPending } from '../../lib/outboxOverlay'
+import { fetchSession, type SessionData } from '../../lib/sessionData'
 import type { OutboxOp } from '../../lib/outbox'
 import { goalOps, cardOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
@@ -64,46 +65,32 @@ export default function MatchTrackerPage() {
 
   const timer = useMatchTimer(match ?? ({} as Match))
 
-  const loadSessionMatches = async () => {
-    const { data: mData } = await supabase.from('matches').select('*').eq('session_id', sessionId)
-    const rows = (mData ?? []) as Match[]
-    setSessionMatches(rows)
-    const finishedIds = rows.filter((m) => m.status === 'completed').map((m) => m.id)
-    if (finishedIds.length === 0) { setSessionEvents([]); return }
-    const { data: evData } = await supabase.from('match_events').select('*').in('match_id', finishedIds)
-    setSessionEvents((evData ?? []) as MatchEvent[])
-  }
-
+  // One request for the whole session; runs on open and after every goal, card or swap
   const load = async () => {
-    loadSessionMatches()
-    const [{ data: m }, { data: teamsData }] = await Promise.all([
-      supabase.from('matches').select('*').eq('id', matchId).single(),
-      supabase.from('teams').select('*').eq('session_id', sessionId),
-    ])
-    // Offline: keep what is on screen rather than wiping it
-    if (!m || !teamsData) return
-    setTeams(teamsData as Team[])
+    let data: SessionData | null
+    try {
+      data = await fetchSession('id', sessionId ?? '')
+    } catch {
+      // Offline: keep what is on screen rather than wiping it
+      return
+    }
+    const m = data?.matches.find((x) => x.id === matchId)
+    if (!data || !m) return
+    const finished = new Set(data.matches.filter((x) => x.status === 'completed').map((x) => x.id))
+    setSessionMatches(data.matches)
+    setSessionEvents(data.events.filter((e) => finished.has(e.match_id)))
+    setTeams(data.teams)
+    setPlayers(data.players)
 
-    const teamIds = (teamsData as Team[]).map((t) => t.id)
-    const [{ data: tpData }, { data: evData }] = await Promise.all([
-      supabase.from('team_players').select('*').in('team_id', teamIds),
-      supabase.from('match_events').select('*').eq('match_id', m.id),
-    ])
     // Changes still waiting on this phone are shown on top of what the server has
     const shown = overlayPending(outbox.pending(), {
-      match: m as Match,
-      events: (evData ?? []) as MatchEvent[],
-      teamPlayers: (tpData ?? []) as TeamPlayer[],
+      match: m,
+      events: data.events.filter((e) => e.match_id === m.id),
+      teamPlayers: data.teamPlayers,
     })
     setMatch(shown.match)
     setEvents(shown.events)
     setTeamPlayers(shown.teamPlayers)
-
-    const pIds = [...new Set(shown.teamPlayers.map((tp) => tp.player_id))]
-    if (pIds.length > 0) {
-      const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
-      if (pData) setPlayers(pData as Player[])
-    }
   }
 
   useEffect(() => { load() }, [matchId])

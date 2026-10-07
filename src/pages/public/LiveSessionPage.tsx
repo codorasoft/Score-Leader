@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { fetchLiveSession, type LiveSession } from '../../lib/liveSession'
+import { fetchSession, type SessionData } from '../../lib/sessionData'
 import { useRealtime } from '../../hooks/useRealtime'
 import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
 import { MatchTimeline } from '../../components/MatchTimeline'
@@ -29,9 +29,9 @@ export default function LiveSessionPage() {
   const [status, setStatus] = useState<'loading' | 'missing' | 'failed' | 'ready'>('loading')
 
   const load = useCallback(async () => {
-    let live: LiveSession | null
+    let live: SessionData | null
     try {
-      live = await fetchLiveSession(token ?? '')
+      live = await fetchSession('share_token', token ?? '')
     } catch {
       // A failed live refresh keeps what is on screen; only a failed first load needs the retry screen
       setStatus((s) => (s === 'ready' ? s : 'failed'))

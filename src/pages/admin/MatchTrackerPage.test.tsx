@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
-import { resetDb, rows } from '../../test/fakeSupabase'
+import { db, resetDb, rows } from '../../test/fakeSupabase'
 import { match, player, players, session, team, teamPlayers, teams } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 
@@ -48,6 +48,13 @@ it('shows who is playing and who waits, and blocks goals until the clock starts'
   // The clock state catches up with the loaded match one render later
   await waitFor(() => expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeDisabled())
   expect(screen.getByText('Press Start to record goals and cards')).toBeInTheDocument()
+})
+
+it('loads the match, teams, players and the day so far in one request', async () => {
+  renderPage()
+  expect(await screen.findByText('Green Team')).toBeInTheDocument()
+  await waitFor(() => expect(screen.getByRole('button', { name: '▶ Start' })).toBeInTheDocument())
+  expect(db.reads).toBe(1)
 })
 
 it('starts the clock and records a goal with an assist', async () => {

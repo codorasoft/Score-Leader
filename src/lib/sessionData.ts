@@ -1,16 +1,18 @@
 import { supabase } from './supabase'
 import type { Match, MatchEvent, Player, Session, Team, TeamPlayer } from './types'
 
-export interface LiveSession {
+export interface SessionData {
   session: Session
   teams: Team[]
+  teamPlayers: TeamPlayer[]
   matches: Match[]
+  // Every match's goals, cards and swaps
   events: MatchEvent[]
   // The session's team lists plus anyone named in an event, so swapped-in players still have names
   players: Player[]
 }
 
-// One request instead of four in a row: the database follows the links and nests the rows.
+// One request instead of several in a row: the database follows the links and nests the rows.
 // Teams come from the session, not the match, because a match points at teams in several ways.
 const SELECT = '*, teams(*, team_players(*, players(*))), matches(*, match_events(*, players(*)))'
 
@@ -19,10 +21,14 @@ type Row = Session & {
   matches: (Match & { match_events: (MatchEvent & { players: Player | null })[] })[]
 }
 
-export function unpackLiveSession({ teams: teamRows, matches: matchRows, ...session }: Row): LiveSession {
+export function unpackSession({ teams: teamRows, matches: matchRows, ...session }: Row): SessionData {
   const players = new Map<string, Player>()
+  const teamPlayers: TeamPlayer[] = []
   const teams = teamRows.map(({ team_players, ...team }) => {
-    for (const tp of team_players) if (tp.players) players.set(tp.players.id, tp.players)
+    for (const { players: p, ...tp } of team_players) {
+      teamPlayers.push(tp)
+      if (p) players.set(p.id, p)
+    }
     return team
   })
   const events: MatchEvent[] = []
@@ -33,12 +39,12 @@ export function unpackLiveSession({ teams: teamRows, matches: matchRows, ...sess
     }
     return match
   })
-  return { session, teams, matches, events, players: [...players.values()] }
+  return { session, teams, teamPlayers, matches, events, players: [...players.values()] }
 }
 
-// Throws when the request fails; null means no session has this link.
-export async function fetchLiveSession(token: string): Promise<LiveSession | null> {
-  const { data, error } = await supabase.from('sessions').select(SELECT).eq('share_token', token).maybeSingle()
+// By share link (public live page) or id (admin). Throws when the request fails; null means no such session.
+export async function fetchSession(by: 'share_token' | 'id', value: string): Promise<SessionData | null> {
+  const { data, error } = await supabase.from('sessions').select(SELECT).eq(by, value).maybeSingle()
   if (error) throw error
-  return data ? unpackLiveSession(data as unknown as Row) : null
+  return data ? unpackSession(data as unknown as Row) : null
 }

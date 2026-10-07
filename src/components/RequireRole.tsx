@@ -5,6 +5,7 @@ import { useProfile } from '../hooks/useProfile'
 import type { Role } from '../lib/tenancy'
 import LoadingScreen from './LoadingScreen'
 import LoadFailed from './LoadFailed'
+import { startMyLeagues } from '../contexts/MyLeaguesContext'
 import NotAvailablePage from '../pages/NotAvailablePage'
 
 const HOME: Record<Role, string> = { admin: '/admin', superadmin: '/super' }
@@ -17,6 +18,12 @@ export default function RequireRole({ role }: { role: Role }) {
   const blockedNow = !loading && !!user && !profileLoading && !error && (!profile || profile.is_disabled)
   // Stays set after signOut clears the user, so the message remains on screen.
   const [blocked, setBlocked] = useState(false)
+
+  // Admin pages need the leagues too: ask for them while the profile is still on its way
+  const userId = user?.id
+  useEffect(() => {
+    if (role === 'admin' && userId && profileLoading) startMyLeagues(userId)
+  }, [role, userId, profileLoading])
 
   useEffect(() => {
     if (!blockedNow || blocked) return
