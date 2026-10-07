@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import type { AdminProfile, League, LeagueInfo } from '../lib/tenancy'
 import { FEATURES } from '../lib/features'
@@ -12,6 +12,8 @@ const h = vi.hoisted(() => ({
   },
   profile: { profile: null as unknown, loading: false } as { profile: unknown; loading: boolean; error?: boolean },
   retry: vi.fn(),
+  // Re-renders whoever uses the profile, like the real hook does when its request finishes
+  profileArrived: () => {},
   leagues: [] as unknown[],
   leaguesError: false,
   infoBySlug: null as unknown,
@@ -22,7 +24,16 @@ const h = vi.hoisted(() => ({
 const { stub } = vi.hoisted(() => ({ stub: (name: string) => ({ default: () => name }) }))
 
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => h.auth }))
-vi.mock('../hooks/useProfile', () => ({ useProfile: () => ({ error: false, retry: h.retry, ...h.profile }) }))
+vi.mock('../hooks/useProfile', async () => {
+  const { useEffect, useReducer } = await import('react')
+  return {
+    useProfile: () => {
+      const [, rerender] = useReducer((n: number) => n + 1, 0)
+      useEffect(() => { h.profileArrived = rerender }, [])
+      return { error: false, retry: h.retry, ...h.profile }
+    },
+  }
+})
 vi.mock('../lib/tenancy', () => ({
   fetchMyLeagues: vi.fn(async () => {
     if (h.leaguesError) throw new Error('offline')
@@ -58,6 +69,7 @@ vi.mock('../pages/public/LeagueHomePage', () => stub('LeagueHomePage'))
 vi.mock('../pages/public/CardsPage', () => stub('CardsPage'))
 
 import { routes } from '../router'
+import { fetchMyLeagues } from '../lib/tenancy'
 
 const profile = (over: Partial<AdminProfile> = {}): AdminProfile => ({
   user_id: 'u1', role: 'admin', email: 'a@b.c', display_name: 'A', max_leagues: 3,
@@ -92,6 +104,7 @@ beforeEach(() => {
   h.infoFails = false
   h.infoById = info()
   h.sessionRow = null
+  vi.mocked(fetchMyLeagues).mockClear()
 })
 
 describe('legacy public redirects', () => {
@@ -192,6 +205,21 @@ describe('leagues fetch failure', () => {
     const router = renderAt('/admin')
     expect(await screen.findByText('Could not load. Check your connection.')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/admin')
+  })
+})
+
+describe('admin start-up', () => {
+  it('asks for the leagues at the same time as the profile, not after it', async () => {
+    h.profile = { profile: null, loading: true }
+    const router = renderAt('/admin/eagles/history')
+    await waitFor(() => expect(fetchMyLeagues).toHaveBeenCalledTimes(1))
+
+    // The profile arrives: the page uses the leagues already asked for
+    h.profile = { profile: profile(), loading: false }
+    act(() => h.profileArrived())
+    expect(await screen.findByText('HistoryPage')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/eagles/history')
+    expect(fetchMyLeagues).toHaveBeenCalledTimes(1)
   })
 })
 
