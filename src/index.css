@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 
 @theme {
   --color-team-red: #EF4444;
@@ -9,4 +8,10 @@
 
 [lang="ar"] {
   font-family: 'Cairo', system-ui, sans-serif;
+}
+
+/* Same as the startup page in index.html, so no white shows during reloads or overscroll */
+html,
+body {
+  background-color: var(--color-gray-900);
 }

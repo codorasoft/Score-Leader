@@ -1,12 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" style="background-color: #101828; color-scheme: dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101828" />
     <title>Score-Leader</title>
+    <!-- The Arabic font loads alongside the app instead of holding back its styles -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin: 0; background-color: #101828">
+    <!-- Shown until the app draws its first screen: the same dark "Loading…" as the app's loading screen -->
+    <div id="root"><div id="boot" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #99a1af; font-family: system-ui, sans-serif">Loading…</div></div>
+    <script>
+      try {
+        if (localStorage.getItem('lang') === 'ar') {
+          document.documentElement.lang = 'ar'
+          document.documentElement.dir = 'rtl'
+          document.getElementById('boot').textContent = 'جار التحميل…'
+        }
+      } catch (e) { /* storage blocked: English */ }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
