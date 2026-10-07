@@ -1,6 +1,8 @@
 # Move the Database from Singapore to Zurich: Plan
 
-**Status (2026-10-07):** Phases 1 and 2 are done. Phase 3 (the switch) is waiting for a time and the Vercel change.
+**Status: Done (2026-10-07).** Production runs on Zurich `eogjqaquveigkqhmimjs`. The user confirmed sign-in and the app work. The Singapore project `tunwvypccjsbzlclmxrk` was then **deleted**, at the user's request, after a check that its data and logins still matched Zurich. The one-off copy script `scripts/copy-project.ts` was removed with it; this document is kept as the record. The final Singapore backup is at `E:\Score-Leader-backups\2026-10-07T18-58`.
+
+At the switch, Vercel did not deploy the merge of PR #10 by itself. The user promoted the branch's preview build to Production.
 
 ## Progress log
 - New project `eogjqaquveigkqhmimjs` ("Score-Leader-max", `eu-central-2`). The CLI login only covers the old project, so changes to the new database go over the session pooler (`aws-0-eu-central-2.pooler.supabase.com:5432`) and management calls use a full-access token. Both are kept in the git-ignored `.env.zurich.local`.
