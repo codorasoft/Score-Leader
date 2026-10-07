@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
+import { fetchSession } from '../../lib/sessionData'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { recomputeResult } from '../../utils/matchEdit'
 import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
@@ -47,47 +48,30 @@ export default function SessionDetailPage() {
   const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
   const [starting, setStarting] = useState(false)
 
+  // The session with everything linked to it, and its awards, side by side in one round
   const load = async () => {
-    const [sessRes, matchRes, teamRes, awardRes] = await Promise.all([
-      supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).maybeSingle(),
-      supabase.from('matches').select('*').eq('session_id', sessionId).order('match_number'),
-      supabase.from('teams').select('*').eq('session_id', sessionId),
-      supabase.from('session_awards').select('*').eq('session_id', sessionId),
+    const [sessRes, awardRes] = await Promise.allSettled([
+      fetchSession('id', sessionId ?? '', league.id),
+      supabase.from('session_awards').select('*').eq('session_id', sessionId).then(({ data, error }) => {
+        if (error) throw error
+        return (data ?? []) as SessionAward[]
+      }),
     ])
     // A malformed id in the URL (invalid uuid) is "not found", not a failure.
-    if (sessRes.error?.code === '22P02') { navigate(adminPath('/history'), { replace: true }); return }
+    if (sessRes.status === 'rejected' && sessRes.reason?.code === '22P02') { navigate(adminPath('/history'), { replace: true }); return }
     // A network or server failure is not "not found": offer a retry instead of leaving the page.
-    if (sessRes.error || matchRes.error || teamRes.error || awardRes.error) { setLoadFailed(true); return }
+    if (sessRes.status === 'rejected' || awardRes.status === 'rejected') { setLoadFailed(true); return }
     setLoadFailed(false)
     // Not found, or another league's session
-    if (!sessRes.data) { navigate(adminPath('/history'), { replace: true }); return }
-    setAwards((awardRes.data ?? []) as SessionAward[])
-    const matchRows = (matchRes.data ?? []) as Match[]
-    const teamRows = (teamRes.data ?? []) as Team[]
-    setSession(sessRes.data as Session)
-    setMatches(matchRows)
-    setTeams(teamRows)
-
-    // Teams are loaded even with no matches, so a session whose matches were deleted still shows them
-    if (teamRows.length === 0) return
-    const [{ data: evData, error: evError }, { data: tpData, error: tpError }] = await Promise.all([
-      matchRows.length
-        ? supabase.from('match_events').select('*').in('match_id', matchRows.map((m) => m.id))
-        : Promise.resolve({ data: [], error: null }),
-      supabase.from('team_players').select('*').in('team_id', teamRows.map((tm) => tm.id)),
-    ])
-    if (evError || tpError) { setLoadFailed(true); return }
-    const evRows = (evData ?? []) as MatchEvent[]
-    const tpRows = (tpData ?? []) as TeamPlayer[]
-    setEvents(evRows)
-    setTeamPlayers(tpRows)
-
-    const pIds = [...new Set([...tpRows.map((tp) => tp.player_id), ...evRows.map((e) => e.player_id)])]
-    if (pIds.length > 0) {
-      const { data: pData, error: pError } = await supabase.from('players').select('*').in('id', pIds)
-      if (pError) { setLoadFailed(true); return }
-      setPlayers((pData ?? []) as Player[])
-    }
+    const data = sessRes.value
+    if (!data) { navigate(adminPath('/history'), { replace: true }); return }
+    setAwards(awardRes.value)
+    setSession(data.session)
+    setMatches(data.matches)
+    setTeams(data.teams)
+    setEvents(data.events)
+    setTeamPlayers(data.teamPlayers)
+    setPlayers(data.players)
   }
 
   useEffect(() => { load() }, [sessionId, league.id])

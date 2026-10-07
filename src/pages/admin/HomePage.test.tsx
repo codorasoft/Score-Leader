@@ -1,23 +1,18 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
+import { db, resetDb } from '../../test/fakeSupabase'
+import { player } from '../../test/fixtures'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 
-// Every query resolves to the rows set for its table; filters are accepted and ignored.
-const h = vi.hoisted(() => ({ rows: {} as Record<string, unknown[]>, count: 0 }))
-vi.mock('../../lib/supabase', () => {
-  const builder = (table: string) => {
-    const result = () => ({ data: h.rows[table] ?? [], count: h.count, error: null })
-    const b: Record<string, unknown> = {}
-    for (const m of ['select', 'eq', 'in', 'is', 'order', 'limit']) b[m] = () => b
-    b.then = (ok: (v: unknown) => unknown) => Promise.resolve(result()).then(ok)
-    return b
-  }
-  return { supabase: { from: builder } }
-})
+vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
 import HomePage from './HomePage'
+
+// Rows per table for the next render; the in-memory database really filters them
+const h = { rows: {} as Record<string, Record<string, unknown>[]> }
+const noPhoto = (n: number) => Array.from({ length: n }, (_, i) => player(`np${i}`, `No photo ${i}`, 'MID', 3))
 
 const today = new Date().toISOString().slice(0, 10)
 const session = (id: string, date: string, status: string) => ({ id, date, status, share_token: 't' + id, created_at: date + 'T10:00:00Z', league_id: 'L1' })
@@ -27,10 +22,25 @@ const match = (status: string, extra = {}) => ({
 })
 
 function renderHome(features: readonly FeatureKey[] = FEATURES, url = '/admin/eagles/home') {
+  resetDb(h.rows)
   return render(<MemoryRouter initialEntries={[url]}><InLeague features={features}><HomePage /></InLeague></MemoryRouter>)
 }
 
-beforeEach(() => { h.rows = {}; h.count = 0 })
+beforeEach(() => { h.rows = {} })
+
+it('asks all its questions at once instead of waiting for the session list first', async () => {
+  h.rows.sessions = [session('s1', today, 'active')]
+  h.rows.award_votes = [{ id: 'v1', award_type: 'mvp', session_id: 's1', league_id: 'L1', status: 'open' }]
+  h.rows.award_vote_entries = [{ award_vote_id: 'v1' }]
+  let answerSessions = () => {}
+  renderHome()
+  db.holds.sessions = new Promise<void>((r) => { answerSessions = r })
+  // While the sessions are still on their way, the votes (with their counts), photos and boards are already asked
+  await waitFor(() => expect(db.reads).toBe(3))
+  answerSessions()
+  expect(await screen.findByRole('link', { name: /MVP vote .*1 vote/ })).toBeInTheDocument()
+  expect(db.reads).toBe(5)
+})
 
 describe('live / start block', () => {
   it('nothing open: start button and when the league last played', async () => {
@@ -111,9 +121,9 @@ describe('live match shows who is next', () => {
 describe('to do block', () => {
   beforeEach(() => {
     h.rows.sessions = [session('old', '2026-10-01', 'active'), session('s9', '2026-09-20', 'completed')]
-    h.rows.award_votes = [{ id: 'v1', award_type: 'mvp', session_id: 's9' }]
+    h.rows.award_votes = [{ id: 'v1', award_type: 'mvp', session_id: 's9', league_id: 'L1', status: 'open' }]
     h.rows.award_vote_entries = [{ award_vote_id: 'v1' }, { award_vote_id: 'v1' }]
-    h.count = 3
+    h.rows.players = noPhoto(3)
   })
   it('lists open votes, unfinished sessions and players without photos', async () => {
     renderHome()
@@ -129,7 +139,6 @@ describe('to do block', () => {
   })
   it('says all done when nothing is waiting', async () => {
     h.rows = { sessions: [session('s9', '2026-09-20', 'completed')] }
-    h.count = 0
     renderHome()
     expect(await screen.findByText('All done ✓')).toBeInTheDocument()
   })
@@ -137,7 +146,7 @@ describe('to do block', () => {
 
 describe('coach board block', () => {
   it('opens the last edited board', async () => {
-    h.rows.lineups = [{ id: 'b1', name: 'Saturday 4-4-2', updated_at: '2026-10-05T12:00:00Z' }]
+    h.rows.lineups = [{ id: 'b1', name: 'Saturday 4-4-2', updated_at: '2026-10-05T12:00:00Z', league_id: 'L1' }]
     renderHome()
     expect(await screen.findByRole('link', { name: /Saturday 4-4-2/ })).toHaveAttribute('href', '/admin/eagles/lineups/b1')
     expect(screen.getByRole('link', { name: '+ New board' })).toHaveAttribute('href', '/admin/eagles/lineups/new')
