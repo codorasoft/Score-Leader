@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import type { LeagueInfo } from './tenancy'
 import type { Match, MatchEvent, Player, Session, Team, TeamPlayer } from './types'
 
 export interface SessionData {
@@ -43,9 +44,35 @@ export function unpackSession({ teams: teamRows, matches: matchRows, ...session 
   return { session, teams, teamPlayers, matches, events, players: [...players.values()] }
 }
 
+// A live link's route loads the league and the whole session together; the page then takes that
+// session once instead of asking again. Later loads (live refreshes) always ask.
+const primed = new Map<string, SessionData>()
+
+export interface LiveLink {
+  // null when the league is gone or not available
+  league: LeagueInfo | null
+  session: SessionData
+}
+
+// Everything a /s/:token visit needs in one request. Throws when the request fails; null means no such link.
+export async function fetchLiveLink(token: string): Promise<LiveLink | null> {
+  const { data, error } = await supabase.from('sessions').select(`${SELECT}, league_directory(*)`).eq('share_token', token).maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const { league_directory, ...row } = data as unknown as Row & { league_directory: LeagueInfo | null }
+  const session = unpackSession(row)
+  primed.set(token, session)
+  return { league: league_directory ?? null, session }
+}
+
 // By share link (public live page) or id (admin, only within the given league).
 // Throws the request's error when it fails; null means no such session.
 export async function fetchSession(by: 'share_token' | 'id', value: string, leagueId?: string): Promise<SessionData | null> {
+  if (by === 'share_token') {
+    const ready = primed.get(value)
+    primed.delete(value)
+    if (ready) return ready
+  }
   let query = supabase.from('sessions').select(SELECT).eq(by, value)
   if (leagueId) query = query.eq('league_id', leagueId)
   const { data, error } = await query.maybeSingle()

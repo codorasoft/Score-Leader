@@ -61,7 +61,9 @@ const embeddedTables = (cols: Column[]): string[] =>
 
 // A link is found by column name: matches.session_id points at sessions, so a session lists its
 // matches, and match_events.player_id points at players, so an event carries its one player.
-const idColumns = (table: string) => [`${table.slice(0, -1)}_id`, `${table.slice(0, -2)}_id`]
+// The league_directory view is reached through league_id, like the real database does.
+const TO_ONE: Record<string, string> = { league_directory: 'league_id' }
+const idColumns = (table: string) => [TO_ONE[table], `${table.slice(0, -1)}_id`, `${table.slice(0, -2)}_id`].filter(Boolean)
 
 function shape(table: string, row: Row, cols: Column[]): Row {
   const out: Row = cols.includes('*') ? { ...row } : {}

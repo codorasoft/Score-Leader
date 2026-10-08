@@ -69,7 +69,7 @@ vi.mock('../pages/public/LeagueHomePage', () => stub('LeagueHomePage'))
 vi.mock('../pages/public/CardsPage', () => stub('CardsPage'))
 
 import { routes } from '../router'
-import { fetchMyLeagues } from '../lib/tenancy'
+import { fetchLeagueInfoById, fetchMyLeagues } from '../lib/tenancy'
 
 const profile = (over: Partial<AdminProfile> = {}): AdminProfile => ({
   user_id: 'u1', role: 'admin', email: 'a@b.c', display_name: 'A', max_leagues: 3,
@@ -105,6 +105,7 @@ beforeEach(() => {
   h.infoById = info()
   h.sessionRow = null
   vi.mocked(fetchMyLeagues).mockClear()
+  vi.mocked(fetchLeagueInfoById).mockClear()
 })
 
 describe('legacy public redirects', () => {
@@ -301,15 +302,23 @@ describe('public league', () => {
 })
 
 describe('session links', () => {
-  it('/s/:token renders the live page inside its league', async () => {
-    h.sessionRow = { league_id: 'id-eagles' }
+  it('/s/:token renders the live page inside its league, from one request', async () => {
+    // The session row now carries the league's details and its rows
+    h.sessionRow = { id: 's1', league_id: 'id-eagles', league_directory: info(), teams: [], matches: [] }
     renderAt('/s/tok')
     expect(await screen.findByText('LiveSessionPage')).toBeInTheDocument()
+    expect(fetchLeagueInfoById).not.toHaveBeenCalled()
   })
-  it('/s/vote/:voteToken renders the vote page', async () => {
-    h.sessionRow = { league_id: 'id-eagles' }
+  it('/s/:token whose league is gone shows League not available', async () => {
+    h.sessionRow = { id: 's1', league_id: 'id-eagles', league_directory: null, teams: [], matches: [] }
+    renderAt('/s/tok')
+    expect(await screen.findByText('League not available')).toBeInTheDocument()
+  })
+  it('/s/vote/:voteToken renders the vote page inside its league, from one request', async () => {
+    h.sessionRow = { league_id: 'id-eagles', league_directory: info() }
     renderAt('/s/vote/v1')
     expect(await screen.findByText('VotePage')).toBeInTheDocument()
+    expect(fetchLeagueInfoById).not.toHaveBeenCalled()
   })
   it('unknown token shows League not available', async () => {
     renderAt('/s/missing')
