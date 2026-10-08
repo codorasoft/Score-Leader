@@ -12,6 +12,7 @@ import { waitingQueue } from '../../utils/matchRotation'
 import { liveState, matchElapsed, staleSessions, todoItems, type LiveState, type OpenVote, type TodoItem } from '../../utils/homeStatus'
 import type { AwardVote, Match, Session, Team, TeamColor } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
+import { serverNow } from '../../lib/serverClock'
 
 const colorDot = styleMap('dot')
 const AWARD_LABEL: Record<AwardVote['award_type'], string> = { mvp: 'awards.mvp', fair_play: 'awards.fairPlay', best_goalkeeper: 'awards.bestGk' }
@@ -196,10 +197,10 @@ function TeamDot({ team }: { team: Team | undefined }) {
 }
 
 function MatchClock({ match }: { match: Match }) {
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
     if (match.timer_status !== 'running') return
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setNow(serverNow()), 1000)
     return () => clearInterval(id)
   }, [match.timer_status])
   return <p className="text-center text-sm text-gray-300 tabular-nums" dir="ltr">{formatMatchClock(matchElapsed(match, now))}</p>

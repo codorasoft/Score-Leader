@@ -25,6 +25,7 @@ import { SyncStatus } from '../../components/SyncStatus'
 import { outbox, newId } from '../../lib/pitchOutbox'
 import { overlayPending } from '../../lib/outboxOverlay'
 import { fetchSession, type SessionData } from '../../lib/sessionData'
+import { serverNowIso } from '../../lib/serverClock'
 import type { OutboxOp } from '../../lib/outbox'
 import { goalOps, cardOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
@@ -168,7 +169,7 @@ export default function MatchTrackerPage() {
     if (!scorerTeamId || !inProgress) return
     const assisterTeamId = assisterId ? teamPlayers.find((tp) => tp.player_id === assisterId)?.team_id : null
     await apply(goalOps({
-      match, scorerId, scorerTeamId, assisterId, assisterTeamId, clock: clockFields, newId, now: new Date().toISOString(),
+      match, scorerId, scorerTeamId, assisterId, assisterTeamId, clock: clockFields, newId, now: serverNowIso(),
     }))
   }
 
@@ -178,7 +179,7 @@ export default function MatchTrackerPage() {
     setDialog(null)
     const teamId = teamPlayers.find((tp) => tp.player_id === playerId)?.team_id
     if (!inProgress || !teamId) return
-    await apply(cardOps({ match, playerId, teamId, cardType, suspensionMinutes, clock: clockFields, newId, now: new Date().toISOString() }))
+    await apply(cardOps({ match, playerId, teamId, cardType, suspensionMinutes, clock: clockFields, newId, now: serverNowIso() }))
   }
 
   const lastEvent = findLastUndoable(events)
@@ -209,7 +210,7 @@ export default function MatchTrackerPage() {
       ? { elapsed_seconds: null, minute: null }
       : { elapsed_seconds: timer.elapsed, minute: Math.floor(timer.elapsed / 60) }
     await apply(swapOps({
-      match, p1: { id: p1Id, teamId: p1TeamId }, p2: { id: p2Id, teamId: p2TeamId }, clock, newId, now: new Date().toISOString(),
+      match, p1: { id: p1Id, teamId: p1TeamId }, p2: { id: p2Id, teamId: p2TeamId }, clock, newId, now: serverNowIso(),
     }))
   }
 

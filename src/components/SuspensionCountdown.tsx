@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import type { MatchEvent } from '../lib/types'
 
 interface Props {
@@ -11,9 +12,9 @@ interface Props {
 export function SuspensionCountdown({ event, onReturn }: Props) {
   const { t } = useTranslation()
   const totalSeconds = (event.suspension_minutes ?? 2) * 60
-  const started = event.suspension_started_at ? new Date(event.suspension_started_at).getTime() : Date.now()
+  const started = event.suspension_started_at ? new Date(event.suspension_started_at).getTime() : serverNow()
 
-  const calcRemaining = () => Math.max(0, totalSeconds - Math.floor((Date.now() - started) / 1000))
+  const calcRemaining = () => Math.max(0, totalSeconds - Math.floor((serverNow() - started) / 1000))
   const [remaining, setRemaining] = useState(calcRemaining)
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export function SuspensionCountdown({ event, onReturn }: Props) {
   const handleReturnEarly = async () => {
     await supabase
       .from('match_events')
-      .update({ suspension_ended_at: new Date().toISOString() })
+      .update({ suspension_ended_at: serverNowIso() })
       .eq('id', event.id)
     onReturn()
   }
