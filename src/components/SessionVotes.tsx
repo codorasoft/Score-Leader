@@ -11,6 +11,11 @@ interface VoteData {
   entries: { player_id: string }[]
 }
 
+type VoteRow = AwardVote & {
+  award_vote_nominations: { player_id: string; players: Player | null }[]
+  award_vote_entries: { player_id: string }[]
+}
+
 // Lists a session's award votes with live counts; the admin closes each one to record the winner.
 export function SessionVotes({ sessionId }: { sessionId: string }) {
   const { t } = useTranslation()
@@ -18,27 +23,22 @@ export function SessionVotes({ sessionId }: { sessionId: string }) {
   const [players, setPlayers] = useState<Player[]>([])
   const [busy, setBusy] = useState<string | null>(null)
 
+  // One request: each vote with its nominees (and their names) and its ballots
   const load = useCallback(async () => {
-    const { data: voteRows } = await supabase.from('award_votes').select('*').eq('session_id', sessionId).order('created_at')
-    const rows = (voteRows ?? []) as AwardVote[]
-    if (rows.length === 0) { setVotes([]); return }
-    const ids = rows.map((v) => v.id)
-    const [{ data: noms }, { data: entries }] = await Promise.all([
-      supabase.from('award_vote_nominations').select('award_vote_id, player_id').in('award_vote_id', ids),
-      supabase.from('award_vote_entries').select('award_vote_id, player_id').in('award_vote_id', ids),
-    ])
-    const nomRows = (noms ?? []) as { award_vote_id: string; player_id: string }[]
-    const entryRows = (entries ?? []) as { award_vote_id: string; player_id: string }[]
-    setVotes(rows.map((vote) => ({
-      vote,
-      nominees: nomRows.filter((n) => n.award_vote_id === vote.id).map((n) => n.player_id),
-      entries: entryRows.filter((e) => e.award_vote_id === vote.id),
-    })))
-    const pIds = [...new Set(nomRows.map((n) => n.player_id))]
-    if (pIds.length > 0) {
-      const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
-      setPlayers((pData ?? []) as Player[])
-    }
+    const { data, error } = await supabase
+      .from('award_votes')
+      .select('*, award_vote_nominations(player_id, players(*)), award_vote_entries(player_id)')
+      .eq('session_id', sessionId)
+      .order('created_at')
+    // A failed refresh keeps what is on screen
+    if (error) return
+    const rows = (data ?? []) as VoteRow[]
+    const names = new Map<string, Player>()
+    setVotes(rows.map(({ award_vote_nominations, award_vote_entries, ...vote }) => {
+      for (const n of award_vote_nominations) if (n.players) names.set(n.players.id, n.players)
+      return { vote, nominees: award_vote_nominations.map((n) => n.player_id), entries: award_vote_entries }
+    }))
+    setPlayers([...names.values()])
   }, [sessionId])
 
   useEffect(() => { load() }, [load])
