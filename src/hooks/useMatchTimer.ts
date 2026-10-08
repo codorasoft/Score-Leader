@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { outbox, newId } from '../lib/pitchOutbox'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import type { Match, TimerStatus } from '../lib/types'
 
 interface MatchTimerResult {
@@ -15,7 +16,8 @@ function computeElapsed(
   startedAt: string | null,
 ): number {
   if (status !== 'running' || !startedAt) return baseSeconds
-  return baseSeconds + Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
+  // Server time on both sides; never below the time already played, whatever the clocks say
+  return baseSeconds + Math.max(0, Math.floor((serverNow() - new Date(startedAt).getTime()) / 1000))
 }
 
 export function useMatchTimer(match: Match): MatchTimerResult {
@@ -47,7 +49,7 @@ export function useMatchTimer(match: Match): MatchTimerResult {
   }, [timerStatus, baseElapsed, startedAt])
 
   const start = useCallback(async () => {
-    const now = new Date().toISOString()
+    const now = serverNowIso()
     setTimerStatus('running')
     setStartedAt(now)
     await outbox.runOrQueue({

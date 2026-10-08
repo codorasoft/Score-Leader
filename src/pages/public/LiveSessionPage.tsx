@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchSession, type SessionData } from '../../lib/sessionData'
 import { useRealtime } from '../../hooks/useRealtime'
+import { serverNow } from '../../lib/serverClock'
 import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
 import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionMatchList } from '../../components/SessionMatchList'
@@ -59,7 +60,7 @@ export default function LiveSessionPage() {
       return
     }
     const startedAt = new Date(match.timer_started_at).getTime()
-    const tick = () => setElapsed(match.timer_elapsed_seconds + Math.floor((Date.now() - startedAt) / 1000))
+    const tick = () => setElapsed(match.timer_elapsed_seconds + Math.max(0, Math.floor((serverNow() - startedAt) / 1000)))
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
