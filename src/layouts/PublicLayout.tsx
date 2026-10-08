@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LanguageToggle } from '../components/LanguageToggle'
 import { LeagueLogo } from '../components/LeagueLogo'
 import { useLeague, usePublicPath } from '../contexts/LeagueContext'
+import { useAuth } from '../hooks/useAuth'
 import type { FeatureKey } from '../lib/features'
 
 const NAV: { rest: string; icon: string; key: string; feature: FeatureKey }[] = [
@@ -16,9 +17,13 @@ export default function PublicLayout() {
   const { t } = useTranslation()
   const league = useLeague()
   const publicPath = usePublicPath()
-  const items = NAV
-    .filter((n) => league.features.includes(n.feature))
-    .map((n) => ({ ...n, to: publicPath(n.rest) }))
+  const { user } = useAuth()
+  // A signed-in admin can always get back to their admin pages
+  const home = user ? [{ to: `/admin/${league.slug}/home`, icon: '🏠', key: 'nav.home' }] : []
+  const items = [
+    ...home,
+    ...NAV.filter((n) => league.features.includes(n.feature)).map((n) => ({ ...n, to: publicPath(n.rest) })),
+  ]
   const active = (to: string) => location.pathname.startsWith(to)
 
   return (
