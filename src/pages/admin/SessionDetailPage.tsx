@@ -18,6 +18,7 @@ import { matchRowFields, nextMatchToStart, waitingQueue } from '../../utils/matc
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
+import { MatchFormatLine } from '../../components/MatchFormatLine'
 
 const colorDot = styleMap('dot')
 
@@ -99,12 +100,12 @@ export default function SessionDetailPage() {
     runEdit(async () => {
       const { data: goal } = await supabase
         .from('match_events')
-        .insert({ match_id: match.id, player_id: scorerId, team_id: teamId, event_type: 'goal' })
+        .insert({ match_id: match.id, period: match.period, player_id: scorerId, team_id: teamId, event_type: 'goal' })
         .select().single()
       if (!goal) return
       if (assisterId) {
         await supabase.from('match_events').insert({
-          match_id: match.id, player_id: assisterId, team_id: teamId,
+          match_id: match.id, period: match.period, player_id: assisterId, team_id: teamId,
           event_type: 'assist', related_event_id: (goal as MatchEvent).id,
         })
       }
@@ -137,6 +138,7 @@ export default function SessionDetailPage() {
     const { data } = await supabase.from('matches').insert({
       session_id: sessionId,
       match_number: next.matchNumber,
+      period: 1,
       ...matchRowFields(next),
       status: 'pending',
     }).select().single()
@@ -159,6 +161,7 @@ export default function SessionDetailPage() {
         <Link to={adminPath()} className="text-gray-400 hover:text-white text-sm">← {t('sessionDetail.back')}</Link>
         <h1 className="text-xl font-bold">{session?.date ?? '…'}</h1>
       </div>
+      {session && <MatchFormatLine format={session} />}
 
       {summaryShare && session && completed.length > 0 && (
         <div className="mb-6">

@@ -2,7 +2,7 @@ import { goalOps, cardOps, swapOps, undoOps } from './pitchOps'
 import { overlayPending } from '../lib/outboxOverlay'
 import type { Match, MatchEvent, TeamPlayer } from '../lib/types'
 
-const match = { id: 'm1', team1_id: 'A', team2_id: 'B', team1_score: 1, team2_score: 0 } as Match
+const match = { id: 'm1', team1_id: 'A', team2_id: 'B', team1_score: 1, team2_score: 0, period: 1 } as Match
 const clock = { elapsed_seconds: 95, minute: 1 }
 let n = 0
 const ids = () => `id${++n}`
@@ -57,4 +57,11 @@ describe('undoOps', () => {
     const ops = undoOps({ match, event: card, events: [card] })
     expect(ops.every((o) => o.table === 'match_events')).toBe(true)
   })
+})
+
+it('every event row carries the match period', () => {
+  const ops = goalOps({ match: { ...match, period: 2 }, scorerId: 'ali', scorerTeamId: 'B', assisterId: 'omar', assisterTeamId: 'B', clock, newId: ids, now })
+  const events = ops.filter((o) => o.table === 'match_events')
+  expect(events.length).toBeGreaterThan(0)
+  for (const op of events) expect((op as unknown as { row: MatchEvent }).row.period).toBe(2)
 })
