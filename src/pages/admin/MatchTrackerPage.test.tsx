@@ -142,6 +142,44 @@ it('a draw in match 1 goes to penalties', async () => {
   expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
 })
 
+describe('a second tap while the result is being saved', () => {
+  it('End Match sets up only one next match', async () => {
+    // The goal limit is reached, so End Match ends the match straight away, without asking
+    rows('matches')[0].team1_score = 2
+    const user = userEvent.setup()
+    renderPage()
+    const end = await screen.findByRole('button', { name: 'End Match' })
+    let answer!: () => void
+    db.holds.matches = new Promise<void>((r) => { answer = r })
+    await user.click(end)
+    await user.click(end)
+    answer()
+
+    expect(await screen.findByRole('heading', { name: 'Green Team wins!' })).toBeInTheDocument()
+    expect(rows('matches').filter((m) => m.match_number === 2)).toHaveLength(1)
+  })
+
+  it('Confirm Penalty Result sets up only one next match', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    const confirm = await screen.findByRole('button', { name: 'Confirm Penalty Result' })
+    await waitFor(() => expect(m1()).toMatchObject({ period: 5 }))
+    await user.click(screen.getAllByRole('button', { name: '+' })[0])
+    let answer!: () => void
+    db.holds.matches = new Promise<void>((r) => { answer = r })
+    await user.click(confirm)
+    // Disabled while the result is saved
+    expect(confirm).toBeDisabled()
+    await user.click(confirm)
+    answer()
+
+    expect(await screen.findByRole('heading', { name: 'Green Team wins!' })).toBeInTheDocument()
+    expect(rows('matches').filter((m) => m.match_number === 2)).toHaveLength(1)
+  })
+})
+
 it('hides card and swap buttons when those features are off', async () => {
   renderPage(FEATURES.filter((f) => f !== 'cards' && f !== 'swaps'))
   expect(await screen.findByRole('button', { name: '⚽ Goal' })).toBeInTheDocument()
