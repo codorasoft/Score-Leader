@@ -109,3 +109,45 @@ it('a finished shoot-out shows the penalty score', async () => {
   renderPage()
   expect(await screen.findByText(/pens 4–3/)).toBeInTheDocument()
 })
+
+it('during a live shoot-out the header shows Penalties, the shoot-out score and no clock', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    sessions: [{ ...session, status: 'active', ...PRESETS.knockout }],
+    matches: [...league.matches, match('m3', {
+      match_number: 3, status: 'active', period: 5, period_seconds: [600, 600, 300, 300], timer_status: 'stopped',
+      team1_score: 1, team2_score: 1, penalties_team1: 4, penalties_team2: 3,
+    })],
+  })
+  renderPage()
+  expect(await screen.findByText('Penalties')).toBeInTheDocument()
+  expect(screen.getByText('4–3')).toBeInTheDocument()
+  expect(screen.getByText('–')).toBeInTheDocument()
+})
+
+it('names the current period under the clock', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    sessions: [{ ...session, status: 'active', ...PRESETS.halves }],
+    matches: [...league.matches, match('m3', { match_number: 3, status: 'active', period: 2, period_seconds: [600], timer_status: 'paused', timer_elapsed_seconds: 30 })],
+  })
+  renderPage()
+  expect(await screen.findByText('2nd half')).toBeInTheDocument()
+  expect(screen.queryByText('Half-time')).not.toBeInTheDocument()
+})
+
+it('a Quick session shows Match under the clock and no period prefixes', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    sessions: [{ ...session, status: 'active' }],
+    matches: [...league.matches, match('m3', { match_number: 3, status: 'active', timer_status: 'paused', timer_elapsed_seconds: 30 })],
+    match_events: [...league.match_events, event('e9', 'm3', 'p6', 'ty', 'goal', { elapsed_seconds: 20 })],
+  })
+  renderPage()
+  expect(await screen.findByText('Match')).toBeInTheDocument()
+  expect(screen.getAllByText('Nour').length).toBeGreaterThan(0)
+  expect(document.body.textContent).not.toMatch(/\b[12]H\b/)
+})
