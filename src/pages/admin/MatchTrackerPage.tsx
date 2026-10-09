@@ -11,6 +11,7 @@ import { resolveMatch, decideResult, matchRowFields, waitingQueue } from '../../
 import { NextUp } from '../../components/NextUp'
 import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
+import { totalSeconds, DEFAULT_FORMAT } from '../../utils/matchFormat'
 import { MATCH_DURATION_SECONDS, GOAL_LIMIT, canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
@@ -28,7 +29,7 @@ import { fetchSession, type SessionData } from '../../lib/sessionData'
 import { serverNowIso } from '../../lib/serverClock'
 import type { OutboxOp } from '../../lib/outbox'
 import { goalOps, cardOps, swapOps, undoOps } from '../../utils/pitchOps'
-import type { Match, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
+import type { Match, Session, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 
 const colorBg = styleMap('card')
@@ -43,6 +44,7 @@ export default function MatchTrackerPage() {
   const { t } = useTranslation()
 
   const [match, setMatch] = useState<Match | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([])
   const [players, setPlayers] = useState<Player[]>([])
@@ -78,6 +80,7 @@ export default function MatchTrackerPage() {
     const m = data?.matches.find((x) => x.id === matchId)
     if (!data || !m) return
     const finished = new Set(data.matches.filter((x) => x.status === 'completed').map((x) => x.id))
+    setSession(data.session)
     setSessionMatches(data.matches)
     setSessionEvents(data.events.filter((e) => finished.has(e.match_id)))
     setTeams(data.teams)
@@ -263,7 +266,7 @@ export default function MatchTrackerPage() {
     }).select().single()
 
     setResult({
-      outcome: describeOutcome({ ...completedMatch, winner_team_id: update.winner_team_id, elapsedSeconds: timer.elapsed, penalties }),
+      outcome: describeOutcome({ ...completedMatch, winner_team_id: update.winner_team_id, format: session ?? DEFAULT_FORMAT, totalSeconds: totalSeconds(match, timer.elapsed), penalties }),
       nextMatchId: nextMatch ? (nextMatch as Match).id : null,
       next,
     })
@@ -483,6 +486,7 @@ export default function MatchTrackerPage() {
             team2: teams.find((tm) => tm.id === result.next.team2Id),
             queue: result.next.queue.map((id) => teams.find((tm) => tm.id === id)).filter((tm): tm is Team => !!tm),
           }}
+          format={session ?? DEFAULT_FORMAT}
           onContinue={continueAfterResult}
         />
       )}

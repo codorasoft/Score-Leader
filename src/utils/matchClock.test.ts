@@ -1,6 +1,7 @@
 import { formatMatchClock, eventClockSeconds, canRecordEvents, finishedMatchFields } from './matchClock'
 
 describe('formatMatchClock', () => {
+  it('caps at the given period length', () => { expect(formatMatchClock(650, 600)).toBe('10:00 +00:50'); expect(formatMatchClock(650)).toBe('07:00 +03:50') })
   it('shows minutes and seconds inside regular time', () => {
     expect(formatMatchClock(0)).toBe('00:00')
     expect(formatMatchClock(192)).toBe('03:12')

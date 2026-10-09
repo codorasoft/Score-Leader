@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { Team } from '../lib/types'
 import type { MatchOutcome } from '../utils/matchOutcome'
-import { GOAL_LIMIT, MATCH_DURATION_SECONDS } from '../utils/matchClock'
+import type { MatchFormat } from '../utils/matchFormat'
 import { styleMap } from '../lib/teamColors'
 
 const colorBg = styleMap('card')
@@ -12,10 +12,11 @@ interface Props {
   team2: { team: Team | undefined; score: number }
   // queue: the teams waiting after this match, in order (empty with two teams)
   next: { team1: Team | undefined; team2: Team | undefined; queue: Team[] }
+  format: MatchFormat
   onContinue: () => void
 }
 
-export function MatchResultDialog({ outcome, team1, team2, next, onContinue }: Props) {
+export function MatchResultDialog({ outcome, team1, team2, next, format, onContinue }: Props) {
   const { t } = useTranslation()
   const name = (team: Team | undefined) =>
     team ? t('common.teamName', { color: t(`common.teamColor.${team.color}`) }) : '?'
@@ -25,7 +26,7 @@ export function MatchResultDialog({ outcome, team1, team2, next, onContinue }: P
   const loser = name([team1.team, team2.team].find((tm) => tm?.id === outcome.loserTeamId))
 
   const side = ({ team, score }: Props['team1']) => (
-    <div className={`flex-1 rounded-xl border p-3 ${colorBg[team?.color ?? ''] ?? 'border-gray-600'} ${team?.id === outcome.winnerTeamId ? '' : 'opacity-60'}`}>
+    <div className={`flex-1 rounded-xl border p-3 ${colorBg[team?.color ?? ''] ?? 'border-gray-600'} ${outcome.winnerTeamId === null || team?.id === outcome.winnerTeamId ? '' : 'opacity-60'}`}>
       <div className="text-xs text-gray-300 truncate">{name(team)}</div>
       <div className="text-3xl font-bold">{score}</div>
     </div>
@@ -41,7 +42,7 @@ export function MatchResultDialog({ outcome, team1, team2, next, onContinue }: P
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-5xl mb-2" aria-hidden="true">🏆</div>
-        <h2 id="result-title" className="text-2xl font-bold mb-4">{t('result.winsTitle', { team: winner })}</h2>
+        <h2 id="result-title" className="text-2xl font-bold mb-4">{outcome.winnerTeamId === null ? t('result.reason.draw') : t('result.winsTitle', { team: winner })}</h2>
 
         <div className="flex items-stretch gap-2 mb-4">
           {side(team1)}
@@ -51,7 +52,7 @@ export function MatchResultDialog({ outcome, team1, team2, next, onContinue }: P
 
         <p className="bg-gray-900/60 rounded-lg px-3 py-2 text-sm text-gray-200 mb-4">
           {t(`result.reason.${outcome.reason}`, {
-            team: winner, loser, limit: GOAL_LIMIT, minutes: MATCH_DURATION_SECONDS / 60,
+            team: winner, loser, limit: format.goal_limit ?? 0, minutes: format.period_count * format.period_minutes,
             winnerPens: outcome.penaltyScore?.winner, loserPens: outcome.penaltyScore?.loser,
           })}
         </p>

@@ -6,9 +6,9 @@ export const GOAL_LIMIT = 2
 const mmss = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 
-export function formatMatchClock(seconds: number) {
-  if (seconds <= MATCH_DURATION_SECONDS) return mmss(seconds)
-  return `${mmss(MATCH_DURATION_SECONDS)} +${mmss(seconds - MATCH_DURATION_SECONDS)}`
+export function formatMatchClock(seconds: number, limitSeconds = MATCH_DURATION_SECONDS) {
+  if (seconds <= limitSeconds) return mmss(seconds)
+  return `${mmss(limitSeconds)} +${mmss(seconds - limitSeconds)}`
 }
 
 export function eventClockSeconds(event: Pick<MatchEvent, 'elapsed_seconds' | 'minute'>) {

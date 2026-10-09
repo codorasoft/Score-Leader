@@ -293,12 +293,16 @@
       "timeUp": "{{team}} was ahead when the {{minutes}} minutes ran out.",
       "endedEarly": "{{team}} was ahead when the match was ended early.",
       "penalties": "{{team}} won the penalty shootout {{winnerPens}}–{{loserPens}}.",
-      "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on."
+      "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on.",
+      "extraTime": "{{team}} wins after extra time.",
+      "draw": "Draw — both teams go off."
     },
     "next": "Next: {{team1}} vs {{team2}}",
     "continue": "Continue"
   },
   "timeline": {
+    "winsAet": "{{team}} wins aet",
+    "pens": "pens {{a}}–{{b}}",
     "title": "Timeline",
     "noEvents": "No events yet",
     "assist": "assist: {{name}}",
