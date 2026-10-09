@@ -18,6 +18,8 @@ export const db = {
   errors: {} as Record<string, ApiError>,
   // Requests to a table listed here wait for this promise, to test what happens while one is in flight
   holds: {} as Record<string, Promise<unknown>>,
+  // The pitch outbox sends nothing while signed out
+  signedIn: true,
   nextId: 1,
 }
 
@@ -27,6 +29,7 @@ export function resetDb(tables: Record<string, Row[]> = {}) {
   db.reads = 0
   db.errors = {}
   db.holds = {}
+  db.signedIn = true
   db.nextId = 1
   forgetCachedLeagues()
 }
@@ -202,7 +205,7 @@ export const supabase = {
     }),
   },
   auth: {
-    getSession: async () => ({ data: { session: null }, error: null }),
+    getSession: async () => ({ data: { session: db.signedIn ? { user: { id: 'u1' } } : null }, error: null }),
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
   },
 }
