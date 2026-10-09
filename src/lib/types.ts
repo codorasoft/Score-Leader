@@ -18,6 +18,8 @@ export interface Player {
   created_at: string
 }
 
+export type DrawRule = 'stay' | 'draw'
+
 export interface Session {
   league_id: string
   id: string
@@ -28,6 +30,13 @@ export interface Session {
   // How many teams play and how many players each has (2–6 teams of 3–11)
   team_count: number
   team_size: number
+  // Match format: how long a match is, whether it can go to extra time or penalties, and what a draw does
+  period_count: number
+  period_minutes: number
+  extra_time_minutes: number | null
+  penalties: boolean
+  goal_limit: number | null
+  draw_rule: DrawRule
 }
 
 export interface Team {
@@ -54,10 +63,15 @@ export interface Match {
   team2_score: number
   winner_team_id: string | null
   is_draw: boolean
-  draw_resolved_by: 'penalties' | 'late_team' | null
+  draw_resolved_by: 'penalties' | 'late_team' | 'extra_time' | null
   timer_started_at: string | null
   timer_elapsed_seconds: number
   timer_status: TimerStatus
+  // Current period (1..period_count, 3-4 extra time, 5 penalties) and the seconds each finished period lasted
+  period: number
+  period_seconds: number[]
+  penalties_team1: number | null
+  penalties_team2: number | null
   created_at: string
 }
 
@@ -74,6 +88,7 @@ export interface MatchEvent {
   suspension_minutes: number | null
   suspension_started_at: string | null
   suspension_ended_at: string | null
+  period: number
   created_at: string
 }
 

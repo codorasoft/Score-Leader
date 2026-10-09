@@ -153,6 +153,7 @@ describe('more or fewer than three teams', () => {
     expect(screen.getByText('Next up: Orange Team, then Blue Team')).toBeInTheDocument()
     const next = rows('matches').find((m) => m.match_number === 2)!
     expect(next).toMatchObject({ team1_id: 'tg', team2_id: 'ty', queue: ['to', 'tb'], waiting_team_id: 'to' })
+    expect(db.writes.find((w) => w.table === 'matches' && w.op === 'insert')?.values).toMatchObject({ period: 1 })
   })
 
   it('two teams: the same two play again and nobody is shown waiting', async () => {

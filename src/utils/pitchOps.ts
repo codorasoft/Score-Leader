@@ -7,7 +7,7 @@ import type { Match, MatchEvent } from '../lib/types'
 interface Clock { elapsed_seconds: number | null; minute: number | null }
 
 interface Common {
-  match: Pick<Match, 'id' | 'team1_id' | 'team1_score' | 'team2_score'>
+  match: Pick<Match, 'id' | 'team1_id' | 'period' | 'team1_score' | 'team2_score'>
   clock: Clock
   newId: () => string
   now: string
@@ -15,6 +15,7 @@ interface Common {
 
 const eventRow = (p: Common, fields: Partial<MatchEvent> & Pick<MatchEvent, 'id' | 'player_id' | 'team_id' | 'event_type'>): MatchEvent => ({
   match_id: p.match.id,
+  period: p.match.period,
   related_event_id: null,
   suspension_minutes: null,
   suspension_started_at: null,

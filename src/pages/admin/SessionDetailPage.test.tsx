@@ -8,6 +8,7 @@ vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase
 import { InLeague } from '../../test/league'
 import { db, resetDb } from '../../test/fakeSupabase'
 import { finishedLeague, session } from '../../test/fixtures'
+import { PRESETS } from '../../utils/matchFormat'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 import SessionDetailPage from './SessionDetailPage'
 
@@ -42,6 +43,12 @@ it('loads the session, teams, matches, goals, players and awards in one round', 
   expect((await screen.findAllByText('Omar')).length).toBeGreaterThan(0)
   // The session with everything linked to it, and its awards, side by side
   expect(db.reads).toBe(2)
+})
+
+it('shows the session format under the date', async () => {
+  resetDb({ ...finishedLeague(), sessions: [{ ...session, ...PRESETS.halves }] })
+  renderPage(FEATURES.filter((f) => f !== 'voting'))
+  expect(await screen.findByText('2 × 10 min · no goal limit · a draw stays a draw')).toBeInTheDocument()
 })
 
 it('offers a retry instead of leaving the page when loading fails', async () => {

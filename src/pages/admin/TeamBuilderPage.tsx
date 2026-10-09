@@ -142,6 +142,7 @@ export default function TeamBuilderPage() {
       .insert({
         session_id: sessionId,
         match_number: 1,
+        period: 1,
         ...matchRowFields(first),
         status: 'pending',
       })

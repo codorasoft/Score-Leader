@@ -257,6 +257,7 @@ export default function MatchTrackerPage() {
     const { data: nextMatch } = await supabase.from('matches').insert({
       session_id: match.session_id,
       match_number: match.match_number + 1,
+      period: 1,
       ...matchRowFields(next),
       status: 'pending',
     }).select().single()

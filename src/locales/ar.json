@@ -741,5 +741,43 @@
     "boardEdited": "آخر تعديل {{date}}",
     "newBoard": "+ لوحة جديدة",
     "firstBoard": "أنشئ أول لوحة"
+  },
+  "format": {
+    "mode": "نظام المباراة",
+    "quick": "سريعة",
+    "halves": "شوطان",
+    "knockout": "خروج المغلوب",
+    "custom": "مخصص",
+    "periods": "عدد الأشواط",
+    "minutes": "دقائق كل شوط",
+    "extraTime": "وقت إضافي (دقائق لكل شوط)",
+    "off": "بدون",
+    "penalties": "ركلات الترجيح",
+    "goalLimit": "حد الأهداف",
+    "drawRule": "عند التعادل",
+    "drawStay": "الفريق الموجود يخرج",
+    "drawDraw": "يبقى التعادل ويخرج الفريقان",
+    "fewerPeriods": "أشواط أقل",
+    "morePeriods": "أشواط أكثر",
+    "fewerMinutes": "دقائق أقل",
+    "moreMinutes": "دقائق أكثر",
+    "fewerExtraTime": "وقت إضافي أقل",
+    "moreExtraTime": "وقت إضافي أكثر",
+    "lowerGoalLimit": "حد أهداف أقل",
+    "higherGoalLimit": "حد أهداف أكثر",
+    "line": {
+      "periods_zero": "{{count}} × {{minutes}} د",
+      "periods_one": "{{count}} × {{minutes}} د",
+      "periods_two": "{{count}} × {{minutes}} د",
+      "periods_few": "{{count}} × {{minutes}} د",
+      "periods_many": "{{count}} × {{minutes}} د",
+      "periods_other": "{{count}} × {{minutes}} د",
+      "extraTime": "وقت إضافي 2 × {{minutes}}",
+      "penalties": "ركلات ترجيح",
+      "goalLimit": "الأول إلى {{count}}",
+      "noGoalLimit": "بلا حد للأهداف",
+      "drawStay": "التعادل: الفريق الموجود يخرج",
+      "drawDraw": "يبقى التعادل تعادلاً"
+    }
   }
 }

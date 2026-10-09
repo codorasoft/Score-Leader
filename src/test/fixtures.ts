@@ -1,5 +1,6 @@
 // A small finished league for page tests: six players in three teams, one completed session
 // with two matches, plus a player from another league that must never show up.
+import { DEFAULT_FORMAT } from '../utils/matchFormat'
 import type { Match, MatchEvent, Player, Session, Team, TeamPlayer } from '../lib/types'
 
 const L = 'L1'
@@ -13,12 +14,12 @@ export const team = (id: string, session_id: string, color: Team['color']): Team
 export const match = (id: string, extra: Partial<Match> = {}): Match => ({
   league_id: L, id, session_id: 's1', match_number: 1, team1_id: 'tg', team2_id: 'tb', waiting_team_id: 'ty', queue: ['ty'],
   status: 'pending', team1_score: 0, team2_score: 0, winner_team_id: null, is_draw: false, draw_resolved_by: null,
-  timer_started_at: null, timer_elapsed_seconds: 0, timer_status: 'stopped', created_at: '2026-09-20T18:00:00Z', ...extra,
+  timer_started_at: null, timer_elapsed_seconds: 0, timer_status: 'stopped', period: 1, period_seconds: [], penalties_team1: null, penalties_team2: null, created_at: '2026-09-20T18:00:00Z', ...extra,
 })
 
 export const event = (id: string, match_id: string, player_id: string, team_id: string, event_type: MatchEvent['event_type'], extra: Partial<MatchEvent> = {}): MatchEvent => ({
   league_id: L, id, match_id, player_id, team_id, event_type, related_event_id: null, minute: 1, elapsed_seconds: 60,
-  suspension_minutes: null, suspension_started_at: null, suspension_ended_at: null, created_at: '2026-09-20T18:01:00Z', ...extra,
+  suspension_minutes: null, suspension_started_at: null, suspension_ended_at: null, period: 1, created_at: '2026-09-20T18:01:00Z', ...extra,
 })
 
 export const players: Player[] = [
@@ -32,7 +33,7 @@ export const players: Player[] = [
   player('px', 'Stranger', 'ATT', 5, { league_id: 'L2' }),
 ]
 
-export const session: Session = { league_id: L, id: 's1', date: '2026-09-20', status: 'completed', share_token: 'tok1', created_at: '2026-09-20T17:00:00Z', team_count: 3, team_size: 5 }
+export const session: Session = { league_id: L, id: 's1', date: '2026-09-20', status: 'completed', share_token: 'tok1', created_at: '2026-09-20T17:00:00Z', team_count: 3, team_size: 5, ...DEFAULT_FORMAT }
 
 export const teams: Team[] = [team('tg', 's1', 'green'), team('tb', 's1', 'blue'), team('ty', 's1', 'yellow')]
 

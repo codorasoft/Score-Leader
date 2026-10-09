@@ -65,7 +65,7 @@ it('saves the teams, starts the session and opens match 1 with the chosen team w
   expect(rows('sessions').find((s) => s.id === 's2')?.status).toBe('active')
   const first = rows('matches').find((m) => m.session_id === 's2')!
   const blue = created.find((t) => t.color === 'blue')!
-  expect(first).toMatchObject({ match_number: 1, status: 'pending', waiting_team_id: blue.id })
+  expect(first).toMatchObject({ match_number: 1, period: 1, status: 'pending', waiting_team_id: blue.id })
   expect([first.team1_id, first.team2_id]).not.toContain(blue.id)
   expect(screen.getByText(`match page ${first.id}`)).toBeInTheDocument()
 })
