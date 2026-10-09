@@ -209,6 +209,33 @@ describe('periods', () => {
     expect(m1().period_seconds).toHaveLength(1)
   })
 
+  it('shows the break at once while End 1st half is still being saved, so the ended half cannot be restarted', async () => {
+    seed(PRESETS.halves)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '▶ Start' }))
+    await waitFor(() => expect(m1()).toMatchObject({ timer_status: 'running' }))
+    await user.click(screen.getByRole('button', { name: 'End 1st half' }))
+    let answer!: () => void
+    db.holds.matches = new Promise<void>((r) => { answer = r })
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    // The write is still in flight
+    expect(m1().timer_status).toBe('running')
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'End 1st half' })).toBeNull()
+    expect(screen.getByText('1st half finished')).toBeInTheDocument()
+
+    // Starting the 2nd half shows it at once too
+    await user.click(screen.getByRole('button', { name: 'Start 2nd half' }))
+    expect(screen.getByText('2nd half')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'End 1st half' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'End 2nd half' })).toBeInTheDocument()
+
+    answer()
+    await waitFor(() => expect(m1()).toMatchObject({ period: 2, timer_status: 'running' }))
+    expect(m1().period_seconds).toHaveLength(1)
+  })
+
   it('reloading between periods shows the break screen, not a fresh start', async () => {
     seed(PRESETS.halves, match('m1', { period: 1, period_seconds: [600], timer_status: 'stopped', timer_elapsed_seconds: 600, status: 'active' }))
     renderPage()
@@ -247,6 +274,21 @@ describe('periods', () => {
     seed(PRESETS.knockout, match('m1', { period: 5, period_seconds: [600, 600, 300, 300], timer_status: 'stopped', status: 'active' }))
     renderPage()
     expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+  })
+
+  it('a finished match that went to penalties does not reopen the shoot-out', async () => {
+    seed(PRESETS.quick, match('m1', {
+      period: 5, period_seconds: [420], status: 'completed', is_draw: true, draw_resolved_by: 'penalties',
+      winner_team_id: 'tb', penalties_team1: 3, penalties_team2: 4,
+    }))
+    renderPage()
+    // Green Team also appears in the day's standings once a match is finished
+    await screen.findAllByText('Green Team')
+    expect(screen.queryByRole('heading', { name: 'Penalty Shootout' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirm Penalty Result' })).toBeNull()
+    // Nor can it be ended or restarted again
+    expect(screen.queryByRole('button', { name: 'End Match' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
   })
 
   it('knockout: a leader after extra time ends the match as extra_time', async () => {

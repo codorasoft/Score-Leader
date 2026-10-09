@@ -221,8 +221,9 @@ export default function MatchTrackerPage() {
 
   const level = match.team1_score === match.team2_score
   const periodName = (period: number) => t(periodLabelKey(period, format))
-  // Penalties are period 5, so a reload during the shoot-out comes back to it
-  const showPenalties = penaltyMode || match.period === 5
+  const matchOver = match.status === 'completed'
+  // Penalties are period 5, so a reload during the shoot-out comes back to it (not once the match is over)
+  const showPenalties = (penaltyMode || match.period === 5) && !matchOver
   // The clock stopped on a period that is already recorded: the break before the next step
   const between = !showPenalties && step.kind !== 'play' && step.kind !== 'endPeriod'
     && (timer.timerStatus ?? match.timer_status) === 'stopped' && match.period_seconds.length >= match.period
@@ -253,13 +254,22 @@ export default function MatchTrackerPage() {
     return load()
   }
 
+  // Both show the new period state on this screen before the write and reload finish, as apply() does;
+  // otherwise Start would briefly offer to restart the ended period and record it twice
   const endCurrentPeriod = async () => {
+    const seconds = timer.elapsed
+    setMatch((m) => m && {
+      ...m, timer_status: 'stopped', timer_started_at: null, timer_elapsed_seconds: seconds, period_seconds: [...m.period_seconds, seconds],
+    })
     await timer.endPeriod()
     await refreshMatch()
   }
 
   const startNextPeriod = async (period: number) => {
     primeAlertAudio()
+    setMatch((m) => m && {
+      ...m, period, status: 'active', timer_status: 'running', timer_elapsed_seconds: 0, timer_started_at: serverNowIso(),
+    })
     await timer.startPeriod(period)
     await refreshMatch()
   }
@@ -407,14 +417,16 @@ export default function MatchTrackerPage() {
                 <span className="block text-2xl text-red-400 mt-1">+{formatMatchClock(timer.elapsed - len, len)}</span>
               )}
             </div>
-            {/* Not shown between periods, where Start would restart the ended period's clock */}
-            <div className="mt-2 flex justify-center gap-3">
-              {timer.timerStatus !== 'running' ? (
-                <button onClick={handleStart} className="px-4 py-2 bg-green-600 rounded font-semibold">{t('match.start')}</button>
-              ) : (
-                <button onClick={timer.pause} className="px-4 py-2 bg-yellow-600 rounded font-semibold">{t('match.pause')}</button>
-              )}
-            </div>
+            {/* Not shown between periods, where Start would restart the ended period's clock, nor once the match is over */}
+            {!matchOver && (
+              <div className="mt-2 flex justify-center gap-3">
+                {timer.timerStatus !== 'running' ? (
+                  <button onClick={handleStart} className="px-4 py-2 bg-green-600 rounded font-semibold">{t('match.start')}</button>
+                ) : (
+                  <button onClick={timer.pause} className="px-4 py-2 bg-yellow-600 rounded font-semibold">{t('match.pause')}</button>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -533,7 +545,7 @@ export default function MatchTrackerPage() {
       )}
 
       {/* Between periods the break card holds the button; the shoot-out has its own */}
-      {!between && !showPenalties && (
+      {!between && !showPenalties && !matchOver && (
         <button
           onClick={handleStep}
           className={`w-full py-3 rounded-xl font-bold transition-colors ${
