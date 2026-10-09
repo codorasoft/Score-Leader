@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
@@ -66,6 +66,10 @@ export default function MatchTrackerPage() {
   const [penaltyT1, setPenaltyT1] = useState(0)
   const [penaltyT2, setPenaltyT2] = useState(0)
   const [endBlocked, setEndBlocked] = useState(false)
+  // Saving the result and setting up the next match takes two requests; a second tap meanwhile
+  // would set up the next match twice. The ref blocks it at once, the state greys the buttons out.
+  const finishingRef = useRef(false)
+  const [finishing, setFinishing] = useState(false)
 
   const timer = useMatchTimer(match ?? ({} as Match))
 
@@ -334,34 +338,42 @@ export default function MatchTrackerPage() {
 
   // update carries the winner, or none for a draw that stands
   const finishMatch = async (update: Partial<Match>, penalties?: { team1: number; team2: number }) => {
-    // Ending creates the next match on the server, so everything recorded must be sent first
-    if (outbox.pending().length > 0 && !(await outbox.flush())) {
-      setEndBlocked(true)
-      return
+    if (finishingRef.current) return
+    finishingRef.current = true
+    setFinishing(true)
+    try {
+      // Ending creates the next match on the server, so everything recorded must be sent first
+      if (outbox.pending().length > 0 && !(await outbox.flush())) {
+        setEndBlocked(true)
+        return
+      }
+
+      const finished = finishedMatchFields(match, timer.elapsed)
+      const { error } = await supabase.from('matches').update({ ...update, ...finished }).eq('id', match.id)
+      // Don't start the next match if this result was not saved
+      if (error) return
+
+      const completedMatch = { ...match, ...update } as Match
+      const next = resolveMatch(completedMatch)
+
+      // Create next match
+      const { data: nextMatch } = await supabase.from('matches').insert({
+        session_id: match.session_id,
+        match_number: match.match_number + 1,
+        period: 1,
+        ...matchRowFields(next),
+        status: 'pending',
+      }).select().single()
+
+      setResult({
+        outcome: describeOutcome({ ...completedMatch, format, totalSeconds: totalSeconds(finished, 0), penalties }),
+        nextMatchId: nextMatch ? (nextMatch as Match).id : null,
+        next,
+      })
+    } finally {
+      finishingRef.current = false
+      setFinishing(false)
     }
-
-    const finished = finishedMatchFields(match, timer.elapsed)
-    const { error } = await supabase.from('matches').update({ ...update, ...finished }).eq('id', match.id)
-    // Don't start the next match if this result was not saved
-    if (error) return
-
-    const completedMatch = { ...match, ...update } as Match
-    const next = resolveMatch(completedMatch)
-
-    // Create next match
-    const { data: nextMatch } = await supabase.from('matches').insert({
-      session_id: match.session_id,
-      match_number: match.match_number + 1,
-      period: 1,
-      ...matchRowFields(next),
-      status: 'pending',
-    }).select().single()
-
-    setResult({
-      outcome: describeOutcome({ ...completedMatch, format, totalSeconds: totalSeconds(finished, 0), penalties }),
-      nextMatchId: nextMatch ? (nextMatch as Match).id : null,
-      next,
-    })
   }
 
   // Same component instance is reused for the next match, so per-match UI state must be reset
@@ -530,7 +542,7 @@ export default function MatchTrackerPage() {
           </div>
           <button
             onClick={handlePenaltyDecide}
-            disabled={penaltyT1 === penaltyT2}
+            disabled={penaltyT1 === penaltyT2 || finishing}
             className="w-full py-2 bg-blue-600 rounded font-semibold disabled:opacity-50"
           >
             {t('match.penaltyConfirm')}
@@ -542,7 +554,8 @@ export default function MatchTrackerPage() {
       {!between && !showPenalties && !matchOver && (
         <button
           onClick={handleStep}
-          className={`w-full py-3 rounded-xl font-bold transition-colors ${
+          disabled={finishing}
+          className={`w-full py-3 rounded-xl font-bold transition-colors disabled:opacity-50 ${
             reachedEnd
               ? 'bg-red-500 hover:bg-red-400 animate-pulse shadow-lg shadow-red-700/50'
               : 'bg-red-700 hover:bg-red-600'
