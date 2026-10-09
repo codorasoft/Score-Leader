@@ -253,6 +253,51 @@ SELECT pg_temp.expect_error(
      'aaaaaaaa-0000-4000-8000-000000000003', 'aaaaaaaa-0000-4000-8000-000000000006', 'goal')$sql$,
   'league mismatch');
 
+-- Teams a match or event points at must be in its league too: a match in A pointing at B's team
+-- would otherwise stop B (and even the superadmin) deleting B's session or league
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.matches (session_id, match_number, team1_id, team2_id, period) VALUES
+    ('aaaaaaaa-0000-4000-8000-000000000005', 2,
+     'bbbbbbbb-0000-4000-8000-000000000006', 'aaaaaaaa-0000-4000-8000-000000000007', 1)$sql$,
+  'team belongs to another league');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.matches (session_id, match_number, team1_id, team2_id, period) VALUES
+    ('aaaaaaaa-0000-4000-8000-000000000005', 2,
+     'aaaaaaaa-0000-4000-8000-000000000006', 'bbbbbbbb-0000-4000-8000-000000000007', 1)$sql$,
+  'team belongs to another league');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.matches (session_id, match_number, team1_id, team2_id, waiting_team_id, queue, period) VALUES
+    ('aaaaaaaa-0000-4000-8000-000000000005', 2,
+     'aaaaaaaa-0000-4000-8000-000000000006', 'aaaaaaaa-0000-4000-8000-000000000007',
+     'bbbbbbbb-0000-4000-8000-000000000008', ARRAY['bbbbbbbb-0000-4000-8000-000000000008']::uuid[], 1)$sql$,
+  'team belongs to another league');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.matches (session_id, match_number, team1_id, team2_id, queue, period) VALUES
+    ('aaaaaaaa-0000-4000-8000-000000000005', 2,
+     'aaaaaaaa-0000-4000-8000-000000000006', 'aaaaaaaa-0000-4000-8000-000000000007',
+     ARRAY['aaaaaaaa-0000-4000-8000-000000000008', 'bbbbbbbb-0000-4000-8000-000000000008']::uuid[], 1)$sql$,
+  'team belongs to another league');
+SELECT pg_temp.expect_error(
+  $sql$UPDATE public.matches SET winner_team_id = 'bbbbbbbb-0000-4000-8000-000000000006'
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000009'$sql$,
+  'team belongs to another league');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.match_events (match_id, player_id, team_id, event_type) VALUES
+    ('aaaaaaaa-0000-4000-8000-000000000009', 'aaaaaaaa-0000-4000-8000-000000000003',
+     'bbbbbbbb-0000-4000-8000-000000000006', 'goal')$sql$,
+  'team belongs to another league');
+SELECT pg_temp.expect_error(
+  $sql$UPDATE public.match_events SET team_id = 'bbbbbbbb-0000-4000-8000-000000000006'
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000010'$sql$,
+  'team belongs to another league');
+-- The league's own teams are still fine, in every column
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.matches SET winner_team_id = 'aaaaaaaa-0000-4000-8000-000000000006',
+         queue = ARRAY['aaaaaaaa-0000-4000-8000-000000000008']::uuid[]
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000009'$sql$,
+  1);
+UPDATE public.matches SET winner_team_id = NULL WHERE id = 'aaaaaaaa-0000-4000-8000-000000000009';
+
 -- ===== Helper functions and the public directory
 
 SELECT pg_temp.expect(
