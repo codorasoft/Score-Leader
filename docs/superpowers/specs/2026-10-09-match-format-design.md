@@ -99,7 +99,7 @@ When a match ends level after all periods:
 1. `penalties = true` → shoot-out decides; saved as today plus the score.
 2. `penalties = false` → `draw_rule`:
    - `stay` (today's rule): the team already on the pitch loses its place, the challenger stays. In match 1 nobody was already on → shoot-out (as today).
-   - `draw`: `is_draw = true, winner_team_id = null`. Both teams go off; `resolveMatch` puts them at the back of the queue in their current order and the next two play. With `team_count = 2` the same two play again.
+   - `draw`: `is_draw = true, winner_team_id = null`. Both teams go off; `resolveMatch` puts them at the back of the queue in their current order and the next two play. With `team_count = 2` the same two play again. With exactly three teams only one is waiting, so it comes on against the team that was on longer (team1) and the other drawn team waits.
 
 Standings (`computeStandings`) and player stats already count a level score as a draw and ignore who stayed on; they need no change. Player of the Month points: a draw gives no win point (unchanged). `nextMatchToStart` / `resolveMatch` in `matchRotation.ts` gain the `draw` branch; everything else there is unchanged.
 
