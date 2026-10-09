@@ -126,6 +126,9 @@ it('a draw in match 1 goes to penalties', async () => {
   await user.click(await screen.findByRole('button', { name: 'End Match' }))
   await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
   expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+  // The shoot-out is period 5, and the match's one period was recorded on the way
+  await waitFor(() => expect(m1()).toMatchObject({ period: 5, timer_status: 'stopped' }))
+  expect(m1().period_seconds).toHaveLength(1)
 
   const confirm = screen.getByRole('button', { name: 'Confirm Penalty Result' })
   expect(confirm).toBeDisabled()
@@ -133,7 +136,9 @@ it('a draw in match 1 goes to penalties', async () => {
   await user.click(blueUp)
   await user.click(confirm)
 
-  await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, draw_resolved_by: 'penalties', winner_team_id: 'tb' }))
+  await waitFor(() => expect(m1()).toMatchObject({
+    status: 'completed', is_draw: true, draw_resolved_by: 'penalties', winner_team_id: 'tb', penalties_team1: 0, penalties_team2: 1,
+  }))
   expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
 })
 
@@ -196,7 +201,9 @@ describe('periods', () => {
     await user.click(await screen.findByRole('button', { name: '▶ Start' }))
     // Time is not up yet, so ending the half asks first
     await user.click(screen.getByRole('button', { name: 'End 1st half' }))
-    expect(screen.getByRole('heading', { name: 'End match early?' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'End the 1st half early?' })).toBeInTheDocument()
+    expect(screen.getByText("Its time hasn't run out yet.")).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'End match early?' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
     expect(await screen.findByText('1st half finished')).toBeInTheDocument()
     expect(m1()).toMatchObject({ status: 'active', timer_status: 'stopped', period_seconds: [expect.any(Number)] })

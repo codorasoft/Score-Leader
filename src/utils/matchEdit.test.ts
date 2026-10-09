@@ -37,7 +37,8 @@ describe('findLastUndoable', () => {
 
 const match = {
   team1_id: 'red', team2_id: 'blue', winner_team_id: 'red' as string | null,
-  match_number: 2, draw_resolved_by: null as 'penalties' | 'late_team' | null,
+  match_number: 2, draw_resolved_by: null as 'penalties' | 'late_team' | 'extra_time' | null,
+  period: 1, penalties_team1: null as number | null, penalties_team2: null as number | null,
 }
 const goal = (team_id: string) => ({ event_type: 'goal' as const, team_id })
 
@@ -85,6 +86,24 @@ it('halves (draw rule): a match edited into a draw becomes a true draw with no w
 it('knockout (penalties): any match edited into a draw keeps its shoot-out winner', () => {
   const r = recomputeResult({ ...match, match_number: 4, winner_team_id: 'blue', draw_resolved_by: 'penalties' }, [], PRESETS.knockout)
   expect(r).toEqual({ team1_score: 0, team2_score: 0, is_draw: true, winner_team_id: 'blue', draw_resolved_by: 'penalties' })
+})
+
+it('an extra-time win keeps its extra-time mark when a scorer is corrected', () => {
+  const won = { ...match, match_number: 4, period: 4, winner_team_id: 'red', draw_resolved_by: 'extra_time' as const }
+  const r = recomputeResult(won, [goal('red'), goal('red'), goal('blue')], PRESETS.knockout)
+  expect(r).toEqual({ team1_score: 2, team2_score: 1, is_draw: false, winner_team_id: 'red', draw_resolved_by: 'extra_time' })
+})
+
+it('knockout: a win edited to a level score keeps its winner but does not claim a shoot-out that has no score', () => {
+  const r = recomputeResult({ ...match, match_number: 4, period: 2, winner_team_id: 'blue' }, [goal('red'), goal('blue')], PRESETS.knockout)
+  expect(r.winner_team_id).toBe('blue')
+  expect(r.is_draw).toBe(true)
+  expect(r.draw_resolved_by).not.toBe('penalties')
+})
+
+it('knockout: a level match with a saved shoot-out score stays decided on penalties', () => {
+  const shootOut = { ...match, match_number: 4, period: 5, winner_team_id: 'blue', penalties_team1: 3, penalties_team2: 4 }
+  expect(recomputeResult(shootOut, [goal('red'), goal('blue')], PRESETS.knockout).draw_resolved_by).toBe('penalties')
 })
 
 import { undoAllowed } from './matchEdit'

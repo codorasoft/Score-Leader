@@ -65,7 +65,13 @@ All existing sessions, matches and events get the defaults above, which reproduc
 
 ### Old app versions
 
-A trigger `match_period_from_old_apps` (same pattern as `match_queue_from_old_apps`) refuses an insert into `matches` whose session has `period_count = 2` or `extra_time_minutes IS NOT NULL` when the row comes from an app that doesn't know periods. Detection: the old app never sends `period`; the new app always sends it explicitly. The column has no default, so in the BEFORE INSERT trigger `NEW.period IS NULL` means an old app: on a single-period session the trigger sets it to 1, on any other session it raises. Existing rows are set to 1 by the migration. Error text: "This app version is out of date. Reload the page and try again." Old apps on Quick sessions keep working.
+A trigger `match_period_from_old_apps` (same pattern as `match_queue_from_old_apps`) guards inserts into `matches`. The `period` column has no default, so in the BEFORE INSERT trigger `NEW.period IS NULL` means the row comes from an app that predates periods: on a single-period session the trigger sets it to 1, on a session with `period_count = 2` or `extra_time_minutes IS NOT NULL` it raises ("This app version is out of date. Reload the page and try again."). Existing rows are set to 1 by the migration. Old apps on Quick sessions keep working.
+
+What the admin actually sees is less than that message suggests:
+
+- **Apps from before PR 1** never send `period`, so the database refuses their next-match insert on a Halves or Knockout session. That tracker ignores the insert error and never shows the message: with no next match, Continue on the result dialog falls through to Awards (or closes the session when Awards is off). The result of the match just played is saved; only the next match is missing.
+- **The PR 1 build** already sends `period: 1` on every insert, so the trigger cannot tell it apart from a current app and lets the insert through; nothing on the database side stops that build from running a Halves or Knockout session.
+- **Mitigation:** after each deploy, reload every admin device before the next session (the PWA picks up the new version on its next load). Players' live pages only read, so they need nothing.
 
 ## 3. How a match runs
 

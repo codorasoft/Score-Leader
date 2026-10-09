@@ -95,7 +95,7 @@ export default function LiveSessionPage() {
           <div className="text-center text-4xl font-mono font-bold" dir="ltr">
             {match.period === 5 ? '–' : formatMatchClock(Math.min(elapsed, len), len)}
             {len > 0 && elapsed > len && (
-              <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - len)}</span>
+              <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - len, len)}</span>
             )}
           </div>
           <div className="text-center text-xs text-gray-300 mt-1 uppercase">
@@ -104,10 +104,12 @@ export default function LiveSessionPage() {
               <span className="ms-2" dir="ltr">{match.penalties_team1}–{match.penalties_team2}</span>
             )}
           </div>
+          {/* Half-time and a shoot-out also stop the clock; only a match that has not kicked off is "not started" */}
           <div className="text-center text-xs text-gray-400 mt-1 mb-4 uppercase">
             {match.timer_status === 'running'
               ? <span className="text-green-400">● {t('live.live')}</span>
-              : match.timer_status === 'stopped' ? t('live.notStarted') : t('live.paused')}
+              : match.timer_status === 'paused' ? t('live.paused')
+              : halfTime || match.period === 5 ? null : t('live.notStarted')}
           </div>
 
           <div className="flex gap-4 mb-4">

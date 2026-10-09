@@ -233,6 +233,8 @@ export default function MatchTrackerPage() {
     ...match, timer_status: 'stopped', period_seconds: [...match.period_seconds, timer.elapsed],
   }, timer.elapsed).kind === 'endMatch'
   const len = periodLength(match.period, format) ?? 0
+  // The pending step ends a period (a half or extra-time period), not the match
+  const endsPeriodOnly = step.kind === 'endPeriod' && !endsMatch
 
   const stepLabel = (() => {
     switch (step.kind) {
@@ -565,8 +567,10 @@ export default function MatchTrackerPage() {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmEarlyEnd(false)}>
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <div className="text-2xl mb-3">⚠️</div>
-            <h2 className="text-lg font-bold mb-2">{t('match.earlyEndTitle')}</h2>
-            <p className="text-sm text-gray-400 mb-5">{t('match.earlyEndBody')}</p>
+            <h2 className="text-lg font-bold mb-2">
+              {endsPeriodOnly ? t('match.earlyEndPeriodTitle', { period: periodName(step.period) }) : t('match.earlyEndTitle')}
+            </h2>
+            <p className="text-sm text-gray-400 mb-5">{endsPeriodOnly ? t('match.earlyEndPeriodBody') : t('match.earlyEndBody')}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmEarlyEnd(false)}

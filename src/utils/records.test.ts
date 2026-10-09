@@ -80,3 +80,16 @@ it('records a biggest win between the newer team colours', () => {
   expect(biggest.value).toBe(6)
   expect(biggest.holders[0]).toMatchObject({ kind: 'match', winnerColor: 'orange', loserColor: 'purple', winnerScore: 6, loserScore: 0 })
 })
+
+it('times the fastest goal from kick-off, adding the periods already played', () => {
+  const halves = [
+    { ...m('h1', 's1', 1, 'A', 'B', 1, 0), period: 2, period_seconds: [600, 600] },
+    { ...m('h2', 's1', 2, 'A', 'B', 1, 0), period: 1, period_seconds: [600] },
+  ] as Match[]
+  const goals = [
+    { ...ev('h1', 'omar', 'goal', 10), period: 2 },
+    { ...ev('h2', 'sami', 'goal', 30), period: 1 },
+  ] as MatchEvent[]
+  const fastest = computeRecords({ ...league, matches: halves, events: goals }).find((r) => r.id === 'fastest_goal')
+  expect(fastest).toMatchObject({ value: 30, holders: [{ kind: 'player', playerId: 'sami' }] })
+})

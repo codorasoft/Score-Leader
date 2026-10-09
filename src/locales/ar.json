@@ -143,6 +143,8 @@
     "earlyEndTitle": "إنهاء المباراة مبكراً؟",
     "earlyEndBody": "لم يتم بلوغ حد الأهداف أو حد الوقت بعد.",
     "earlyEndConfirm": "نعم، أنهِها",
+    "earlyEndPeriodTitle": "إنهاء {{period}} مبكراً؟",
+    "earlyEndPeriodBody": "لم ينتهِ وقته بعد.",
     "undo": "↶ تراجع",
     "undoTitle": "التراجع عن آخر حدث؟",
     "undoGoal": "⚽ هدف — {{name}}",

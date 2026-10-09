@@ -101,6 +101,7 @@ it('shows the period under the clock and Half-time between periods', async () =>
   resetDb({ ...league, sessions: [{ ...session, status: 'active', ...PRESETS.halves }], matches: [...league.matches, match('m3', { match_number: 3, status: 'active', period: 1, period_seconds: [600], timer_status: 'stopped', timer_elapsed_seconds: 600 })] })
   renderPage()
   expect(await screen.findByText('Half-time')).toBeInTheDocument()
+  expect(screen.queryByText('Next match — not started yet')).not.toBeInTheDocument()
 })
 
 it('a finished shoot-out shows the penalty score', async () => {
@@ -124,6 +125,19 @@ it('during a live shoot-out the header shows Penalties, the shoot-out score and 
   expect(await screen.findByText('Penalties')).toBeInTheDocument()
   expect(screen.getByText('4–3')).toBeInTheDocument()
   expect(screen.getByText('–')).toBeInTheDocument()
+  expect(screen.queryByText('Next match — not started yet')).not.toBeInTheDocument()
+})
+
+it('a long period that runs over shows the overrun once, measured against that period', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    sessions: [{ ...session, status: 'active', ...PRESETS.halves }],
+    matches: [...league.matches, match('m3', { match_number: 3, status: 'active', period: 1, timer_status: 'paused', timer_elapsed_seconds: 1100 })],
+  })
+  renderPage()
+  expect(await screen.findByText('+08:20')).toBeInTheDocument()
+  expect(document.body.textContent).not.toMatch(/\+\d\d:\d\d \+/)
 })
 
 it('names the current period under the clock', async () => {

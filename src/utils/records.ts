@@ -65,14 +65,21 @@ export function computeRecords(league: Pick<FullLeague, 'players' | 'sessions' |
   const totals = best(completed.map((m) => ({ value: m.team1_score + m.team2_score, item: m })))
   push('most_goals_match', '🎆', { value: totals.value, items: totals.items.map(matchHolder) })
 
-  // Fastest goal: only goals logged with an exact clock time
+  // Fastest goal: only goals logged with an exact clock time. The clock restarts each period, so a
+  // goal's time from kick-off adds the periods played before it (a shoot-out has no clock of its own).
   const timedGoals = league.events.filter((e) =>
     matchById.has(e.match_id) && (e.event_type === 'goal' || e.event_type === 'penalty_goal') && e.elapsed_seconds != null)
+  const fromKickOff = (e: (typeof timedGoals)[number]) => {
+    const period = e.period ?? 1
+    if (period >= 5) return e.elapsed_seconds!
+    const before = (matchById.get(e.match_id)!.period_seconds ?? []).slice(0, period - 1)
+    return before.reduce((a, b) => a + b, 0) + e.elapsed_seconds!
+  }
   if (timedGoals.length > 0) {
-    const fastest = Math.min(...timedGoals.map((e) => e.elapsed_seconds!))
+    const fastest = Math.min(...timedGoals.map(fromKickOff))
     push('fastest_goal', '⚡', {
       value: fastest,
-      items: timedGoals.filter((e) => e.elapsed_seconds === fastest)
+      items: timedGoals.filter((e) => fromKickOff(e) === fastest)
         .map((e) => player(e.player_id, sessionDate.get(matchById.get(e.match_id)!.session_id))),
     })
   }
