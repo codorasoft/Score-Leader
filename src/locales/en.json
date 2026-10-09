@@ -680,7 +680,7 @@
     "custom": "Custom",
     "periods": "Periods",
     "minutes": "Minutes per period",
-    "extraTime": "Extra time (min per half)",
+    "extraTime": "Extra time (min)",
     "off": "Off",
     "penalties": "Penalties",
     "goalLimit": "Goal limit",
@@ -704,6 +704,8 @@
       "noGoalLimit": "no goal limit",
       "drawStay": "draw: team already on goes off",
       "drawDraw": "a draw stays a draw"
-    }
+    },
+    "drawStayShort": "Goes off",
+    "drawDrawShort": "Draw stands"
   }
 }

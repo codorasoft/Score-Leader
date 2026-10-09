@@ -9,5 +9,5 @@ export function MatchFormatLine({ format }: { format: MatchFormat }) {
   if (format.penalties) parts.push(t('format.line.penalties'))
   parts.push(format.goal_limit ? t('format.line.goalLimit', { count: format.goal_limit }) : t('format.line.noGoalLimit'))
   if (!format.penalties) parts.push(t(format.draw_rule === 'stay' ? 'format.line.drawStay' : 'format.line.drawDraw'))
-  return <p className="text-sm text-gray-400 text-center">{parts.join(' · ')}</p>
+  return <p className="text-xs sm:text-sm text-gray-400 text-center leading-snug">{parts.join(' · ')}</p>
 }
