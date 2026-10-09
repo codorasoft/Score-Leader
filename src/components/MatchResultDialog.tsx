@@ -41,8 +41,8 @@ export function MatchResultDialog({ outcome, team1, team2, next, format, onConti
         className="bg-gray-800 rounded-2xl p-6 w-full max-w-sm text-center"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="text-5xl mb-2" aria-hidden="true">🏆</div>
-        <h2 id="result-title" className="text-2xl font-bold mb-4">{outcome.winnerTeamId === null ? t('result.reason.draw') : t('result.winsTitle', { team: winner })}</h2>
+        {outcome.winnerTeamId !== null && <div className="text-5xl mb-2" aria-hidden="true">🏆</div>}
+        <h2 id="result-title" className="text-2xl font-bold mb-4">{outcome.winnerTeamId === null ? t('result.drawTitle') : t('result.winsTitle', { team: winner })}</h2>
 
         <div className="flex items-stretch gap-2 mb-4">
           {side(team1)}

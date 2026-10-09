@@ -304,6 +304,8 @@ describe('periods', () => {
       .toMatchObject({ team1_id: 'tg', team2_id: 'tb', match_number: 2, period: 1, queue: [] })
     // The result dialog shows the draw and who plays next; Continue goes to that match
     expect(await screen.findByRole('dialog')).toHaveTextContent('Next: Green Team vs Blue Team')
+    expect(screen.getByRole('heading', { name: "It's a draw" })).toBeInTheDocument()
+    expect(screen.queryByText(/both teams go off/)).not.toBeInTheDocument()
     const next = rows('matches').find((m) => m.match_number === 2)!
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     expect(await screen.findByText(`next match ${next.id}`)).toBeInTheDocument()

@@ -68,6 +68,9 @@ it('shows a true draw without a winner title', () => {
       format={PRESETS.halves} next={next} onContinue={vi.fn()}
     />,
   )
-  expect(screen.getByRole('heading')).toHaveTextContent('Draw — both teams go off.')
+  expect(screen.getByRole('heading')).toHaveTextContent("It's a draw")
+  expect(screen.getByText('The match ended level. The next match is shown below.')).toBeInTheDocument()
   expect(screen.queryByText(/wins!/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/both teams go off/)).not.toBeInTheDocument()
+  expect(screen.queryByText('🏆')).not.toBeInTheDocument()
 })

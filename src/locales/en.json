@@ -301,6 +301,7 @@
   },
   "result": {
     "winsTitle": "{{team}} wins!",
+    "drawTitle": "It's a draw",
     "reason": {
       "goalLimit": "{{team}} was first to score {{limit}} goals.",
       "timeUp": "{{team}} was ahead when the {{minutes}} minutes ran out.",
@@ -308,7 +309,7 @@
       "penalties": "{{team}} won the penalty shootout {{winnerPens}}–{{loserPens}}.",
       "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on.",
       "extraTime": "{{team}} wins after extra time.",
-      "draw": "Draw — both teams go off."
+      "draw": "The match ended level. The next match is shown below."
     },
     "next": "Next: {{team1}} vs {{team2}}",
     "continue": "Continue"

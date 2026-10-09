@@ -7,7 +7,7 @@ vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase
 
 import { InLeague } from '../../test/league'
 import { db, resetDb } from '../../test/fakeSupabase'
-import { finishedLeague, session } from '../../test/fixtures'
+import { finishedLeague, match, session } from '../../test/fixtures'
 import { PRESETS } from '../../utils/matchFormat'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 import SessionDetailPage from './SessionDetailPage'
@@ -49,6 +49,31 @@ it('shows the session format under the date', async () => {
   resetDb({ ...finishedLeague(), sessions: [{ ...session, ...PRESETS.halves }] })
   renderPage(FEATURES.filter((f) => f !== 'voting'))
   expect(await screen.findByText('2 × 10 min · no goal limit · a draw stays a draw')).toBeInTheDocument()
+})
+
+describe('editing a level match', () => {
+  // Only match 2 (Green v Yellow, level) is kept, so the page has a single Edit button
+  const level = (extra: Parameters<typeof match>[1]) => match('m2', {
+    match_number: 2, team1_id: 'tg', team2_id: 'ty', waiting_team_id: 'tb', queue: ['tb'], status: 'completed', team1_score: 0, team2_score: 0, ...extra,
+  })
+
+  it('stay rule: a level match offers the winner picker', async () => {
+    resetDb({ ...finishedLeague(), match_events: [], matches: [level({ is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 'ty' })] })
+    renderPage(FEATURES.filter((f) => f !== 'voting'))
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(screen.getByText('Winner')).toBeInTheDocument()
+  })
+
+  it('draw rule: a draw that stands offers no winner to pick', async () => {
+    resetDb({
+      ...finishedLeague(), match_events: [], sessions: [{ ...session, ...PRESETS.halves }],
+      matches: [level({ is_draw: true, draw_resolved_by: null, winner_team_id: null })],
+    })
+    renderPage(FEATURES.filter((f) => f !== 'voting'))
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
+    expect(screen.queryByText('Winner')).not.toBeInTheDocument()
+  })
 })
 
 it('offers a retry instead of leaving the page when loading fails', async () => {
