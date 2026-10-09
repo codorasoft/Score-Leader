@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { InLeague } from '../test/league'
 import { db, resetDb, rows } from '../test/fakeSupabase'
 import { session } from '../test/fixtures'
+import { PRESETS } from '../utils/matchFormat'
 
 vi.mock('../lib/supabase', async () => (await import('../test/fakeSupabase')).supabaseModule)
 
@@ -156,5 +157,49 @@ describe('polish', () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(teamsValue()).toHaveTextContent('2')
     expect(perTeamValue()).toHaveTextContent('5')
+  })
+})
+
+describe('match format', () => {
+  it('offers Quick, Halves and Knockout; Quick is selected by default and the line describes it', async () => {
+    resetDb()
+    renderDialog()
+    expect(screen.getByRole('radio', { name: 'Quick' })).toBeChecked()
+    expect(screen.getByText('1 × 7 min · first to 2 · draw: team already on goes off')).toBeInTheDocument()
+  })
+
+  it('Halves fills the fields and the line; editing a number shows Custom', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Halves' }))
+    expect(screen.getByText('2 × 10 min · no goal limit · a draw stays a draw')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'More minutes' }))
+    expect(screen.getByRole('radio', { name: 'Custom' })).toBeChecked()
+    expect(screen.getByText('2 × 11 min · no goal limit · a draw stays a draw')).toBeInTheDocument()
+  })
+
+  it('Knockout turns penalties on and disables the draw rule', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Knockout' }))
+    expect(screen.getByRole('switch', { name: 'Penalties' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'Draw stands, both go off' })).toBeDisabled()
+  })
+
+  it('saves the six format values with the session', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Halves' }))
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(rows('sessions')[0]).toMatchObject({ period_count: 2, period_minutes: 10, extra_time_minutes: null, penalties: false, goal_limit: null, draw_rule: 'draw' }))
+  })
+
+  it("starts from the last session's format", async () => {
+    resetDb({ sessions: [{ ...session, ...PRESETS.knockout, created_at: '2026-10-01T00:00:00Z' }] })
+    renderDialog()
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Knockout' })).toBeChecked())
   })
 })

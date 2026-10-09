@@ -644,5 +644,39 @@
     "boardEdited": "Edited {{date}}",
     "newBoard": "+ New board",
     "firstBoard": "Create your first board"
+  },
+  "format": {
+    "mode": "Match format",
+    "quick": "Quick",
+    "halves": "Halves",
+    "knockout": "Knockout",
+    "custom": "Custom",
+    "periods": "Periods",
+    "minutes": "Minutes per period",
+    "extraTime": "Extra time (min per half)",
+    "off": "Off",
+    "penalties": "Penalties",
+    "goalLimit": "Goal limit",
+    "drawRule": "If level",
+    "drawStay": "Team already on goes off",
+    "drawDraw": "Draw stands, both go off",
+    "fewerPeriods": "Fewer periods",
+    "morePeriods": "More periods",
+    "fewerMinutes": "Fewer minutes",
+    "moreMinutes": "More minutes",
+    "fewerExtraTime": "Less extra time",
+    "moreExtraTime": "More extra time",
+    "lowerGoalLimit": "Lower goal limit",
+    "higherGoalLimit": "Higher goal limit",
+    "line": {
+      "periods_one": "{{count}} × {{minutes}} min",
+      "periods_other": "{{count}} × {{minutes}} min",
+      "extraTime": "extra time 2 × {{minutes}}",
+      "penalties": "penalties",
+      "goalLimit": "first to {{count}}",
+      "noGoalLimit": "no goal limit",
+      "drawStay": "draw: team already on goes off",
+      "drawDraw": "a draw stays a draw"
+    }
   }
 }
