@@ -11,9 +11,10 @@ interface Props {
   events: MatchEvent[]
   teams: Team[]
   players: Player[]
+  periods?: boolean
 }
 
-export function MatchTimeline({ events, teams, players }: Props) {
+export function MatchTimeline({ events, teams, players, periods = false }: Props) {
   const { t } = useTranslation()
   const cards = useFeature('cards')
   const swaps = useFeature('swaps')
@@ -34,7 +35,7 @@ export function MatchTimeline({ events, teams, players }: Props) {
       {entries.map((e) => (
         <li key={e.id} className="flex items-start gap-3 text-sm">
           <span className="font-mono text-xs text-gray-400 w-24 shrink-0 pt-0.5" dir="ltr">
-            {e.clock != null ? formatMatchClock(e.clock) : '—'}
+            {periods && `${t(`timeline.periodShort.${e.period}`)} `}{e.clock != null ? formatMatchClock(e.clock) : '—'}
           </span>
           <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${colorDot[team(e.teamId)?.color ?? ''] ?? 'bg-gray-500'}`} />
           <span className="min-w-0">

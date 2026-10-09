@@ -337,7 +337,7 @@ export default function SessionDetailPage() {
 
               {!isEditing && timelineId === m.id && (
                 <div className="mt-3 pt-3 border-t border-gray-700">
-                  <MatchTimeline events={matchEvents} teams={teams} players={players} />
+                  <MatchTimeline events={matchEvents} teams={teams} players={players} periods={!!session && (session.period_count > 1 || session.extra_time_minutes != null)} />
                 </div>
               )}
 

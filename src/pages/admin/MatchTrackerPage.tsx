@@ -492,7 +492,7 @@ export default function MatchTrackerPage() {
 
       <section className="mb-4 bg-gray-800 rounded-xl p-3">
         <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>
-        <MatchTimeline events={events} teams={teams} players={players} />
+        <MatchTimeline events={events} teams={teams} players={players} periods={!!session && (session.period_count > 1 || session.extra_time_minutes != null)} />
       </section>
 
       {confirmUndo && lastEvent && (
@@ -564,7 +564,7 @@ export default function MatchTrackerPage() {
           <h2 className="text-sm font-semibold mb-3">{t('timeline.sessionProgress')}</h2>
           <div className="mb-5"><SessionStandings teams={teams} matches={sessionMatches} /></div>
           <div className="mb-5"><SessionTopPlayers players={players} events={sessionEvents} matches={sessionMatches} /></div>
-          <SessionMatchList matches={sessionMatches} events={sessionEvents} teams={teams} players={players} />
+          <SessionMatchList matches={sessionMatches} events={sessionEvents} teams={teams} players={players} periods={!!session && (session.period_count > 1 || session.extra_time_minutes != null)} />
         </div>
       )}
 

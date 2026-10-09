@@ -11,10 +11,11 @@ interface Props {
   events: MatchEvent[]
   teams: Team[]
   players: Player[]
+  periods?: boolean
 }
 
 // Finished matches of a session, newest first: the last one is highlighted with its timeline open.
-export function SessionMatchList({ matches, events, teams, players }: Props) {
+export function SessionMatchList({ matches, events, teams, players, periods = false }: Props) {
   const { t } = useTranslation()
   const finished = matches
     .filter((m) => m.status === 'completed')
@@ -30,8 +31,15 @@ export function SessionMatchList({ matches, events, teams, players }: Props) {
     return tm ? t('common.teamName', { color: t(`common.teamColor.${tm.color}`) }) : '?'
   }
   const resultLabel = (m: Match) => {
-    if (!m.is_draw) return t('timeline.wins', { team: teamName(m.winner_team_id) })
-    if (m.draw_resolved_by === 'penalties') return t('timeline.winsPens', { team: teamName(m.winner_team_id) })
+    if (!m.is_draw) {
+      return t(m.draw_resolved_by === 'extra_time' ? 'timeline.winsAet' : 'timeline.wins', { team: teamName(m.winner_team_id) })
+    }
+    if (m.draw_resolved_by === 'penalties') {
+      const wins = t('timeline.winsPens', { team: teamName(m.winner_team_id) })
+      return m.penalties_team1 != null && m.penalties_team2 != null
+        ? `${wins} · ${t('timeline.pens', { a: m.penalties_team1, b: m.penalties_team2 })}`
+        : wins
+    }
     if (m.winner_team_id) return t('timeline.drawWinner', { team: teamName(m.winner_team_id) })
     return t('timeline.draw')
   }
@@ -62,7 +70,7 @@ export function SessionMatchList({ matches, events, teams, players }: Props) {
         </button>
         {isOpen && (
           <div className="px-3 pb-3 border-t border-gray-700/60 pt-3">
-            <MatchTimeline events={events.filter((e) => e.match_id === m.id)} teams={teams} players={players} />
+            <MatchTimeline events={events.filter((e) => e.match_id === m.id)} teams={teams} players={players} periods={periods} />
           </div>
         )}
       </div>

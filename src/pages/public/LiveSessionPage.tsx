@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { fetchSession, type SessionData } from '../../lib/sessionData'
 import { useRealtime } from '../../hooks/useRealtime'
 import { serverNow } from '../../lib/serverClock'
-import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
+import { formatMatchClock } from '../../utils/matchClock'
+import { periodLabelKey, periodLength } from '../../utils/matchFormat'
 import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionMatchList } from '../../components/SessionMatchList'
 import { SessionStandings } from '../../components/SessionStandings'
@@ -77,6 +78,9 @@ export default function LiveSessionPage() {
     team ? t('common.teamName', { color: t(`common.teamColor.${team.color}`) }) : ''
   const team1 = teams.find((tm) => tm.id === match?.team1_id)
   const team2 = teams.find((tm) => tm.id === match?.team2_id)
+  const showPeriods = session.period_count > 1 || session.extra_time_minutes != null
+  const len = match ? periodLength(match.period, session) ?? 0 : 0
+  const halfTime = !!match && match.timer_status === 'stopped' && match.period_seconds.length >= match.period && match.status !== 'completed'
 
   return (
     <div className="max-w-lg mx-auto">
@@ -89,9 +93,15 @@ export default function LiveSessionPage() {
         <div className="mb-8">
           <div className="text-center text-xs text-gray-400 font-mono mb-1">{t('common.match', { number: match.match_number })}</div>
           <div className="text-center text-4xl font-mono font-bold" dir="ltr">
-            {formatMatchClock(Math.min(elapsed, MATCH_DURATION_SECONDS))}
-            {elapsed > MATCH_DURATION_SECONDS && (
-              <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - MATCH_DURATION_SECONDS)}</span>
+            {match.period === 5 ? '–' : formatMatchClock(Math.min(elapsed, len), len)}
+            {len > 0 && elapsed > len && (
+              <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - len)}</span>
+            )}
+          </div>
+          <div className="text-center text-xs text-gray-300 mt-1 uppercase">
+            {halfTime ? t('live.halfTime') : t(periodLabelKey(match.period, session))}
+            {match.period === 5 && match.penalties_team1 != null && match.penalties_team2 != null && (
+              <span className="ms-2" dir="ltr">{match.penalties_team1}–{match.penalties_team2}</span>
             )}
           </div>
           <div className="text-center text-xs text-gray-400 mt-1 mb-4 uppercase">
@@ -116,14 +126,14 @@ export default function LiveSessionPage() {
 
           <section className="bg-gray-800 rounded-xl p-3">
             <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>
-            <MatchTimeline events={events.filter((e) => e.match_id === match.id)} teams={teams} players={players} />
+            <MatchTimeline events={events.filter((e) => e.match_id === match.id)} teams={teams} players={players} periods={showPeriods} />
           </section>
         </div>
       )}
 
       <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
       <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
-      <SessionMatchList matches={matches} events={events} teams={teams} players={players} />
+      <SessionMatchList matches={matches} events={events} teams={teams} players={players} periods={showPeriods} />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb } from '../../test/fakeSupabase'
 import { event, finishedLeague, match, session, team } from '../../test/fixtures'
+import { PRESETS } from '../../utils/matchFormat'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -93,4 +94,18 @@ it('four teams: shows who comes on next, in order', async () => {
   })
   renderPage()
   expect(await screen.findByText('Next up: Orange Team, then Blue Team')).toBeInTheDocument()
+})
+
+it('shows the period under the clock and Half-time between periods', async () => {
+  const league = finishedLeague()
+  resetDb({ ...league, sessions: [{ ...session, status: 'active', ...PRESETS.halves }], matches: [...league.matches, match('m3', { match_number: 3, status: 'active', period: 1, period_seconds: [600], timer_status: 'stopped', timer_elapsed_seconds: 600 })] })
+  renderPage()
+  expect(await screen.findByText('Half-time')).toBeInTheDocument()
+})
+
+it('a finished shoot-out shows the penalty score', async () => {
+  const league = finishedLeague()
+  resetDb({ ...league, matches: [match('m1', { status: 'completed', is_draw: true, draw_resolved_by: 'penalties', winner_team_id: 'tg', penalties_team1: 4, penalties_team2: 3 })] })
+  renderPage()
+  expect(await screen.findByText(/pens 4–3/)).toBeInTheDocument()
 })

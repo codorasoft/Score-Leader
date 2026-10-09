@@ -272,7 +272,8 @@
     "live": "Live",
     "unknown": "Unknown",
     "notStarted": "Next match — not started yet",
-    "paused": "Paused"
+    "paused": "Paused",
+    "halfTime": "Half-time"
   },
   "errors": {
     "network": "No connection — this change was not saved. Check your internet and try again.",
@@ -315,6 +316,13 @@
     "continue": "Continue"
   },
   "timeline": {
+    "periodShort": {
+      "1": "1H",
+      "2": "2H",
+      "3": "ET1",
+      "4": "ET2",
+      "5": "P"
+    },
     "winsAet": "{{team}} wins aet",
     "pens": "pens {{a}}–{{b}}",
     "title": "Timeline",
