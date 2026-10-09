@@ -46,9 +46,6 @@ describe('canRecordEvents', () => {
 })
 
 describe('finishedMatchFields', () => {
-  it('marks the match completed and stops the clock at the final match time', () => {
-    expect(finishedMatchFields(465)).toEqual({
-      status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: 465, timer_started_at: null,
-    })
-  })
+  it('records the final period length', () =>
+    expect(finishedMatchFields({ period_seconds: [600] }, 587)).toEqual({ status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: 587, timer_started_at: null, period_seconds: [600, 587] }))
 })

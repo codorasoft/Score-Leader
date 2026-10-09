@@ -21,7 +21,13 @@ export function canRecordEvents(matchStatus: MatchStatus, timerStatus: TimerStat
   return matchStatus !== 'completed' && timerStatus !== 'stopped'
 }
 
-// Ending a match stops its clock and keeps the final match time.
-export function finishedMatchFields(elapsedSeconds: number): Pick<Match, 'status' | 'timer_status' | 'timer_elapsed_seconds' | 'timer_started_at'> {
-  return { status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: elapsedSeconds, timer_started_at: null }
+// Ending a match stops its clock and keeps the final match time and the final period's length.
+export function finishedMatchFields(
+  match: Pick<Match, 'period_seconds'>,
+  elapsedSeconds: number,
+): Pick<Match, 'status' | 'timer_status' | 'timer_elapsed_seconds' | 'timer_started_at' | 'period_seconds'> {
+  return {
+    status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: elapsedSeconds, timer_started_at: null,
+    period_seconds: [...match.period_seconds, elapsedSeconds],
+  }
 }

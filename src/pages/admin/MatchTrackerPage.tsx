@@ -246,7 +246,7 @@ export default function MatchTrackerPage() {
       return
     }
 
-    const { error } = await supabase.from('matches').update({ ...update, ...finishedMatchFields(timer.elapsed) }).eq('id', match.id)
+    const { error } = await supabase.from('matches').update({ ...update, ...finishedMatchFields(match, timer.elapsed) }).eq('id', match.id)
     // Don't start the next match if this result was not saved
     if (error) return
 

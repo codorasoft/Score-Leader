@@ -8,6 +8,8 @@ interface MatchTimerResult {
   timerStatus: TimerStatus
   start: () => Promise<void>
   pause: () => Promise<void>
+  endPeriod: () => Promise<void>
+  startPeriod: (period: number) => Promise<void>
 }
 
 function computeElapsed(
@@ -70,5 +72,33 @@ export function useMatchTimer(match: Match): MatchTimerResult {
     })
   }, [match.id, baseElapsed, timerStatus, startedAt])
 
-  return { elapsed, timerStatus, start, pause }
+  // Works from a running or a paused clock: freezes it and records how long the period lasted
+  const endPeriod = useCallback(async () => {
+    const current = computeElapsed(baseElapsed, timerStatus, startedAt)
+    setTimerStatus('stopped')
+    setStartedAt(null)
+    setBaseElapsed(current)
+    setElapsed(current)
+    await outbox.runOrQueue({
+      id: newId(), kind: 'update', table: 'matches', match: { id: match.id },
+      values: {
+        timer_status: 'stopped', timer_started_at: null, timer_elapsed_seconds: current,
+        period_seconds: [...match.period_seconds, current],
+      },
+    })
+  }, [match.id, match.period_seconds, baseElapsed, timerStatus, startedAt])
+
+  const startPeriod = useCallback(async (period: number) => {
+    const now = serverNowIso()
+    setTimerStatus('running')
+    setStartedAt(now)
+    setBaseElapsed(0)
+    setElapsed(0)
+    await outbox.runOrQueue({
+      id: newId(), kind: 'update', table: 'matches', match: { id: match.id },
+      values: { period, timer_elapsed_seconds: 0, timer_started_at: now, timer_status: 'running', status: 'active' },
+    })
+  }, [match.id])
+
+  return { elapsed, timerStatus, start, pause, endPeriod, startPeriod }
 }
