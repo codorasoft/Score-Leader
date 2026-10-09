@@ -6,6 +6,7 @@ import { InLeague } from '../../test/league'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
 import { match, player, players, session, team, teamPlayers, teams } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
+import { PRESETS, type MatchFormat } from '../../utils/matchFormat'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -38,6 +39,13 @@ const renderPage = (features = FEATURES) => render(
 )
 
 const m1 = () => rows('matches').find((m) => m.id === 'm1')!
+// Session s1 played in another format; match 1 as given
+const seed = (format: MatchFormat, m = match('m1')) => resetDb({
+  players, teams, team_players: teamPlayers,
+  sessions: [{ ...session, status: 'active', ...format }],
+  matches: [m],
+  match_events: [],
+})
 const score = () => screen.getAllByText(/^\d+$/).map((el) => el.textContent)
 
 it('shows who is playing and who waits, and blocks goals until the clock starts', async () => {
@@ -170,5 +178,84 @@ describe('more or fewer than three teams', () => {
     expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
     expect(screen.queryByText(/Next up/)).not.toBeInTheDocument()
     expect(rows('matches').find((m) => m.match_number === 3)).toMatchObject({ team1_id: 'tb', team2_id: 'tg', queue: [], waiting_team_id: null })
+  })
+})
+
+describe('periods', () => {
+  it('a single-period session still shows End Match, never End 1st half', async () => {
+    renderPage()
+    await screen.findByText('Green Team')
+    expect(screen.getByRole('button', { name: 'End Match' })).toBeInTheDocument()
+    expect(screen.queryByText(/half/)).toBeNull()
+  })
+
+  it('halves: End 1st half freezes the clock, shows the break, Start 2nd half resumes at 00:00', async () => {
+    seed(PRESETS.halves)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '▶ Start' }))
+    // Time is not up yet, so ending the half asks first
+    await user.click(screen.getByRole('button', { name: 'End 1st half' }))
+    expect(screen.getByRole('heading', { name: 'End match early?' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    expect(await screen.findByText('1st half finished')).toBeInTheDocument()
+    expect(m1()).toMatchObject({ status: 'active', timer_status: 'stopped', period_seconds: [expect.any(Number)] })
+    // The ended half's clock cannot be restarted
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Start 2nd half' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 2, timer_status: 'running', timer_elapsed_seconds: 0 }))
+    expect(await screen.findByText('2nd half')).toBeInTheDocument()
+    expect(m1().period_seconds).toHaveLength(1)
+  })
+
+  it('reloading between periods shows the break screen, not a fresh start', async () => {
+    seed(PRESETS.halves, match('m1', { period: 1, period_seconds: [600], timer_status: 'stopped', timer_elapsed_seconds: 600, status: 'active' }))
+    renderPage()
+    expect(await screen.findByRole('button', { name: 'Start 2nd half' })).toBeInTheDocument()
+    expect(screen.getByText('1st half finished')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
+  })
+
+  it('knockout: level after 2nd half offers extra time; level after ET2 goes to penalties and saves the score', async () => {
+    seed(PRESETS.knockout, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', timer_elapsed_seconds: 600, status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time 1' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 3, timer_status: 'running' }))
+    await user.click(await screen.findByRole('button', { name: 'End Extra time 1' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time 2' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 4, timer_status: 'running' }))
+    await user.click(await screen.findByRole('button', { name: 'End Extra time 2' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Go to penalties' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 5, timer_status: 'stopped' }))
+    expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: '+' })[0])
+    await user.click(screen.getByRole('button', { name: 'Confirm Penalty Result' }))
+
+    await waitFor(() => expect(m1()).toMatchObject({
+      status: 'completed', draw_resolved_by: 'penalties', winner_team_id: 'tg', penalties_team1: 1, penalties_team2: 0,
+    }))
+    // Each period was recorded once
+    expect(m1().period_seconds).toHaveLength(4)
+  })
+
+  it('knockout: reloading during the shoot-out comes back to the shoot-out', async () => {
+    seed(PRESETS.knockout, match('m1', { period: 5, period_seconds: [600, 600, 300, 300], timer_status: 'stopped', status: 'active' }))
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+  })
+
+  it('knockout: a leader after extra time ends the match as extra_time', async () => {
+    seed(PRESETS.knockout, match('m1', { period: 4, period_seconds: [600, 600, 300], timer_status: 'running', team1_score: 1, status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: false, draw_resolved_by: 'extra_time', winner_team_id: 'tg' }))
+    expect(m1().period_seconds).toHaveLength(4)
   })
 })

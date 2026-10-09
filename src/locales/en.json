@@ -129,7 +129,21 @@
     "log": "Match log",
     "undoSwap": "↔ Swap — {{a}} ⇄ {{b}}",
     "nextUp": "Next up: {{team}}",
-    "nextUpThen": "Next up: {{team}}, then {{rest}}"
+    "nextUpThen": "Next up: {{team}}, then {{rest}}",
+    "period": {
+      "full": "Match",
+      "first": "1st half",
+      "second": "2nd half",
+      "extra1": "Extra time 1",
+      "extra2": "Extra time 2",
+      "penalties": "Penalties"
+    },
+    "endPeriod": "End {{period}}",
+    "startPeriod": "Start {{period}}",
+    "betweenPeriods": "{{period}} finished",
+    "goToPenalties": "Go to penalties",
+    "periodTimeUp": "Time's up for the {{period}}",
+    "drawEnd": "Draw — end match"
   },
   "goal": {
     "whoScored": "Who scored?",

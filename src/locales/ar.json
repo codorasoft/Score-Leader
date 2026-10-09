@@ -153,7 +153,21 @@
     "log": "سجل المباراة",
     "undoSwap": "↔ تبديل — {{a}} ⇄ {{b}}",
     "nextUp": "التالي: {{team}}",
-    "nextUpThen": "التالي: {{team}}، ثم {{rest}}"
+    "nextUpThen": "التالي: {{team}}، ثم {{rest}}",
+    "period": {
+      "full": "المباراة",
+      "first": "الشوط الأول",
+      "second": "الشوط الثاني",
+      "extra1": "الشوط الإضافي الأول",
+      "extra2": "الشوط الإضافي الثاني",
+      "penalties": "ركلات الترجيح"
+    },
+    "endPeriod": "إنهاء {{period}}",
+    "startPeriod": "بدء {{period}}",
+    "betweenPeriods": "انتهى {{period}}",
+    "goToPenalties": "الذهاب إلى ركلات الترجيح",
+    "periodTimeUp": "انتهى وقت {{period}}",
+    "drawEnd": "تعادل — إنهاء المباراة"
   },
   "goal": {
     "whoScored": "من سجّل؟",

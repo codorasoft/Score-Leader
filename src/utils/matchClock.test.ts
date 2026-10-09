@@ -48,5 +48,9 @@ describe('canRecordEvents', () => {
 
 describe('finishedMatchFields', () => {
   it('records the final period length', () =>
-    expect(finishedMatchFields({ period_seconds: [600] }, 587)).toEqual({ status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: 587, timer_started_at: null, period_seconds: [600, 587] }))
+    expect(finishedMatchFields({ period: 2, period_seconds: [600] }, 587)).toEqual({ status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: 587, timer_started_at: null, period_seconds: [600, 587] }))
+  it('does not record a period that was already ended', () =>
+    expect(finishedMatchFields({ period: 2, period_seconds: [600, 590] }, 590).period_seconds).toEqual([600, 590]))
+  it('adds nothing for a penalty shoot-out, which has no clock', () =>
+    expect(finishedMatchFields({ period: 5, period_seconds: [600, 600, 300, 300] }, 300).period_seconds).toEqual([600, 600, 300, 300]))
 })
