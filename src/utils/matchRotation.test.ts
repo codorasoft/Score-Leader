@@ -1,4 +1,5 @@
-import { resolveMatch, decideResult, setupFirstMatch, nextMatchToStart, matchRowFields } from './matchRotation'
+import { resolveMatch, decideResult, drawGoesToPenalties, setupFirstMatch, nextMatchToStart, matchRowFields } from './matchRotation'
+import { PRESETS } from './matchFormat'
 import type { Match, Team, TeamColor } from '../lib/types'
 
 const base = (o: Partial<Match> = {}): Match => ({
@@ -7,6 +8,7 @@ const base = (o: Partial<Match> = {}): Match => ({
   status: 'completed', team1_score: 0, team2_score: 0,
   winner_team_id: null, is_draw: false, draw_resolved_by: null,
   timer_started_at: null, timer_elapsed_seconds: 0, timer_status: 'stopped',
+  period: 1, period_seconds: [], penalties_team1: null, penalties_team2: null,
   created_at: '',
   ...o,
 })
@@ -28,7 +30,7 @@ describe('three teams: same results as before', () => {
   })
 
   it('draw on match > 1: the challenger (team2) wins, the previous winner (team1) goes off', () => {
-    const result = decideResult({ team1_score: 1, team2_score: 1, match_number: 2, team1_id: 'red', team2_id: 'blue' })
+    const result = decideResult({ team1_score: 1, team2_score: 1, match_number: 2, team1_id: 'red', team2_id: 'blue' }, PRESETS.quick)
     expect(result).toEqual({ is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 'blue' })
     expect(resolveMatch(base({ ...result, match_number: 2 }))).toEqual({ team1Id: 'blue', team2Id: 'yellow', queue: ['red'] })
   })
@@ -40,17 +42,45 @@ describe('three teams: same results as before', () => {
 })
 
 it('draw on match 1 has no winner yet so penalties decide it', () => {
-  expect(decideResult({ team1_score: 0, team2_score: 0, match_number: 1, team1_id: 'red', team2_id: 'blue' }))
+  expect(decideResult({ team1_score: 0, team2_score: 0, match_number: 1, team1_id: 'red', team2_id: 'blue' }, PRESETS.quick))
     .toEqual({ is_draw: true, draw_resolved_by: null, winner_team_id: null })
 })
 
 it('a decisive score picks the higher-scoring team', () => {
-  expect(decideResult({ team1_score: 0, team2_score: 2, match_number: 3, team1_id: 'red', team2_id: 'blue' }))
+  expect(decideResult({ team1_score: 0, team2_score: 2, match_number: 3, team1_id: 'red', team2_id: 'blue' }, PRESETS.quick))
     .toEqual({ is_draw: false, draw_resolved_by: null, winner_team_id: 'blue' })
 })
 
-it('cannot resolve a match without a winner', () => {
+it('cannot resolve a match that is neither won nor drawn', () => {
   expect(() => resolveMatch(base())).toThrow()
+})
+
+describe('the draw rule', () => {
+  const level = { team1_score: 1, team2_score: 1, team1_id: 'a', team2_id: 'b' }
+  it('stay, match 1, no penalties → shoot-out (no winner yet)', () =>
+    expect(decideResult({ ...level, match_number: 1 }, { penalties: false, draw_rule: 'stay' })).toEqual({ is_draw: true, draw_resolved_by: null, winner_team_id: null }))
+  it('stay, later match → team already on loses', () =>
+    expect(decideResult({ ...level, match_number: 3 }, { penalties: false, draw_rule: 'stay' })).toEqual({ is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 'b' }))
+  it('draw rule → a true draw, any match number', () =>
+    expect(decideResult({ ...level, match_number: 3 }, { penalties: false, draw_rule: 'draw' })).toEqual({ is_draw: true, draw_resolved_by: null, winner_team_id: null }))
+  it('penalties on → no winner yet, whatever the draw rule or match number', () =>
+    expect(decideResult({ ...level, match_number: 4 }, { penalties: true, draw_rule: 'stay' })).toEqual({ is_draw: true, draw_resolved_by: null, winner_team_id: null }))
+  it('penalties on → shoot-out, whatever the draw rule', () => expect(drawGoesToPenalties({ penalties: true, draw_rule: 'draw' }, 4)).toBe(true))
+  it('draw rule without penalties never goes to a shoot-out', () => expect(drawGoesToPenalties({ penalties: false, draw_rule: 'draw' }, 1)).toBe(false))
+  it('stay without penalties: a shoot-out only in match 1', () => {
+    expect(drawGoesToPenalties({ penalties: false, draw_rule: 'stay' }, 1)).toBe(true)
+    expect(drawGoesToPenalties({ penalties: false, draw_rule: 'stay' }, 2)).toBe(false)
+  })
+})
+
+describe('resolveMatch after a true draw', () => {
+  const drawn = (queue: string[]) => base({ team1_id: 'a', team2_id: 'b', queue, waiting_team_id: queue[0] ?? null, is_draw: true, winner_team_id: null })
+  it('2 teams: the same two play again', () => expect(resolveMatch(drawn([]))).toEqual({ team1Id: 'a', team2Id: 'b', queue: [] }))
+  // Both teams cannot go off with only one waiting: the waiting team comes on against team1 (on longer); team2 waits
+  it('3 teams: the waiting team comes on against team1; team2 waits', () => expect(resolveMatch(drawn(['c']))).toEqual({ team1Id: 'c', team2Id: 'a', queue: ['b'] }))
+  it('4+ teams: the next two come on; both drawn teams join the back in order', () => expect(resolveMatch(drawn(['c', 'd']))).toEqual({ team1Id: 'c', team2Id: 'd', queue: ['a', 'b'] }))
+  it('5 teams: the rest of the queue stays ahead of the drawn teams', () =>
+    expect(resolveMatch(drawn(['c', 'd', 'e']))).toEqual({ team1Id: 'c', team2Id: 'd', queue: ['e', 'a', 'b'] }))
 })
 
 describe('queue with more teams', () => {
@@ -85,7 +115,7 @@ describe('queue with more teams', () => {
   })
 
   it('two teams: a draw in match 1 still goes to penalties', () => {
-    expect(decideResult({ team1_score: 2, team2_score: 2, match_number: 1, team1_id: 'g', team2_id: 'b' }).winner_team_id).toBeNull()
+    expect(decideResult({ team1_score: 2, team2_score: 2, match_number: 1, team1_id: 'g', team2_id: 'b' }, PRESETS.quick).winner_team_id).toBeNull()
   })
 
   it('a match saved by an older app version (no queue) uses its waiting team', () => {
@@ -146,6 +176,12 @@ describe('nextMatchToStart', () => {
 
   it('is null while a match is still pending or being played', () => {
     expect(nextMatchToStart([done(1, 'g', 'b', ['y'], 'g'), { ...done(2, 'g', 'y', ['b'], 'g'), status: 'pending', winner_team_id: null }], teamsOf('g', 'b', 'y'))).toBeNull()
+  })
+
+  it('carries the rotation on after a true draw instead of starting the night afresh', () => {
+    const draw = { ...done(2, 'g', 'y', ['b'], 'g'), is_draw: true, winner_team_id: null }
+    expect(nextMatchToStart([done(1, 'g', 'b', ['y'], 'g'), draw], teamsOf('g', 'b', 'y')))
+      .toEqual({ matchNumber: 3, team1Id: 'b', team2Id: 'g', queue: ['y'] })
   })
 
   it('is null with fewer than two teams', () => {

@@ -257,9 +257,7 @@
   "sessionDetail": {
     "back": "السجل",
     "noMatches": "لا توجد مباريات مكتملة بعد",
-    "wins": "يفوز",
     "draw": "تعادل",
-    "resolvedPenalties": "حُسم بركلات الترجيح",
     "upcoming": "القادم",
     "editMatch": "تعديل",
     "deleteMatch": "حذف",

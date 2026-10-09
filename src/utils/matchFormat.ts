@@ -85,7 +85,8 @@ export function nextStep(
     const level = m.team1_score === m.team2_score
     const next = periodAfter(f, m.period, level)
     if (next) return next.kind === 'penalties' ? { kind: 'penalties' } : { kind: 'startPeriod', period: next.number }
-    return level ? { kind: 'draw' } : { kind: 'endMatch', reason: 'timeUp' }
+    // A level match only stays a draw under the draw rule; under 'stay' decideResult settles it
+    return level && f.draw_rule === 'draw' ? { kind: 'draw' } : { kind: 'endMatch', reason: 'timeUp' }
   }
   const len = periodLength(m.period, f)
   return { kind: 'endPeriod', period: m.period, timeUp: len != null && elapsed >= len }

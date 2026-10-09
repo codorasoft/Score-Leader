@@ -1,5 +1,6 @@
 import type { EventType, Match, MatchEvent } from '../lib/types'
-import { decideResult } from './matchRotation'
+import { decideResult, drawGoesToPenalties } from './matchRotation'
+import type { MatchFormat } from './matchFormat'
 
 const SCORING: EventType[] = ['goal', 'penalty_goal']
 const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card', 'swap']
@@ -14,16 +15,17 @@ export function findLastUndoable<E extends Pick<MatchEvent, 'event_type' | 'crea
 export function recomputeResult(
   match: Pick<Match, 'team1_id' | 'team2_id' | 'winner_team_id' | 'match_number' | 'draw_resolved_by'>,
   events: { event_type: EventType; team_id: string }[],
+  format: Pick<MatchFormat, 'penalties' | 'draw_rule'>,
 ): Pick<Match, 'team1_score' | 'team2_score' | 'is_draw' | 'winner_team_id' | 'draw_resolved_by'> {
   const goals = events.filter((e) => SCORING.includes(e.event_type))
   const team1_score = goals.filter((e) => e.team_id === match.team1_id).length
   const team2_score = goals.filter((e) => e.team_id === match.team2_id).length
   if (team1_score === team2_score) {
-    // Match 1 draws were settled by a shootout, so its winner is kept; later draws follow the session rule
-    if (match.match_number === 1) {
+    // Draws the session settles by a shoot-out keep its winner; other draws follow the session's draw rule
+    if (drawGoesToPenalties(format, match.match_number)) {
       return { team1_score, team2_score, is_draw: true, winner_team_id: match.winner_team_id, draw_resolved_by: 'penalties' }
     }
-    return { team1_score, team2_score, ...decideResult({ ...match, team1_score, team2_score }) }
+    return { team1_score, team2_score, ...decideResult({ ...match, team1_score, team2_score }, format) }
   }
   return {
     team1_score,

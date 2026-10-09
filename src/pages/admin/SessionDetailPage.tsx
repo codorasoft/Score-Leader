@@ -19,6 +19,8 @@ import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 import { MatchFormatLine } from '../../components/MatchFormatLine'
+import { DEFAULT_FORMAT } from '../../utils/matchFormat'
+import { resultLabel } from '../../utils/resultLabel'
 
 const colorDot = styleMap('dot')
 
@@ -80,6 +82,7 @@ export default function SessionDetailPage() {
   const teamById = Object.fromEntries(teams.map((tm) => [tm.id, tm]))
   const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
   const teamLabel = (team: Team) => t('common.teamName', { color: t(`common.teamColor.${team.color}`) })
+  const teamNameOf = (id: string | null) => (id && teamById[id] ? teamLabel(teamById[id]) : '?')
   const completed = matches.filter((m) => m.status === 'completed')
   const upcoming = matches.filter((m) => m.status !== 'completed')
 
@@ -93,7 +96,7 @@ export default function SessionDetailPage() {
   const syncResult = async (match: Match) => {
     const { data } = await supabase.from('match_events').select('event_type, team_id').eq('match_id', match.id)
     if (!data) return
-    await supabase.from('matches').update(recomputeResult(match, data as MatchEvent[])).eq('id', match.id)
+    await supabase.from('matches').update(recomputeResult(match, data as MatchEvent[], session ?? DEFAULT_FORMAT)).eq('id', match.id)
   }
 
   const addGoal = (match: Match, teamId: string, scorerId: string, assisterId: string | null) =>
@@ -223,12 +226,10 @@ export default function SessionDetailPage() {
                   {t('common.match', { number: m.match_number })}
                 </span>
                 <div className="flex items-center justify-end flex-wrap gap-2">
-                  {winner && (
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-green-400">
-                      <span className={`w-2 h-2 rounded-full ${colorDot[winner.color] ?? 'bg-gray-400'}`} />
-                      {teamLabel(winner)} {t('sessionDetail.wins')}
-                    </span>
-                  )}
+                  <span className={`flex items-center gap-1.5 text-xs font-semibold ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {winner && <span className={`w-2 h-2 rounded-full ${colorDot[winner.color] ?? 'bg-gray-400'}`} />}
+                    {resultLabel(m, teamNameOf, t)}
+                  </span>
                   {isEditing ? (
                     <button onClick={() => setEditingId(null)} className="px-3 py-1 bg-blue-600 rounded text-xs font-semibold hover:bg-blue-500">
                       {t('sessionDetail.done')}
@@ -345,9 +346,6 @@ export default function SessionDetailPage() {
                 <p className="text-xs text-gray-500 mt-2 text-center">
                   {t('common.waiting')}: {waiting.map(teamLabel).join(t('common.listSeparator'))}
                 </p>
-              )}
-              {!isEditing && m.is_draw && m.draw_resolved_by === 'penalties' && (
-                <p className="text-xs text-blue-400 mt-1 text-center">{t('sessionDetail.resolvedPenalties')}</p>
               )}
             </div>
           )

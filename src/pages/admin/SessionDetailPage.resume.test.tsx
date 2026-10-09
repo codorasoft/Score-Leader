@@ -5,6 +5,7 @@ import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { resetDb, rows } from '../../test/fakeSupabase'
 import { finishedLeague, players, session, team, teamPlayers, teams } from '../../test/fixtures'
+import { PRESETS } from '../../utils/matchFormat'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -51,6 +52,19 @@ it('carries the rotation on when the upcoming match was deleted', async () => {
   await user.click(await screen.findByRole('button', { name: 'Start match 3' }))
   await waitFor(() => expect(screen.getByText(/^tracker/)).toBeInTheDocument())
   expect(newMatch()).toMatchObject({ match_number: 3, team1_id: 'ty', team2_id: 'tb', waiting_team_id: 'tg' })
+})
+
+it('after a draw that stands, shows it as a draw and carries the rotation on', async () => {
+  resetDb({ ...finishedLeague(), sessions: [{ ...session, status: 'active', ...PRESETS.halves }] })
+  // Match 2: Green v Yellow ends 0–0 and the draw stands; Blue waited
+  Object.assign(rows('matches')[1], { team2_score: 0, is_draw: true, winner_team_id: null, draw_resolved_by: null })
+  const user = userEvent.setup()
+  renderPage()
+  expect(await screen.findByText('Draw')).toBeInTheDocument()
+  // Blue comes on against Green (on the pitch longer); Yellow waits
+  await user.click(screen.getByRole('button', { name: 'Start match 3' }))
+  await waitFor(() => expect(screen.getByText(/^tracker/)).toBeInTheDocument())
+  expect(newMatch()).toMatchObject({ match_number: 3, team1_id: 'tb', team2_id: 'tg', queue: ['ty'], waiting_team_id: 'ty' })
 })
 
 it('offers nothing to start once the session is finished', async () => {

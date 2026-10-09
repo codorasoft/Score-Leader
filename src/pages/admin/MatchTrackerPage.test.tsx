@@ -291,6 +291,43 @@ describe('periods', () => {
     expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
   })
 
+  it('halves with 2 teams: a level match ends as a draw and the same two play again', async () => {
+    seed(PRESETS.halves, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active', queue: [], waiting_team_id: null }))
+    Object.assign(rows('sessions')[0], { team_count: 2 })
+    rows('teams').splice(2)
+    rows('team_players').splice(4)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Draw — end match' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, winner_team_id: null, draw_resolved_by: null }))
+    expect(db.writes.find((w) => w.table === 'matches' && w.op === 'insert')?.values)
+      .toMatchObject({ team1_id: 'tg', team2_id: 'tb', match_number: 2, period: 1, queue: [] })
+    // The result dialog shows the draw and who plays next; Continue goes to that match
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Next: Green Team vs Blue Team')
+    const next = rows('matches').find((m) => m.match_number === 2)!
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByText(`next match ${next.id}`)).toBeInTheDocument()
+  })
+
+  it('halves with 3 teams: after a draw the waiting team comes on against team1, and team2 waits', async () => {
+    seed(PRESETS.halves, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active', team1_score: 1, team2_score: 1 }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Draw — end match' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, winner_team_id: null, draw_resolved_by: null }))
+    expect(rows('matches').find((m) => m.match_number === 2))
+      .toMatchObject({ team1_id: 'ty', team2_id: 'tg', queue: ['tb'], waiting_team_id: 'tb', period: 1, status: 'pending' })
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Next: Yellow Team vs Green Team')
+  })
+
+  it('halves played with the stay rule: a level match 2 goes to the team that came on', async () => {
+    seed({ ...PRESETS.halves, draw_rule: 'stay' }, match('m1', { match_number: 2, period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 'tb' }))
+  })
+
   it('knockout: a leader after extra time ends the match as extra_time', async () => {
     seed(PRESETS.knockout, match('m1', { period: 4, period_seconds: [600, 600, 300], timer_status: 'running', team1_score: 1, status: 'active' }))
     const user = userEvent.setup()

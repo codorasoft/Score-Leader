@@ -1,4 +1,5 @@
 import type { Match, Team } from '../lib/types'
+import type { MatchFormat } from './matchFormat'
 import { TEAM_COLORS } from '../lib/teamColors'
 import { shuffle } from './shuffle'
 
@@ -9,17 +10,25 @@ export interface NextMatch {
   queue: string[]
 }
 
-// Winner stays, the first waiting team comes on, the loser joins the back of the queue
-// (draws are decided by decideResult first). With nobody waiting (2 teams) the same two play again.
 // Teams waiting during a match, in order; matches saved before queues existed only have their waiting team
 export const waitingQueue = (match: Pick<Match, 'queue' | 'waiting_team_id'>): string[] =>
   match.queue?.length ? match.queue : match.waiting_team_id ? [match.waiting_team_id] : []
 
+// Winner stays, the first waiting team comes on, the loser joins the back of the queue
+// (draws are decided by decideResult first). With nobody waiting (2 teams) the same two play again.
+// A true draw (draw rule 'draw': no winner) sends both teams off and the next two come on.
 export function resolveMatch(match: Match): NextMatch {
   const { team1_id, team2_id, winner_team_id } = match
-  if (!winner_team_id) throw new Error('Cannot resolve match without a winner')
-  const loser = winner_team_id === team1_id ? team2_id : team1_id
   const waiting = waitingQueue(match)
+  if (!winner_team_id) {
+    if (!match.is_draw) throw new Error('Cannot resolve a match that is neither won nor drawn')
+    if (waiting.length === 0) return { team1Id: team1_id, team2Id: team2_id, queue: [] }
+    // With one team waiting both cannot go off: it comes on against team1 (on the pitch longer, as
+    // under the stay rule) and team2 waits. With more waiting, both drawn teams join the back in order.
+    if (waiting.length === 1) return { team1Id: waiting[0], team2Id: team1_id, queue: [team2_id] }
+    return { team1Id: waiting[0], team2Id: waiting[1], queue: [...waiting.slice(2), team1_id, team2_id] }
+  }
+  const loser = winner_team_id === team1_id ? team2_id : team1_id
   if (waiting.length === 0) return { team1Id: winner_team_id, team2Id: loser, queue: [] }
   return { team1Id: winner_team_id, team2Id: waiting[0], queue: [...waiting.slice(1), loser] }
 }
@@ -29,16 +38,27 @@ export function matchRowFields(next: NextMatch): Pick<Match, 'team1_id' | 'team2
   return { team1_id: next.team1Id, team2_id: next.team2Id, queue: next.queue, waiting_team_id: next.queue[0] ?? null }
 }
 
-// Session rule: a draw in match 1 goes to penalties (no winner yet). In later matches team1
-// is the previous winner and team2 has just come on from waiting; the team that waited
-// longer wins a draw, so the previous winner counts as the loser and goes off.
-export function decideResult(params: Pick<Match, 'team1_score' | 'team2_score' | 'match_number' | 'team1_id' | 'team2_id'>):
-  Pick<Match, 'is_draw' | 'draw_resolved_by' | 'winner_team_id'> {
+type DrawFormat = Pick<MatchFormat, 'penalties' | 'draw_rule'>
+
+// A level match is settled by a shoot-out when the session has penalties, or under the stay rule
+// in match 1 (there is no previous winner yet to send off)
+export const drawGoesToPenalties = (format: DrawFormat, matchNumber: number): boolean =>
+  format.penalties || (format.draw_rule === 'stay' && matchNumber === 1)
+
+// A level match has no winner when a shoot-out will decide it, or when the draw rule lets the
+// draw stand. Otherwise (stay rule, match 2 on) team1 is the previous winner and team2 has just
+// come on from waiting; the team that waited longer wins a draw, so the previous winner goes off.
+export function decideResult(
+  params: Pick<Match, 'team1_score' | 'team2_score' | 'match_number' | 'team1_id' | 'team2_id'>,
+  format: DrawFormat,
+): Pick<Match, 'is_draw' | 'draw_resolved_by' | 'winner_team_id'> {
   const { team1_score, team2_score } = params
   if (team1_score !== team2_score) {
     return { is_draw: false, draw_resolved_by: null, winner_team_id: team1_score > team2_score ? params.team1_id : params.team2_id }
   }
-  if (params.match_number === 1) return { is_draw: true, draw_resolved_by: null, winner_team_id: null }
+  if (drawGoesToPenalties(format, params.match_number) || format.draw_rule === 'draw') {
+    return { is_draw: true, draw_resolved_by: null, winner_team_id: null }
+  }
   return { is_draw: true, draw_resolved_by: 'late_team', winner_team_id: params.team2_id }
 }
 
@@ -57,7 +77,7 @@ export function setupFirstMatch(teams: Team[], playing?: [string, string]): Next
 }
 
 // The match to start when a session is under way but has none set up (e.g. the admin deleted
-// them): the rotation carries on from the last finished match, or match 1 starts afresh.
+// them): the rotation carries on from the last finished match (won or a true draw), or match 1 starts afresh.
 // Null while a match is still pending or being played.
 export function nextMatchToStart(
   matches: Match[],
@@ -66,6 +86,8 @@ export function nextMatchToStart(
 ): (NextMatch & { matchNumber: number }) | null {
   if (teams.length < 2 || matches.some((m) => m.status !== 'completed')) return null
   const last = [...matches].sort((a, b) => b.match_number - a.match_number)[0]
-  if (!last?.winner_team_id) return { matchNumber: (last?.match_number ?? 0) + 1, ...setupFirstMatch(teams, playing) }
+  if (!last || (!last.winner_team_id && !last.is_draw)) {
+    return { matchNumber: (last?.match_number ?? 0) + 1, ...setupFirstMatch(teams, playing) }
+  }
   return { matchNumber: last.match_number + 1, ...resolveMatch(last) }
 }

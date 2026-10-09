@@ -7,7 +7,7 @@ import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
-import { resolveMatch, decideResult, matchRowFields, waitingQueue } from '../../utils/matchRotation'
+import { resolveMatch, decideResult, drawGoesToPenalties, matchRowFields, waitingQueue } from '../../utils/matchRotation'
 import { NextUp } from '../../components/NextUp'
 import { BetweenPeriods } from '../../components/BetweenPeriods'
 import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
@@ -227,10 +227,11 @@ export default function MatchTrackerPage() {
   // The clock stopped on a period that is already recorded: the break before the next step
   const between = !showPenalties && step.kind !== 'play' && step.kind !== 'endPeriod'
     && (timer.timerStatus ?? match.timer_status) === 'stopped' && match.period_seconds.length >= match.period
-  // The last period ends the match itself when there is a result to give, or a level match the
-  // session settles the old way (penalties in match 1, else the previous winner goes off)
-  const endsMatch = step.kind === 'endPeriod' && periodAfter(format, step.period, level) === null
-    && (!level || format.draw_rule !== 'draw')
+  // Ending this period ends the match itself when the step after it would be End Match (a draw that
+  // stands, extra time or penalties are reached through the break instead)
+  const endsMatch = step.kind === 'endPeriod' && nextStep(format, {
+    ...match, timer_status: 'stopped', period_seconds: [...match.period_seconds, timer.elapsed],
+  }, timer.elapsed).kind === 'endMatch'
   const len = periodLength(match.period, format) ?? 0
 
   const stepLabel = (() => {
@@ -238,7 +239,7 @@ export default function MatchTrackerPage() {
       case 'endPeriod': return endsMatch ? t('match.endMatch') : t('match.endPeriod', { period: periodName(step.period) })
       case 'startPeriod': return t('match.startPeriod', { period: periodName(step.period) })
       case 'penalties': return t('match.goToPenalties')
-      case 'draw': return format.draw_rule === 'draw' ? t('match.drawEnd') : t('match.endMatch')
+      case 'draw': return t('match.drawEnd')
       default: return t('match.endMatch')
     }
   })()
@@ -279,7 +280,7 @@ export default function MatchTrackerPage() {
       case 'endPeriod': return endsMatch ? doEndMatch() : endCurrentPeriod()
       case 'startPeriod': return startNextPeriod(step.period)
       case 'penalties': return goToPenalties()
-      case 'draw': return format.draw_rule === 'draw' ? endAsDraw() : doEndMatch()
+      case 'draw': return endAsDraw()
       default: return doEndMatch()
     }
   }
@@ -294,9 +295,10 @@ export default function MatchTrackerPage() {
   }
 
   const doEndMatch = async () => {
-    const update = decideResult(match)
+    const update = decideResult(match, format)
 
-    if (update.is_draw && match.match_number === 1 && !update.winner_team_id) {
+    // Level with no winner: a shoot-out when the session settles draws that way, else the draw stands
+    if (update.is_draw && !update.winner_team_id && drawGoesToPenalties(format, match.match_number)) {
       await goToPenalties()
       return
     }
@@ -318,18 +320,8 @@ export default function MatchTrackerPage() {
     }])
   }
 
-  // TEMPORARY until Task 9: a draw has no winner, so resolveMatch cannot set up the next match.
-  // Save the draw and go back to the session page; Task 9 replaces this.
-  const endAsDraw = async () => {
-    if (outbox.pending().length > 0 && !(await outbox.flush())) {
-      setEndBlocked(true)
-      return
-    }
-    const { error } = await supabase.from('matches')
-      .update({ is_draw: true, winner_team_id: null, draw_resolved_by: null, ...finishedMatchFields(match, timer.elapsed) })
-      .eq('id', match.id)
-    if (!error) navigate(adminPath(`/sessions/${sessionId}`))
-  }
+  // The draw stands (draw rule 'draw'): no winner, and resolveMatch sends the next teams on
+  const endAsDraw = () => finishMatch({ is_draw: true, winner_team_id: null, draw_resolved_by: null })
 
   const handlePenaltyDecide = async () => {
     const winnerId = penaltyT1 > penaltyT2 ? match.team1_id : match.team2_id
@@ -338,8 +330,8 @@ export default function MatchTrackerPage() {
     }, { team1: penaltyT1, team2: penaltyT2 })
   }
 
+  // update carries the winner, or none for a draw that stands
   const finishMatch = async (update: Partial<Match>, penalties?: { team1: number; team2: number }) => {
-    if (!update.winner_team_id) return
     // Ending creates the next match on the server, so everything recorded must be sent first
     if (outbox.pending().length > 0 && !(await outbox.flush())) {
       setEndBlocked(true)
@@ -364,7 +356,7 @@ export default function MatchTrackerPage() {
     }).select().single()
 
     setResult({
-      outcome: describeOutcome({ ...completedMatch, winner_team_id: update.winner_team_id, format, totalSeconds: totalSeconds(finished, 0), penalties }),
+      outcome: describeOutcome({ ...completedMatch, format, totalSeconds: totalSeconds(finished, 0), penalties }),
       nextMatchId: nextMatch ? (nextMatch as Match).id : null,
       next,
     })

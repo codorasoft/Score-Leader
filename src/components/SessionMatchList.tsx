@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { Match, MatchEvent, Player, Team } from '../lib/types'
 import { MatchTimeline } from './MatchTimeline'
 import { styleMap } from '../lib/teamColors'
+import { resultLabel } from '../utils/resultLabel'
 
 const colorDot = styleMap('dot')
 
@@ -30,19 +31,6 @@ export function SessionMatchList({ matches, events, teams, players, periods = fa
     const tm = team(id)
     return tm ? t('common.teamName', { color: t(`common.teamColor.${tm.color}`) }) : '?'
   }
-  const resultLabel = (m: Match) => {
-    if (!m.is_draw) {
-      return t(m.draw_resolved_by === 'extra_time' ? 'timeline.winsAet' : 'timeline.wins', { team: teamName(m.winner_team_id) })
-    }
-    if (m.draw_resolved_by === 'penalties') {
-      const wins = t('timeline.winsPens', { team: teamName(m.winner_team_id) })
-      return m.penalties_team1 != null && m.penalties_team2 != null
-        ? `${wins} · ${t('timeline.pens', { a: m.penalties_team1, b: m.penalties_team2 })}`
-        : wins
-    }
-    if (m.winner_team_id) return t('timeline.drawWinner', { team: teamName(m.winner_team_id) })
-    return t('timeline.draw')
-  }
   const toggle = (id: string) => setToggled((s) => {
     const next = new Set(s)
     if (next.has(id)) next.delete(id)
@@ -65,7 +53,7 @@ export function SessionMatchList({ matches, events, teams, players, periods = fa
             <span className="font-mono">{m.team1_score} – {m.team2_score}</span>
             <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${colorDot[team(m.team2_id)?.color ?? ''] ?? 'bg-gray-500'}`} />
           </span>
-          <span className={`text-xs truncate ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>{resultLabel(m)}</span>
+          <span className={`text-xs truncate ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>{resultLabel(m, teamName, t)}</span>
           <span className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>
         </button>
         {isOpen && (

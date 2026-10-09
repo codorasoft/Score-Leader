@@ -221,9 +221,7 @@
   "sessionDetail": {
     "back": "History",
     "noMatches": "No completed matches yet",
-    "wins": "wins",
     "draw": "Draw",
-    "resolvedPenalties": "Resolved by penalties",
     "upcoming": "Upcoming",
     "editMatch": "Edit",
     "deleteMatch": "Delete",
