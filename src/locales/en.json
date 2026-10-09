@@ -119,6 +119,8 @@
     "earlyEndTitle": "End match early?",
     "earlyEndBody": "The goal limit and time limit haven't been reached yet.",
     "earlyEndConfirm": "Yes, end it",
+    "earlyEndPeriodTitle": "End the {{period}} early?",
+    "earlyEndPeriodBody": "Its time hasn't run out yet.",
     "undo": "↶ Undo",
     "undoTitle": "Undo the last event?",
     "undoGoal": "⚽ Goal — {{name}}",
@@ -129,7 +131,21 @@
     "log": "Match log",
     "undoSwap": "↔ Swap — {{a}} ⇄ {{b}}",
     "nextUp": "Next up: {{team}}",
-    "nextUpThen": "Next up: {{team}}, then {{rest}}"
+    "nextUpThen": "Next up: {{team}}, then {{rest}}",
+    "period": {
+      "full": "Match",
+      "first": "1st half",
+      "second": "2nd half",
+      "extra1": "Extra time 1",
+      "extra2": "Extra time 2",
+      "penalties": "Penalties"
+    },
+    "endPeriod": "End {{period}}",
+    "startPeriod": "Start {{period}}",
+    "betweenPeriods": "{{period}} finished",
+    "goToPenalties": "Go to penalties",
+    "periodTimeUp": "Time's up for the {{period}}",
+    "drawEnd": "Draw — end match"
   },
   "goal": {
     "whoScored": "Who scored?",
@@ -207,9 +223,7 @@
   "sessionDetail": {
     "back": "History",
     "noMatches": "No completed matches yet",
-    "wins": "wins",
     "draw": "Draw",
-    "resolvedPenalties": "Resolved by penalties",
     "upcoming": "Upcoming",
     "editMatch": "Edit",
     "deleteMatch": "Delete",
@@ -258,7 +272,8 @@
     "live": "Live",
     "unknown": "Unknown",
     "notStarted": "Next match — not started yet",
-    "paused": "Paused"
+    "paused": "Paused",
+    "halfTime": "Half-time"
   },
   "errors": {
     "network": "No connection — this change was not saved. Check your internet and try again.",
@@ -288,17 +303,29 @@
   },
   "result": {
     "winsTitle": "{{team}} wins!",
+    "drawTitle": "It's a draw",
     "reason": {
       "goalLimit": "{{team}} was first to score {{limit}} goals.",
       "timeUp": "{{team}} was ahead when the {{minutes}} minutes ran out.",
       "endedEarly": "{{team}} was ahead when the match was ended early.",
       "penalties": "{{team}} won the penalty shootout {{winnerPens}}–{{loserPens}}.",
-      "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on."
+      "drawPreviousWinnerLoses": "Draw. {{loser}} won the last match, so a draw counts as a loss for them. {{team}} stays on.",
+      "extraTime": "{{team}} wins after extra time.",
+      "draw": "The match ended level. The next match is shown below."
     },
     "next": "Next: {{team1}} vs {{team2}}",
     "continue": "Continue"
   },
   "timeline": {
+    "periodShort": {
+      "1": "1H",
+      "2": "2H",
+      "3": "ET1",
+      "4": "ET2",
+      "5": "P"
+    },
+    "winsAet": "{{team}} wins aet",
+    "pens": "pens {{a}}–{{b}}",
     "title": "Timeline",
     "noEvents": "No events yet",
     "assist": "assist: {{name}}",

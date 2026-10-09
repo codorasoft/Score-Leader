@@ -14,11 +14,13 @@ import { SessionVotes } from '../../components/SessionVotes'
 import { SessionSummaryShare } from '../../components/SessionSummaryShare'
 import LoadFailed from '../../components/LoadFailed'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
-import { matchRowFields, nextMatchToStart, waitingQueue } from '../../utils/matchRotation'
+import { drawGoesToPenalties, matchRowFields, nextMatchToStart, waitingQueue } from '../../utils/matchRotation'
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 import { MatchFormatLine } from '../../components/MatchFormatLine'
+import { DEFAULT_FORMAT } from '../../utils/matchFormat'
+import { resultLabel } from '../../utils/resultLabel'
 
 const colorDot = styleMap('dot')
 
@@ -80,6 +82,11 @@ export default function SessionDetailPage() {
   const teamById = Object.fromEntries(teams.map((tm) => [tm.id, tm]))
   const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
   const teamLabel = (team: Team) => t('common.teamName', { color: t(`common.teamColor.${team.color}`) })
+  const teamNameOf = (id: string | null) => (id && teamById[id] ? teamLabel(teamById[id]) : '?')
+  const format = session ?? DEFAULT_FORMAT
+  // A level match has a winner to pick unless the draw rule lets it stand (no shoot-out to settle it)
+  const canPickWinner = (m: Match) => m.team1_score === m.team2_score
+    && !(format.draw_rule === 'draw' && !drawGoesToPenalties(format, m.match_number))
   const completed = matches.filter((m) => m.status === 'completed')
   const upcoming = matches.filter((m) => m.status !== 'completed')
 
@@ -93,7 +100,7 @@ export default function SessionDetailPage() {
   const syncResult = async (match: Match) => {
     const { data } = await supabase.from('match_events').select('event_type, team_id').eq('match_id', match.id)
     if (!data) return
-    await supabase.from('matches').update(recomputeResult(match, data as MatchEvent[])).eq('id', match.id)
+    await supabase.from('matches').update(recomputeResult(match, data as MatchEvent[], format)).eq('id', match.id)
   }
 
   const addGoal = (match: Match, teamId: string, scorerId: string, assisterId: string | null) =>
@@ -223,12 +230,10 @@ export default function SessionDetailPage() {
                   {t('common.match', { number: m.match_number })}
                 </span>
                 <div className="flex items-center justify-end flex-wrap gap-2">
-                  {winner && (
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-green-400">
-                      <span className={`w-2 h-2 rounded-full ${colorDot[winner.color] ?? 'bg-gray-400'}`} />
-                      {teamLabel(winner)} {t('sessionDetail.wins')}
-                    </span>
-                  )}
+                  <span className={`flex items-center gap-1.5 text-xs font-semibold ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {winner && <span className={`w-2 h-2 rounded-full ${colorDot[winner.color] ?? 'bg-gray-400'}`} />}
+                    {resultLabel(m, teamNameOf, t)}
+                  </span>
                   {isEditing ? (
                     <button onClick={() => setEditingId(null)} className="px-3 py-1 bg-blue-600 rounded text-xs font-semibold hover:bg-blue-500">
                       {t('sessionDetail.done')}
@@ -311,7 +316,7 @@ export default function SessionDetailPage() {
                     )
                   })}
 
-                  {m.team1_score === m.team2_score && (
+                  {canPickWinner(m) && (
                     <div>
                       <p className="text-xs text-gray-400 mb-2">{t('sessionDetail.winner')}</p>
                       <div className="flex gap-2">
@@ -337,7 +342,7 @@ export default function SessionDetailPage() {
 
               {!isEditing && timelineId === m.id && (
                 <div className="mt-3 pt-3 border-t border-gray-700">
-                  <MatchTimeline events={matchEvents} teams={teams} players={players} />
+                  <MatchTimeline events={matchEvents} teams={teams} players={players} periods={!!session && (session.period_count > 1 || session.extra_time_minutes != null)} />
                 </div>
               )}
 
@@ -345,9 +350,6 @@ export default function SessionDetailPage() {
                 <p className="text-xs text-gray-500 mt-2 text-center">
                   {t('common.waiting')}: {waiting.map(teamLabel).join(t('common.listSeparator'))}
                 </p>
-              )}
-              {!isEditing && m.is_draw && m.draw_resolved_by === 'penalties' && (
-                <p className="text-xs text-blue-400 mt-1 text-center">{t('sessionDetail.resolvedPenalties')}</p>
               )}
             </div>
           )

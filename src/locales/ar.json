@@ -143,6 +143,8 @@
     "earlyEndTitle": "إنهاء المباراة مبكراً؟",
     "earlyEndBody": "لم يتم بلوغ حد الأهداف أو حد الوقت بعد.",
     "earlyEndConfirm": "نعم، أنهِها",
+    "earlyEndPeriodTitle": "إنهاء {{period}} مبكراً؟",
+    "earlyEndPeriodBody": "لم ينتهِ وقته بعد.",
     "undo": "↶ تراجع",
     "undoTitle": "التراجع عن آخر حدث؟",
     "undoGoal": "⚽ هدف — {{name}}",
@@ -153,7 +155,21 @@
     "log": "سجل المباراة",
     "undoSwap": "↔ تبديل — {{a}} ⇄ {{b}}",
     "nextUp": "التالي: {{team}}",
-    "nextUpThen": "التالي: {{team}}، ثم {{rest}}"
+    "nextUpThen": "التالي: {{team}}، ثم {{rest}}",
+    "period": {
+      "full": "المباراة",
+      "first": "الشوط الأول",
+      "second": "الشوط الثاني",
+      "extra1": "الشوط الإضافي الأول",
+      "extra2": "الشوط الإضافي الثاني",
+      "penalties": "ركلات الترجيح"
+    },
+    "endPeriod": "إنهاء {{period}}",
+    "startPeriod": "بدء {{period}}",
+    "betweenPeriods": "انتهى {{period}}",
+    "goToPenalties": "الذهاب إلى ركلات الترجيح",
+    "periodTimeUp": "انتهى وقت {{period}}",
+    "drawEnd": "تعادل — إنهاء المباراة"
   },
   "goal": {
     "whoScored": "من سجّل؟",
@@ -243,9 +259,7 @@
   "sessionDetail": {
     "back": "السجل",
     "noMatches": "لا توجد مباريات مكتملة بعد",
-    "wins": "يفوز",
     "draw": "تعادل",
-    "resolvedPenalties": "حُسم بركلات الترجيح",
     "upcoming": "القادم",
     "editMatch": "تعديل",
     "deleteMatch": "حذف",
@@ -302,7 +316,8 @@
     "live": "مباشر",
     "unknown": "غير معروف",
     "notStarted": "المباراة القادمة — لم تبدأ بعد",
-    "paused": "متوقفة مؤقتاً"
+    "paused": "متوقفة مؤقتاً",
+    "halfTime": "استراحة بين الشوطين"
   },
   "errors": {
     "network": "لا يوجد اتصال — لم يتم حفظ هذا التغيير. تحقق من الإنترنت وحاول مرة أخرى.",
@@ -332,17 +347,29 @@
   },
   "result": {
     "winsTitle": "فوز {{team}}!",
+    "drawTitle": "تعادل!",
     "reason": {
       "goalLimit": "{{team}} كان أول من سجّل {{limit}} أهداف.",
       "timeUp": "{{team}} كان متقدماً عند انتهاء الـ{{minutes}} دقائق.",
       "endedEarly": "{{team}} كان متقدماً عندما أُنهيت المباراة مبكراً.",
       "penalties": "{{team}} فاز بركلات الترجيح ⁦{{winnerPens}}–{{loserPens}}⁩.",
-      "drawPreviousWinnerLoses": "تعادل. {{loser}} فاز في المباراة السابقة، لذلك يُحسب التعادل خسارة له. يبقى {{team}} في الملعب."
+      "drawPreviousWinnerLoses": "تعادل. {{loser}} فاز في المباراة السابقة، لذلك يُحسب التعادل خسارة له. يبقى {{team}} في الملعب.",
+      "extraTime": "{{team}} فاز بعد الوقت الإضافي.",
+      "draw": "انتهت المباراة بالتعادل. المباراة التالية موضحة أدناه."
     },
     "next": "التالية: {{team1}} ضد {{team2}}",
     "continue": "متابعة"
   },
   "timeline": {
+    "periodShort": {
+      "1": "ش1",
+      "2": "ش2",
+      "3": "إ1",
+      "4": "إ2",
+      "5": "ر"
+    },
+    "winsAet": "{{team}} يفوز بعد الوقت الإضافي",
+    "pens": "ركلات الترجيح ⁦{{a}}–{{b}}⁩",
     "title": "مجريات المباراة",
     "noEvents": "لا توجد أحداث بعد",
     "assist": "تمريرة: {{name}}",

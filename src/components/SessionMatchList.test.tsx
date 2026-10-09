@@ -11,11 +11,11 @@ const players = ['Ali', 'Omar', 'Sami'].map((name) => ({ id: name, name }) as Pl
 const match = (o: Partial<Match>): Match => ({
   id: 'm', session_id: 's', match_number: 1, team1_id: 'red', team2_id: 'blue', waiting_team_id: 'yellow',
   status: 'completed', team1_score: 1, team2_score: 0, winner_team_id: 'red', is_draw: false, draw_resolved_by: null,
-  timer_started_at: null, timer_elapsed_seconds: 0, timer_status: 'paused', created_at: '', ...o,
+  timer_started_at: null, timer_elapsed_seconds: 0, timer_status: 'paused', period: 1, period_seconds: [], penalties_team1: null, penalties_team2: null, created_at: '', ...o,
 })
 const ev = (o: Partial<MatchEvent> & Pick<MatchEvent, 'id' | 'match_id' | 'event_type' | 'player_id' | 'team_id'>): MatchEvent => ({
   related_event_id: null, minute: null, elapsed_seconds: null, suspension_minutes: null,
-  suspension_started_at: null, suspension_ended_at: null, created_at: `2026-10-04T10:00:0${o.id.length}Z`, ...o,
+  suspension_started_at: null, suspension_ended_at: null, period: 1, created_at: `2026-10-04T10:00:0${o.id.length}Z`, ...o,
 })
 
 const matches = [
@@ -42,4 +42,24 @@ it('expands an earlier match to show its timeline with the logged time', () => {
   fireEvent.click(screen.getByText('Green Team wins'))
   expect(screen.getByText('Ali')).toBeInTheDocument()
   expect(screen.getByText('01:35')).toBeInTheDocument()
+})
+
+it('labels: aet win, penalties with score, true draw', () => {
+  const list = [
+    match({ id: 'a', match_number: 1, draw_resolved_by: 'extra_time' }),
+    match({ id: 'b', match_number: 2, is_draw: true, team1_score: 1, team2_score: 1, draw_resolved_by: 'penalties', winner_team_id: 'red', penalties_team1: 4, penalties_team2: 3 }),
+    match({ id: 'c', match_number: 3, is_draw: true, team1_score: 0, team2_score: 0, winner_team_id: null }),
+  ]
+  render(<SessionMatchList matches={list} events={[]} teams={teams} players={players} />)
+  expect(screen.getByText('Green Team wins aet')).toBeInTheDocument()
+  expect(screen.getByText(/wins on penalties · pens 4–3/)).toBeInTheDocument()
+  expect(screen.getByText('Draw')).toBeInTheDocument()
+})
+
+it('prefixes timeline times with the period only when asked', () => {
+  const g = [ev({ id: 'g', match_id: 'm1', event_type: 'goal', player_id: 'Ali', team_id: 'red', elapsed_seconds: 95, period: 2 })]
+  const { rerender } = render(<SessionMatchList matches={[matches[0]]} events={g} teams={teams} players={players} />)
+  expect(screen.queryByText(/2H/)).not.toBeInTheDocument()
+  rerender(<SessionMatchList matches={[matches[0]]} events={g} teams={teams} players={players} periods />)
+  expect(screen.getByText('2H 01:35')).toBeInTheDocument()
 })

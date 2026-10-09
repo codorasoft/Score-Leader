@@ -22,6 +22,7 @@ const baseMatch = (o: Partial<Match> = {}): Match => ({
   status: 'active', team1_score: 0, team2_score: 0,
   winner_team_id: null, is_draw: false, draw_resolved_by: null,
   timer_started_at: null, timer_elapsed_seconds: 0, timer_status: 'stopped',
+  period: 1, period_seconds: [],
   created_at: '',
   ...o,
 })
@@ -83,4 +84,18 @@ describe('devices whose clocks disagree', () => {
     const { result } = renderHook(() => useMatchTimer(match))
     expect(result.current.elapsed).toBe(30)
   })
+})
+
+it('endPeriod freezes the clock and records the period length, also when paused', async () => {
+  const { result } = renderHook(() => useMatchTimer(baseMatch({ timer_status: 'paused', timer_elapsed_seconds: 612, period_seconds: [] })))
+  await act(() => result.current.endPeriod())
+  expect(result.current.timerStatus).toBe('stopped'); expect(result.current.elapsed).toBe(612)
+  expect(outbox.runOrQueue).toHaveBeenLastCalledWith(expect.objectContaining({ values: expect.objectContaining({ timer_status: 'stopped', timer_elapsed_seconds: 612, period_seconds: [612] }) }))
+})
+
+it('startPeriod moves to the next period with a fresh running clock at server time', async () => {
+  const { result } = renderHook(() => useMatchTimer(baseMatch({ timer_status: 'stopped', timer_elapsed_seconds: 612, period_seconds: [612] })))
+  await act(() => result.current.startPeriod(2))
+  expect(result.current.timerStatus).toBe('running'); expect(result.current.elapsed).toBe(0)
+  expect(outbox.runOrQueue).toHaveBeenLastCalledWith(expect.objectContaining({ values: expect.objectContaining({ period: 2, timer_elapsed_seconds: 0, timer_status: 'running', status: 'active' }) }))
 })

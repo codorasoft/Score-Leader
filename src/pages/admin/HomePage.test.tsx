@@ -4,6 +4,7 @@ import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb } from '../../test/fakeSupabase'
 import { player } from '../../test/fixtures'
+import { PRESETS } from '../../utils/matchFormat'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
@@ -69,6 +70,13 @@ describe('live / start block', () => {
     expect(screen.getByText('2 – 1')).toBeInTheDocument()
     expect(screen.getByText('02:05')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Resume/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1/match/m1')
+  })
+  it('a running match in halves shows the clock against the period length', async () => {
+    h.rows.sessions = [{ ...session('s1', today, 'active'), ...PRESETS.halves }]
+    h.rows.matches = [match('active', { period: 1, period_seconds: [], timer_elapsed_seconds: 650 })]
+    h.rows.teams = [{ id: 'ta', session_id: 's1', color: 'green', name: null }, { id: 'tb', session_id: 's1', color: 'blue', name: null }]
+    renderHome()
+    expect(await screen.findByText('10:00 +00:50')).toBeInTheDocument()
   })
   it('a new session without players: continue to attendance', async () => {
     h.rows.sessions = [session('s1', today, 'draft')]

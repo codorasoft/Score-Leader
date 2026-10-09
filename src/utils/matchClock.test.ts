@@ -1,6 +1,7 @@
 import { formatMatchClock, eventClockSeconds, canRecordEvents, finishedMatchFields } from './matchClock'
 
 describe('formatMatchClock', () => {
+  it('caps at the given period length', () => { expect(formatMatchClock(650, 600)).toBe('10:00 +00:50'); expect(formatMatchClock(650)).toBe('07:00 +03:50') })
   it('shows minutes and seconds inside regular time', () => {
     expect(formatMatchClock(0)).toBe('00:00')
     expect(formatMatchClock(192)).toBe('03:12')
@@ -46,9 +47,10 @@ describe('canRecordEvents', () => {
 })
 
 describe('finishedMatchFields', () => {
-  it('marks the match completed and stops the clock at the final match time', () => {
-    expect(finishedMatchFields(465)).toEqual({
-      status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: 465, timer_started_at: null,
-    })
-  })
+  it('records the final period length', () =>
+    expect(finishedMatchFields({ period: 2, period_seconds: [600] }, 587)).toEqual({ status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: 587, timer_started_at: null, period_seconds: [600, 587] }))
+  it('does not record a period that was already ended', () =>
+    expect(finishedMatchFields({ period: 2, period_seconds: [600, 590] }, 590).period_seconds).toEqual([600, 590]))
+  it('adds nothing for a penalty shoot-out, which has no clock', () =>
+    expect(finishedMatchFields({ period: 5, period_seconds: [600, 600, 300, 300] }, 300).period_seconds).toEqual([600, 600, 300, 300]))
 })

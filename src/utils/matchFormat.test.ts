@@ -44,6 +44,11 @@ describe('nextStep', () => {
     expect(nextStep(PRESETS.halves, m({ period: 2, period_seconds: [600, 600], timer_status: 'stopped' }), 600)).toEqual({ kind: 'draw' })
     expect(nextStep(PRESETS.halves, m({ period: 2, period_seconds: [600, 600], timer_status: 'stopped', team1_score: 1 }), 600)).toEqual({ kind: 'endMatch', reason: 'timeUp' })
   })
+  it('the stay rule never ends level: the final period over with no winner → endMatch timeUp (decideResult settles it)', () => {
+    const stopped = m({ period: 2, period_seconds: [600, 600], timer_status: 'stopped' })
+    expect(nextStep({ ...PRESETS.halves, draw_rule: 'stay' }, stopped, 600)).toEqual({ kind: 'endMatch', reason: 'timeUp' })
+    expect(nextStep(PRESETS.quick, m({ period_seconds: [420], timer_status: 'stopped' }), 420)).toEqual({ kind: 'endMatch', reason: 'timeUp' })
+  })
   it('knockout: level after ET2 → penalties; period 5 → penalties', () => {
     expect(nextStep(PRESETS.knockout, m({ period: 4, period_seconds: [600,600,300,300], timer_status: 'stopped' }), 300)).toEqual({ kind: 'penalties' })
     expect(nextStep(PRESETS.knockout, m({ period: 5 }), 0)).toEqual({ kind: 'penalties' })

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { Match, MatchEvent, Player, Team } from '../lib/types'
 import { MatchTimeline } from './MatchTimeline'
 import { styleMap } from '../lib/teamColors'
+import { resultLabel } from '../utils/resultLabel'
 
 const colorDot = styleMap('dot')
 
@@ -11,10 +12,11 @@ interface Props {
   events: MatchEvent[]
   teams: Team[]
   players: Player[]
+  periods?: boolean
 }
 
 // Finished matches of a session, newest first: the last one is highlighted with its timeline open.
-export function SessionMatchList({ matches, events, teams, players }: Props) {
+export function SessionMatchList({ matches, events, teams, players, periods = false }: Props) {
   const { t } = useTranslation()
   const finished = matches
     .filter((m) => m.status === 'completed')
@@ -28,12 +30,6 @@ export function SessionMatchList({ matches, events, teams, players }: Props) {
   const teamName = (id: string | null) => {
     const tm = team(id)
     return tm ? t('common.teamName', { color: t(`common.teamColor.${tm.color}`) }) : '?'
-  }
-  const resultLabel = (m: Match) => {
-    if (!m.is_draw) return t('timeline.wins', { team: teamName(m.winner_team_id) })
-    if (m.draw_resolved_by === 'penalties') return t('timeline.winsPens', { team: teamName(m.winner_team_id) })
-    if (m.winner_team_id) return t('timeline.drawWinner', { team: teamName(m.winner_team_id) })
-    return t('timeline.draw')
   }
   const toggle = (id: string) => setToggled((s) => {
     const next = new Set(s)
@@ -57,12 +53,12 @@ export function SessionMatchList({ matches, events, teams, players }: Props) {
             <span className="font-mono">{m.team1_score} – {m.team2_score}</span>
             <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${colorDot[team(m.team2_id)?.color ?? ''] ?? 'bg-gray-500'}`} />
           </span>
-          <span className={`text-xs truncate ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>{resultLabel(m)}</span>
+          <span className={`text-xs truncate ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>{resultLabel(m, teamName, t)}</span>
           <span className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>
         </button>
         {isOpen && (
           <div className="px-3 pb-3 border-t border-gray-700/60 pt-3">
-            <MatchTimeline events={events.filter((e) => e.match_id === m.id)} teams={teams} players={players} />
+            <MatchTimeline events={events.filter((e) => e.match_id === m.id)} teams={teams} players={players} periods={periods} />
           </div>
         )}
       </div>

@@ -5,7 +5,8 @@ import { format } from 'date-fns'
 import { ar, enUS } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
-import { formatMatchClock } from '../../utils/matchClock'
+import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
+import { periodLength } from '../../utils/matchFormat'
 import { NewSessionDialog } from '../../components/NewSessionDialog'
 import { NextUp } from '../../components/NextUp'
 import { waitingQueue } from '../../utils/matchRotation'
@@ -22,7 +23,7 @@ const bigButton = 'min-h-[52px] rounded-xl font-bold text-base flex items-center
 interface Board { id: string; name: string; updated_at: string }
 interface HomeData { live: LiveState; teams: Team[]; todo: TodoItem[]; board: Board | null }
 type Count = { count: number }[]
-interface OpenSession { id: string; status: Session['status']; matches: Match[]; teams: Team[]; session_players: Count }
+interface OpenSession extends Pick<Session, 'period_count' | 'period_minutes' | 'extra_time_minutes' | 'penalties' | 'goal_limit' | 'draw_rule'> { id: string; status: Session['status']; matches: Match[]; teams: Team[]; session_players: Count }
 interface VoteRow { id: string; award_type: AwardVote['award_type']; session_id: string; award_vote_entries: Count }
 
 const todayString = () => format(new Date(), 'yyyy-MM-dd')
@@ -46,7 +47,7 @@ export default function HomePage() {
       const [sessionRes, openRes, voteRes, photoRes, boardRes] = await Promise.all([
         supabase.from('sessions').select('*').eq('league_id', forLeague).order('date', { ascending: false }),
         // What the live card needs, for unfinished sessions only, so old history is not downloaded
-        supabase.from('sessions').select('id, status, matches(*), teams(*), session_players(count)').eq('league_id', forLeague).neq('status', 'completed'),
+        supabase.from('sessions').select('id, status, period_count, period_minutes, extra_time_minutes, penalties, goal_limit, draw_rule, matches(*), teams(*), session_players(count)').eq('league_id', forLeague).neq('status', 'completed'),
         voting
           ? supabase.from('award_votes').select('id, award_type, session_id, award_vote_entries(count)').eq('league_id', forLeague).eq('status', 'open')
           : Promise.resolve({ data: [] }),
@@ -150,7 +151,7 @@ function LiveCard({ live, teams, onStart, startRef }: {
           <span className="text-3xl font-bold tabular-nums">{live.match.team1_score} – {live.match.team2_score}</span>
           <TeamDot team={team(live.match.team2_id)} />
         </div>
-        <MatchClock match={live.match} />
+        <MatchClock match={live.match} limit={periodLength(live.match.period, live.session) ?? MATCH_DURATION_SECONDS} />
         <NextUp queue={waitingQueue(live.match)} teams={teams} className="text-center text-xs text-gray-400 mt-1" />
         <Link to={adminPath(`/sessions/${live.session.id}/match/${live.match.id}`)} className={`${bigButton} mt-3 bg-green-600 hover:bg-green-500`}>
           <span aria-hidden="true">▶</span> {t('home.resume')}
@@ -196,14 +197,14 @@ function TeamDot({ team }: { team: Team | undefined }) {
   )
 }
 
-function MatchClock({ match }: { match: Match }) {
+function MatchClock({ match, limit }: { match: Match; limit: number }) {
   const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
     if (match.timer_status !== 'running') return
     const id = setInterval(() => setNow(serverNow()), 1000)
     return () => clearInterval(id)
   }, [match.timer_status])
-  return <p className="text-center text-sm text-gray-300 tabular-nums" dir="ltr">{formatMatchClock(matchElapsed(match, now))}</p>
+  return <p className="text-center text-sm text-gray-300 tabular-nums" dir="ltr">{formatMatchClock(matchElapsed(match, now), limit)}</p>
 }
 
 function TodoBlock({ items }: { items: TodoItem[] }) {

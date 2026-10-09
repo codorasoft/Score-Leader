@@ -6,6 +6,7 @@ import { InLeague } from '../../test/league'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
 import { match, player, players, session, team, teamPlayers, teams } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
+import { PRESETS, type MatchFormat } from '../../utils/matchFormat'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -38,6 +39,13 @@ const renderPage = (features = FEATURES) => render(
 )
 
 const m1 = () => rows('matches').find((m) => m.id === 'm1')!
+// Session s1 played in another format; match 1 as given
+const seed = (format: MatchFormat, m = match('m1')) => resetDb({
+  players, teams, team_players: teamPlayers,
+  sessions: [{ ...session, status: 'active', ...format }],
+  matches: [m],
+  match_events: [],
+})
 const score = () => screen.getAllByText(/^\d+$/).map((el) => el.textContent)
 
 it('shows who is playing and who waits, and blocks goals until the clock starts', async () => {
@@ -118,6 +126,9 @@ it('a draw in match 1 goes to penalties', async () => {
   await user.click(await screen.findByRole('button', { name: 'End Match' }))
   await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
   expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+  // The shoot-out is period 5, and the match's one period was recorded on the way
+  await waitFor(() => expect(m1()).toMatchObject({ period: 5, timer_status: 'stopped' }))
+  expect(m1().period_seconds).toHaveLength(1)
 
   const confirm = screen.getByRole('button', { name: 'Confirm Penalty Result' })
   expect(confirm).toBeDisabled()
@@ -125,7 +136,9 @@ it('a draw in match 1 goes to penalties', async () => {
   await user.click(blueUp)
   await user.click(confirm)
 
-  await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, draw_resolved_by: 'penalties', winner_team_id: 'tb' }))
+  await waitFor(() => expect(m1()).toMatchObject({
+    status: 'completed', is_draw: true, draw_resolved_by: 'penalties', winner_team_id: 'tb', penalties_team1: 0, penalties_team2: 1,
+  }))
   expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
 })
 
@@ -170,5 +183,167 @@ describe('more or fewer than three teams', () => {
     expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
     expect(screen.queryByText(/Next up/)).not.toBeInTheDocument()
     expect(rows('matches').find((m) => m.match_number === 3)).toMatchObject({ team1_id: 'tb', team2_id: 'tg', queue: [], waiting_team_id: null })
+  })
+})
+
+describe('periods', () => {
+  it('a single-period session still shows End Match, never End 1st half', async () => {
+    renderPage()
+    await screen.findByText('Green Team')
+    expect(screen.getByRole('button', { name: 'End Match' })).toBeInTheDocument()
+    expect(screen.queryByText(/half/)).toBeNull()
+  })
+
+  it('halves: End 1st half freezes the clock, shows the break, Start 2nd half resumes at 00:00', async () => {
+    seed(PRESETS.halves)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '▶ Start' }))
+    // Time is not up yet, so ending the half asks first
+    await user.click(screen.getByRole('button', { name: 'End 1st half' }))
+    expect(screen.getByRole('heading', { name: 'End the 1st half early?' })).toBeInTheDocument()
+    expect(screen.getByText("Its time hasn't run out yet.")).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'End match early?' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    expect(await screen.findByText('1st half finished')).toBeInTheDocument()
+    expect(m1()).toMatchObject({ status: 'active', timer_status: 'stopped', period_seconds: [expect.any(Number)] })
+    // The ended half's clock cannot be restarted
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Start 2nd half' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 2, timer_status: 'running', timer_elapsed_seconds: 0 }))
+    expect(await screen.findByText('2nd half')).toBeInTheDocument()
+    expect(m1().period_seconds).toHaveLength(1)
+  })
+
+  it('shows the break at once while End 1st half is still being saved, so the ended half cannot be restarted', async () => {
+    seed(PRESETS.halves)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '▶ Start' }))
+    await waitFor(() => expect(m1()).toMatchObject({ timer_status: 'running' }))
+    await user.click(screen.getByRole('button', { name: 'End 1st half' }))
+    let answer!: () => void
+    db.holds.matches = new Promise<void>((r) => { answer = r })
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    // The write is still in flight
+    expect(m1().timer_status).toBe('running')
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'End 1st half' })).toBeNull()
+    expect(screen.getByText('1st half finished')).toBeInTheDocument()
+
+    // Starting the 2nd half shows it at once too
+    await user.click(screen.getByRole('button', { name: 'Start 2nd half' }))
+    expect(screen.getByText('2nd half')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'End 1st half' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'End 2nd half' })).toBeInTheDocument()
+
+    answer()
+    await waitFor(() => expect(m1()).toMatchObject({ period: 2, timer_status: 'running' }))
+    expect(m1().period_seconds).toHaveLength(1)
+  })
+
+  it('reloading between periods shows the break screen, not a fresh start', async () => {
+    seed(PRESETS.halves, match('m1', { period: 1, period_seconds: [600], timer_status: 'stopped', timer_elapsed_seconds: 600, status: 'active' }))
+    renderPage()
+    expect(await screen.findByRole('button', { name: 'Start 2nd half' })).toBeInTheDocument()
+    expect(screen.getByText('1st half finished')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
+  })
+
+  it('knockout: level after 2nd half offers extra time; level after ET2 goes to penalties and saves the score', async () => {
+    seed(PRESETS.knockout, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', timer_elapsed_seconds: 600, status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time 1' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 3, timer_status: 'running' }))
+    await user.click(await screen.findByRole('button', { name: 'End Extra time 1' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time 2' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 4, timer_status: 'running' }))
+    await user.click(await screen.findByRole('button', { name: 'End Extra time 2' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Go to penalties' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 5, timer_status: 'stopped' }))
+    expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: '+' })[0])
+    await user.click(screen.getByRole('button', { name: 'Confirm Penalty Result' }))
+
+    await waitFor(() => expect(m1()).toMatchObject({
+      status: 'completed', draw_resolved_by: 'penalties', winner_team_id: 'tg', penalties_team1: 1, penalties_team2: 0,
+    }))
+    // Each period was recorded once
+    expect(m1().period_seconds).toHaveLength(4)
+  })
+
+  it('knockout: reloading during the shoot-out comes back to the shoot-out', async () => {
+    seed(PRESETS.knockout, match('m1', { period: 5, period_seconds: [600, 600, 300, 300], timer_status: 'stopped', status: 'active' }))
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+  })
+
+  it('a finished match that went to penalties does not reopen the shoot-out', async () => {
+    seed(PRESETS.quick, match('m1', {
+      period: 5, period_seconds: [420], status: 'completed', is_draw: true, draw_resolved_by: 'penalties',
+      winner_team_id: 'tb', penalties_team1: 3, penalties_team2: 4,
+    }))
+    renderPage()
+    // Green Team also appears in the day's standings once a match is finished
+    await screen.findAllByText('Green Team')
+    expect(screen.queryByRole('heading', { name: 'Penalty Shootout' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirm Penalty Result' })).toBeNull()
+    // Nor can it be ended or restarted again
+    expect(screen.queryByRole('button', { name: 'End Match' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '▶ Start' })).toBeNull()
+  })
+
+  it('halves with 2 teams: a level match ends as a draw and the same two play again', async () => {
+    seed(PRESETS.halves, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active', queue: [], waiting_team_id: null }))
+    Object.assign(rows('sessions')[0], { team_count: 2 })
+    rows('teams').splice(2)
+    rows('team_players').splice(4)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Draw — end match' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, winner_team_id: null, draw_resolved_by: null }))
+    expect(db.writes.find((w) => w.table === 'matches' && w.op === 'insert')?.values)
+      .toMatchObject({ team1_id: 'tg', team2_id: 'tb', match_number: 2, period: 1, queue: [] })
+    // The result dialog shows the draw and who plays next; Continue goes to that match
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Next: Green Team vs Blue Team')
+    expect(screen.getByRole('heading', { name: "It's a draw" })).toBeInTheDocument()
+    expect(screen.queryByText(/both teams go off/)).not.toBeInTheDocument()
+    const next = rows('matches').find((m) => m.match_number === 2)!
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByText(`next match ${next.id}`)).toBeInTheDocument()
+  })
+
+  it('halves with 3 teams: after a draw the waiting team comes on against team1, and team2 waits', async () => {
+    seed(PRESETS.halves, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active', team1_score: 1, team2_score: 1 }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Draw — end match' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, winner_team_id: null, draw_resolved_by: null }))
+    expect(rows('matches').find((m) => m.match_number === 2))
+      .toMatchObject({ team1_id: 'ty', team2_id: 'tg', queue: ['tb'], waiting_team_id: 'tb', period: 1, status: 'pending' })
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Next: Yellow Team vs Green Team')
+  })
+
+  it('halves played with the stay rule: a level match 2 goes to the team that came on', async () => {
+    seed({ ...PRESETS.halves, draw_rule: 'stay' }, match('m1', { match_number: 2, period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 'tb' }))
+  })
+
+  it('knockout: a leader after extra time ends the match as extra_time', async () => {
+    seed(PRESETS.knockout, match('m1', { period: 4, period_seconds: [600, 600, 300], timer_status: 'running', team1_score: 1, status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: false, draw_resolved_by: 'extra_time', winner_team_id: 'tg' }))
+    expect(m1().period_seconds).toHaveLength(4)
   })
 })

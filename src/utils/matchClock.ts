@@ -6,9 +6,9 @@ export const GOAL_LIMIT = 2
 const mmss = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 
-export function formatMatchClock(seconds: number) {
-  if (seconds <= MATCH_DURATION_SECONDS) return mmss(seconds)
-  return `${mmss(MATCH_DURATION_SECONDS)} +${mmss(seconds - MATCH_DURATION_SECONDS)}`
+export function formatMatchClock(seconds: number, limitSeconds = MATCH_DURATION_SECONDS) {
+  if (seconds <= limitSeconds) return mmss(seconds)
+  return `${mmss(limitSeconds)} +${mmss(seconds - limitSeconds)}`
 }
 
 export function eventClockSeconds(event: Pick<MatchEvent, 'elapsed_seconds' | 'minute'>) {
@@ -21,7 +21,15 @@ export function canRecordEvents(matchStatus: MatchStatus, timerStatus: TimerStat
   return matchStatus !== 'completed' && timerStatus !== 'stopped'
 }
 
-// Ending a match stops its clock and keeps the final match time.
-export function finishedMatchFields(elapsedSeconds: number): Pick<Match, 'status' | 'timer_status' | 'timer_elapsed_seconds' | 'timer_started_at'> {
-  return { status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: elapsedSeconds, timer_started_at: null }
+// Ending a match stops its clock and keeps the final match time and the final period's length.
+// A period already ended with "End half" is recorded already, and a shoot-out (period 5) has no clock.
+export function finishedMatchFields(
+  match: Pick<Match, 'period' | 'period_seconds'>,
+  elapsedSeconds: number,
+): Pick<Match, 'status' | 'timer_status' | 'timer_elapsed_seconds' | 'timer_started_at' | 'period_seconds'> {
+  const unrecorded = match.period <= 4 && match.period_seconds.length < match.period
+  return {
+    status: 'completed', timer_status: 'stopped', timer_elapsed_seconds: elapsedSeconds, timer_started_at: null,
+    period_seconds: unrecorded ? [...match.period_seconds, elapsedSeconds] : match.period_seconds,
+  }
 }
