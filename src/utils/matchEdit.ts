@@ -12,14 +12,24 @@ export function findLastUndoable<E extends Pick<MatchEvent, 'event_type' | 'crea
     .reduce<E | null>((last, e) => (!last || e.created_at > last.created_at ? e : last), null)
 }
 
+// The score is the goals on the timeline
+export function scoreFromGoals(
+  match: Pick<Match, 'team1_id' | 'team2_id'>,
+  events: { event_type: EventType; team_id: string }[],
+): Pick<Match, 'team1_score' | 'team2_score'> {
+  const goals = events.filter((e) => SCORING.includes(e.event_type))
+  return {
+    team1_score: goals.filter((e) => e.team_id === match.team1_id).length,
+    team2_score: goals.filter((e) => e.team_id === match.team2_id).length,
+  }
+}
+
 export function recomputeResult(
   match: Pick<Match, 'team1_id' | 'team2_id' | 'winner_team_id' | 'match_number' | 'draw_resolved_by' | 'period' | 'penalties_team1' | 'penalties_team2'>,
   events: { event_type: EventType; team_id: string }[],
   format: Pick<MatchFormat, 'penalties' | 'draw_rule'>,
 ): Pick<Match, 'team1_score' | 'team2_score' | 'is_draw' | 'winner_team_id' | 'draw_resolved_by'> {
-  const goals = events.filter((e) => SCORING.includes(e.event_type))
-  const team1_score = goals.filter((e) => e.team_id === match.team1_id).length
-  const team2_score = goals.filter((e) => e.team_id === match.team2_id).length
+  const { team1_score, team2_score } = scoreFromGoals(match, events)
   if (team1_score === team2_score) {
     // Draws the session settles by a shoot-out keep its winner; other draws follow the session's draw rule.
     // Only a saved shoot-out score proves penalties; without one a match that reached extra time says so.

@@ -10,7 +10,7 @@ import { primeAlertAudio } from '../../utils/matchAlert'
 import { resolveMatch, decideResult, drawGoesToPenalties, matchRowFields, waitingQueue } from '../../utils/matchRotation'
 import { NextUp } from '../../components/NextUp'
 import { BetweenPeriods } from '../../components/BetweenPeriods'
-import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
+import { findLastUndoable, scoreFromGoals, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
 import { totalSeconds, DEFAULT_FORMAT, nextStep, periodAfter, periodLabelKey, periodLength, type Step } from '../../utils/matchFormat'
 import { canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
@@ -71,10 +71,16 @@ export default function MatchTrackerPage() {
   const finishingRef = useRef(false)
   const [finishing, setFinishing] = useState(false)
 
+  // A change saved on this phone was refused by the server, and the screen has not reloaded since:
+  // the score shown may be wrong, so the match must not be ended from it
+  const staleRef = useRef(false)
+  const seenRejectedRef = useRef(outbox.rejected())
+
   const timer = useMatchTimer(match ?? ({} as Match))
 
   // One request for the whole session; runs on open and after every goal, card or swap
   const load = async () => {
+    const refusedBefore = seenRejectedRef.current
     let data: SessionData | null
     try {
       data = await fetchSession('id', sessionId ?? '')
@@ -84,6 +90,20 @@ export default function MatchTrackerPage() {
     }
     const m = data?.matches.find((x) => x.id === matchId)
     if (!data || !m) return
+    if (seenRejectedRef.current === refusedBefore) staleRef.current = false
+
+    // A goal and its score are saved by separate requests, so the server can accept one and refuse
+    // the other. The timeline decides: with nothing waiting on this phone, a score that disagrees
+    // with it is put right. Only if the score is still the one just read, so a goal being saved
+    // from another phone is never overwritten.
+    if (m.status !== 'completed' && outbox.pending().length === 0 && !outbox.isFlushing()) {
+      const real = scoreFromGoals(m, data.events.filter((e) => e.match_id === m.id))
+      if (real.team1_score !== m.team1_score || real.team2_score !== m.team2_score) {
+        const { error } = await supabase.from('matches').update(real)
+          .eq('id', m.id).eq('team1_score', m.team1_score).eq('team2_score', m.team2_score)
+        if (!error) Object.assign(m, real)
+      }
+    }
     const finished = new Set(data.matches.filter((x) => x.status === 'completed').map((x) => x.id))
     setSession(data.session)
     setSessionMatches(data.matches)
@@ -106,6 +126,9 @@ export default function MatchTrackerPage() {
 
   // Once every waiting change has been sent, reload so the screen shows the server's copy
   useEffect(() => outbox.subscribe(() => {
+    const refused = outbox.rejected()
+    if (refused > seenRejectedRef.current) staleRef.current = true
+    seenRejectedRef.current = refused
     if (outbox.pending().length === 0 && !outbox.isFlushing()) {
       setEndBlocked(false)
       load()
@@ -345,6 +368,12 @@ export default function MatchTrackerPage() {
       // Ending creates the next match on the server, so everything recorded must be sent first
       if (outbox.pending().length > 0 && !(await outbox.flush())) {
         setEndBlocked(true)
+        return
+      }
+      // The result is worked out from the score on screen. If the server refused a saved change,
+      // reload first: the warning stays up and the admin ends the match from the corrected score.
+      if (staleRef.current) {
+        await load()
         return
       }
 

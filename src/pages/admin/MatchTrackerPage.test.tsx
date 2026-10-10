@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
-import { match, player, players, session, team, teamPlayers, teams } from '../../test/fixtures'
+import { event, match, player, players, session, team, teamPlayers, teams } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 import { PRESETS, type MatchFormat } from '../../utils/matchFormat'
 
@@ -47,6 +47,14 @@ const seed = (format: MatchFormat, m = match('m1')) => resetDb({
   match_events: [],
 })
 const score = () => screen.getAllByText(/^\d+$/).map((el) => el.textContent)
+// A score already on the board when the page opens, with the goals behind it on the timeline
+const scored = (teamId: 'tg' | 'tb', goals: number) => {
+  const m = rows('matches')[0]
+  m[teamId === m.team1_id ? 'team1_score' : 'team2_score'] = goals
+  for (let i = 1; i <= goals; i++) {
+    rows('match_events').push(event(`seed-${teamId}-${i}`, 'm1', teamId === 'tg' ? 'p2' : 'p4', teamId, 'goal'))
+  }
+}
 
 it('shows who is playing and who waits, and blocks goals until the clock starts', async () => {
   renderPage()
@@ -102,7 +110,7 @@ it('undoes the last goal', async () => {
 })
 
 it('ending early asks first, then saves the result and sets up the next match', async () => {
-  rows('matches')[0].team1_score = 1
+  scored('tg', 1)
   const user = userEvent.setup()
   renderPage()
   await user.click(await screen.findByRole('button', { name: 'End Match' }))
@@ -145,7 +153,7 @@ it('a draw in match 1 goes to penalties', async () => {
 describe('a second tap while the result is being saved', () => {
   it('End Match sets up only one next match', async () => {
     // The goal limit is reached, so End Match ends the match straight away, without asking
-    rows('matches')[0].team1_score = 2
+    scored('tg', 2)
     const user = userEvent.setup()
     renderPage()
     const end = await screen.findByRole('button', { name: 'End Match' })
@@ -180,6 +188,102 @@ describe('a second tap while the result is being saved', () => {
   })
 })
 
+// The score is the goals on the timeline. The two are saved by separate requests, so the server can
+// accept one and refuse the other; the match screen puts the score right when it loads.
+describe('score and timeline out of step', () => {
+  it('a goal the server refused is taken off the score', async () => {
+    Object.assign(rows('matches')[0], { status: 'active', timer_status: 'running', team1_score: 1 })
+    renderPage()
+    await waitFor(() => expect(m1().team1_score).toBe(0))
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['0', '0']))
+  })
+
+  it('a goal whose score change the server refused is counted', async () => {
+    Object.assign(rows('matches')[0], { status: 'active', timer_status: 'running' })
+    rows('match_events').push(event('g1', 'm1', 'p4', 'tb', 'goal'), event('a1', 'm1', 'p3', 'tb', 'assist', { related_event_id: 'g1' }))
+    renderPage()
+    await waitFor(() => expect(m1()).toMatchObject({ team1_score: 0, team2_score: 1 }))
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['0', '1']))
+  })
+
+  it('a score that matches its goals is left alone', async () => {
+    Object.assign(rows('matches')[0], { status: 'active', timer_status: 'running', team1_score: 1 })
+    rows('match_events').push(event('g1', 'm1', 'p2', 'tg', 'goal'))
+    renderPage()
+    expect(await screen.findByText('Green Team')).toBeInTheDocument()
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['1', '0']))
+    expect(db.writes).toEqual([])
+  })
+
+  it('a finished match is never changed', async () => {
+    Object.assign(rows('matches')[0], { status: 'completed', team1_score: 2, winner_team_id: 'tg' })
+    renderPage()
+    expect((await screen.findAllByText('Green Team')).length).toBeGreaterThan(0)
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['2', '0']))
+    expect(db.writes).toEqual([])
+  })
+
+  it('waits while goals recorded without signal are still on this phone', async () => {
+    Object.assign(rows('matches')[0], { status: 'active', timer_status: 'running' })
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '⚽ Goal' }))
+    await user.click(screen.getByRole('button', { name: 'Omar' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    // Shown on the phone, nothing on the server yet, and no correction sent
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['1', '0']))
+    expect(screen.getByRole('status')).toHaveTextContent('No signal')
+    expect(db.writes).toEqual([])
+
+    // Signal returns: the goal and its score are sent, and they agree
+    onLine.mockReturnValue(true)
+    await user.click(screen.getByRole('button', { name: 'Try now' }))
+    await waitFor(() => expect(m1().team1_score).toBe(1))
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+    expect(rows('match_events').filter((e) => e.event_type === 'goal')).toHaveLength(1)
+    expect(db.writes.filter((w) => w.table === 'matches')).toHaveLength(1)
+    onLine.mockRestore()
+  })
+
+  it('ending the match is held back when a saved goal turns out refused, so the result uses the real score', async () => {
+    // Match 2: a draw would go to the team that waited, so the winner depends on the true score
+    Object.assign(rows('matches')[0], { status: 'active', timer_status: 'running', match_number: 2 })
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '⚽ Goal' }))
+    await user.click(screen.getByRole('button', { name: 'Omar' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['1', '0']))
+
+    // Signal returns, but the server refuses the goal (its score change goes through)
+    onLine.mockReturnValue(true)
+    db.errors.match_events = { message: 'violates foreign key constraint', code: '23503' }
+    await user.click(screen.getByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+
+    await waitFor(() => expect(screen.getByText(/1 saved change could not be sent/)).toBeInTheDocument())
+    expect(m1()).toMatchObject({ status: 'active', winner_team_id: null })
+    expect(rows('matches')).toHaveLength(1)
+
+    // The screen could not reload either (the server is still failing); another tap still does not
+    // end the match from the wrong score, it reloads and corrects it
+    db.errors = {}
+    await user.click(screen.getByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['0', '0']))
+    expect(m1()).toMatchObject({ status: 'active', team1_score: 0, winner_team_id: null })
+
+    // Ended from the real score: level in match 2, so the team that came on (Blue) wins, not Green
+    await user.click(screen.getByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
+    expect(m1()).toMatchObject({ status: 'completed', team1_score: 0, team2_score: 0, winner_team_id: 'tb' })
+    onLine.mockRestore()
+  })
+})
+
 it('hides card and swap buttons when those features are off', async () => {
   renderPage(FEATURES.filter((f) => f !== 'cards' && f !== 'swaps'))
   expect(await screen.findByRole('button', { name: '⚽ Goal' })).toBeInTheDocument()
@@ -193,7 +297,8 @@ describe('more or fewer than three teams', () => {
     rows('players').push(player('p8', 'Rami', 'MID', 3), player('p9', 'Tariq', 'ATT', 3))
     rows('team_players').push({ league_id: 'L1', team_id: 'to', player_id: 'p8' }, { league_id: 'L1', team_id: 'to', player_id: 'p9' })
     Object.assign(rows('sessions')[0], { team_count: 4 })
-    Object.assign(rows('matches')[0], { queue: ['ty', 'to'], waiting_team_id: 'ty', team1_score: 1 })
+    Object.assign(rows('matches')[0], { queue: ['ty', 'to'], waiting_team_id: 'ty' })
+    scored('tg', 1)
     const user = userEvent.setup()
     renderPage()
     expect(await screen.findByText('Next up: Yellow Team, then Orange Team')).toBeInTheDocument()
@@ -211,7 +316,8 @@ describe('more or fewer than three teams', () => {
     rows('teams').splice(2, 1)
     rows('team_players').splice(4, 2)
     Object.assign(rows('sessions')[0], { team_count: 2 })
-    Object.assign(rows('matches')[0], { match_number: 2, queue: [], waiting_team_id: null, team2_score: 1 })
+    Object.assign(rows('matches')[0], { match_number: 2, queue: [], waiting_team_id: null })
+    scored('tb', 1)
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'End Match' }))
@@ -357,7 +463,9 @@ describe('periods', () => {
   })
 
   it('halves with 3 teams: after a draw the waiting team comes on against team1, and team2 waits', async () => {
-    seed(PRESETS.halves, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active', team1_score: 1, team2_score: 1 }))
+    seed(PRESETS.halves, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', status: 'active' }))
+    scored('tg', 1)
+    scored('tb', 1)
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Draw — end match' }))
@@ -376,7 +484,8 @@ describe('periods', () => {
   })
 
   it('knockout: a leader after extra time ends the match as extra_time', async () => {
-    seed(PRESETS.knockout, match('m1', { period: 4, period_seconds: [600, 600, 300], timer_status: 'running', team1_score: 1, status: 'active' }))
+    seed(PRESETS.knockout, match('m1', { period: 4, period_seconds: [600, 600, 300], timer_status: 'running', status: 'active' }))
+    scored('tg', 1)
     const user = userEvent.setup()
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'End Match' }))
