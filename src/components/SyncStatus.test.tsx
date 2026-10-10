@@ -33,3 +33,20 @@ it('retries sending when tapped', async () => {
   expect(insert).toHaveBeenCalledWith({ id: 'g1' })
   expect(screen.queryByRole('status')).not.toBeInTheDocument()
 })
+
+it('keeps a warning on screen about saved changes the server refused, until it is dismissed', async () => {
+  const insert = vi.fn().mockResolvedValue({ error: { message: 'violates foreign key constraint', code: '23503' }, status: 409 })
+  let online = false
+  const outbox = createOutbox({ client: { from: () => ({ insert, update: vi.fn(), delete: vi.fn() }) } as never, storage: memoryStorage(), isOnline: () => online })
+  await outbox.runOrQueue({ id: '1', kind: 'insert', table: 'match_events', row: { id: 'g1' } })
+  render(<SyncStatus outbox={outbox} />)
+  online = true
+  await act(async () => { await outbox.flush() })
+
+  // Nothing is waiting any more, but the warning stays
+  expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent('1 saved change could not be sent')
+  expect(screen.getByRole('alert')).toHaveTextContent('Check the score and the timeline')
+  fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})

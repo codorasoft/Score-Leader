@@ -21,13 +21,22 @@ interface Client {
 interface Storage { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void }
 
 const KEY = 'scoreleader.outbox'
+const REJECTED_KEY = 'scoreleader.outbox.rejected'
 const DUPLICATE_KEY = '23505'
+const UNAUTHORIZED = 401
 
-export function createOutbox({ client, storage, isOnline }: { client: Client; storage: Storage; isOnline: () => boolean }) {
+export function createOutbox({ client, storage, isOnline, isSignedIn = async () => true }: {
+  client: Client
+  storage: Storage
+  isOnline: () => boolean
+  isSignedIn?: () => Promise<boolean>
+}) {
   const read = (): OutboxOp[] => {
     try { return JSON.parse(storage.getItem(KEY) ?? '[]') } catch { return [] }
   }
   let queue = read()
+  // Saved changes the server refused while they were being sent, until the admin has seen the warning
+  let rejected = Number(storage.getItem(REJECTED_KEY)) || 0
   let flushing = false
   const listeners = new Set<() => void>()
 
@@ -36,7 +45,21 @@ export function createOutbox({ client, storage, isOnline }: { client: Client; st
     listeners.forEach((l) => l())
   }
 
-  const execute = async (op: OutboxOp): Promise<'ok' | 'network' | 'failed'> => {
+  const setRejected = (n: number) => {
+    rejected = n
+    try { storage.setItem(REJECTED_KEY, String(n)) } catch { /* storage full or blocked */ }
+    listeners.forEach((l) => l())
+  }
+
+  // 'wait' is a change that can still succeed later: no signal, or the login has expired
+  const execute = async (op: OutboxOp): Promise<'ok' | 'wait' | 'failed'> => {
+    // Sent as a visitor, an insert is refused and an update or delete changes no rows without an
+    // error: either way the change would be lost. It waits for the next sign-in instead.
+    try {
+      if (!(await isSignedIn())) return 'wait'
+    } catch {
+      return 'wait'
+    }
     let res: Result
     try {
       const table = client.from(op.table)
@@ -44,11 +67,11 @@ export function createOutbox({ client, storage, isOnline }: { client: Client; st
         : op.kind === 'update' ? table.update(op.values).match(op.match)
         : table.delete().match(op.match))
     } catch {
-      return 'network'
+      return 'wait'
     }
     if (!res.error) return 'ok'
     if (op.kind === 'insert' && res.error.code === DUPLICATE_KEY) return 'ok'
-    return res.status === 0 || !isOnline() ? 'network' : 'failed'
+    return res.status === 0 || res.status === UNAUTHORIZED || !isOnline() ? 'wait' : 'failed'
   }
 
   const runOrQueue = async (op: OutboxOp): Promise<'sent' | 'queued' | 'failed'> => {
@@ -74,10 +97,11 @@ export function createOutbox({ client, storage, isOnline }: { client: Client; st
     try {
       while (queue.length > 0 && isOnline()) {
         const outcome = await execute(queue[0])
-        if (outcome === 'network') break
+        if (outcome === 'wait') break
         // A change the server rejects can never succeed; drop it so it can't block the rest
         queue.shift()
         save()
+        if (outcome === 'failed') setRejected(rejected + 1)
       }
     } finally {
       flushing = false
@@ -90,6 +114,8 @@ export function createOutbox({ client, storage, isOnline }: { client: Client; st
     runOrQueue,
     flush,
     pending: () => [...queue],
+    rejected: () => rejected,
+    dismissRejected: () => setRejected(0),
     isFlushing: () => flushing,
     subscribe: (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } },
   }

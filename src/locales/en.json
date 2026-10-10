@@ -397,6 +397,10 @@
     "saved_one": "{{count}} change saved on this phone — it will be sent automatically.",
     "saved_other": "{{count}} changes saved on this phone — they will be sent automatically.",
     "retry": "Try now",
+    "rejected_one": "{{count}} saved change could not be sent — the server refused it.",
+    "rejected_other": "{{count}} saved changes could not be sent — the server refused them.",
+    "rejectedCheck": "Check the score and the timeline, and enter anything missing again.",
+    "rejectedOk": "OK",
     "endBlocked": "Waiting for signal: the saved changes must be sent before this match can end."
   },
   "records": {
