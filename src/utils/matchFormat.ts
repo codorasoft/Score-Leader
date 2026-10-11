@@ -55,6 +55,13 @@ export function periodLength(period: number, f: MatchFormat): number | null {
   return p && p.minutes != null ? p.minutes * 60 : null
 }
 
+// The recorded period times as a period starts. Period numbers are fixed (extra time is always 3
+// and 4), so a one-period match that goes into extra time skips number 2: it gets 0 seconds there.
+// That keeps one recorded time per period number, which is how a finished period is recognised.
+export function periodSecondsAtStart(recorded: number[], period: number): number[] {
+  return [...recorded, ...Array<number>(Math.max(0, period - 1 - recorded.length)).fill(0)]
+}
+
 export function totalSeconds(m: Pick<Match, 'period_seconds'>, currentElapsed: number): number {
   return m.period_seconds.reduce((a, b) => a + b, 0) + currentElapsed
 }

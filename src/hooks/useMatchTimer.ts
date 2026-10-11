@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { outbox, newId } from '../lib/pitchOutbox'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import type { Match, TimerStatus } from '../lib/types'
+import { periodSecondsAtStart } from '../utils/matchFormat'
 
 interface MatchTimerResult {
   elapsed: number
@@ -96,9 +97,12 @@ export function useMatchTimer(match: Match): MatchTimerResult {
     setElapsed(0)
     await outbox.runOrQueue({
       id: newId(), kind: 'update', table: 'matches', match: { id: match.id },
-      values: { period, timer_elapsed_seconds: 0, timer_started_at: now, timer_status: 'running', status: 'active' },
+      values: {
+        period, timer_elapsed_seconds: 0, timer_started_at: now, timer_status: 'running', status: 'active',
+        period_seconds: periodSecondsAtStart(match.period_seconds, period),
+      },
     })
-  }, [match.id])
+  }, [match.id, match.period_seconds])
 
   return { elapsed, timerStatus, start, pause, endPeriod, startPeriod }
 }

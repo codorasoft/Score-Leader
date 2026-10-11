@@ -541,3 +541,57 @@ describe('open extra time', () => {
     await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, winner_team_id: null }))
   })
 })
+
+describe('extra time after a one-period match', () => {
+  const quickOpen = { ...PRESETS.quick, extra_time_minutes: 0 }
+  const levelAtFullTime = (matchNumber: number) =>
+    match('m1', { match_number: matchNumber, period: 1, period_seconds: [420], timer_status: 'stopped', timer_elapsed_seconds: 420, status: 'active' })
+
+  it('match 1, still level when the referee ends open extra time: one press, then a shoot-out', async () => {
+    seed(quickOpen, levelAtFullTime(1))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 3, timer_status: 'running', period_seconds: [420, 0] }))
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    // Match 1 has no previous winner to send off, so penalties decide it
+    await waitFor(() => expect(m1()).toMatchObject({ period: 5, timer_status: 'stopped', status: 'active' }))
+    expect(m1().period_seconds).toHaveLength(3)
+  })
+
+  it('match 2, still level when the referee ends open extra time: one press, the team that came on wins the draw', async () => {
+    seed(quickOpen, levelAtFullTime(2))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 3, timer_status: 'running' }))
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, draw_resolved_by: 'late_team', winner_team_id: m1().team2_id }))
+    expect(m1().period_seconds).toHaveLength(3)
+  })
+
+  it('a leader when the referee ends it wins after extra time, with each period recorded once', async () => {
+    seed(quickOpen, match('m1', { period: 3, period_seconds: [420, 0], timer_status: 'running', status: 'active' }))
+    scored('tg', 1)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: false, draw_resolved_by: 'extra_time', winner_team_id: 'tg' }))
+    expect(m1().period_seconds).toHaveLength(3)
+  })
+
+  it('fixed extra time after one period: the first half of it ends and the second is offered', async () => {
+    seed({ ...PRESETS.quick, extra_time_minutes: 3 }, levelAtFullTime(2))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time 1' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 3, timer_status: 'running' }))
+    await user.click(await screen.findByRole('button', { name: 'End Extra time 1' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    expect(await screen.findByRole('button', { name: 'Start Extra time 2' })).toBeInTheDocument()
+    expect(m1().period_seconds).toHaveLength(3)
+  })
+})
