@@ -1,4 +1,4 @@
-import { PRESETS, DEFAULT_FORMAT, presetName, periodsFor, periodLabelKey, periodLength, totalSeconds, periodAfter, nextStep } from './matchFormat'
+import { PRESETS, DEFAULT_FORMAT, presetName, periodsFor, periodLabelKey, periodLength, totalSeconds, periodAfter, nextStep, periodSecondsAtStart } from './matchFormat'
 const m = (o: Partial<Parameters<typeof nextStep>[1]> = {}) => ({ period: 1, period_seconds: [], team1_score: 0, team2_score: 0, timer_status: 'running' as const, status: 'active' as const, ...o })
 
 it('DEFAULT_FORMAT is Quick: 1 × 7 min, limit 2, no extra time, no penalties, stay', () =>
@@ -94,4 +94,22 @@ describe('open extra time (no set length, ended by the referee)', () => {
 
   it('a goal limit does not end it', () =>
     expect(nextStep({ ...open, goal_limit: 1 }, m({ period: 3, period_seconds: [600, 600], team1_score: 1 }), 10).kind).toBe('endPeriod'))
+})
+
+describe('periodSecondsAtStart: the recorded times line up with the period numbers', () => {
+  it('a one-period match going into extra time (period 3) records 0 for the 2nd half it never had', () => {
+    expect(periodSecondsAtStart([420], 3)).toEqual([420, 0])
+  })
+  it('leaves the times alone when the periods are consecutive', () => {
+    expect(periodSecondsAtStart([600], 2)).toEqual([600])
+    expect(periodSecondsAtStart([600, 600], 3)).toEqual([600, 600])
+    expect(periodSecondsAtStart([420, 0, 300], 4)).toEqual([420, 0, 300])
+  })
+  it('never drops a recorded time', () => expect(periodSecondsAtStart([600, 600, 300], 2)).toEqual([600, 600, 300]))
+
+  it('so the end of extra time is recognised after a one-period match', () => {
+    const quickOpen = { ...PRESETS.quick, extra_time_minutes: 0 }
+    const ended = m({ period: 3, period_seconds: [...periodSecondsAtStart([420], 3), 480], timer_status: 'stopped', team1_score: 1 })
+    expect(nextStep(quickOpen, ended, 480)).toEqual({ kind: 'endMatch', reason: 'timeUp' })
+  })
 })

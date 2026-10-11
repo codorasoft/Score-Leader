@@ -12,7 +12,7 @@ import { NextUp } from '../../components/NextUp'
 import { BetweenPeriods } from '../../components/BetweenPeriods'
 import { findLastUndoable, scoreFromGoals, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
-import { totalSeconds, DEFAULT_FORMAT, nextStep, periodAfter, periodLabelKey, periodLength, type Step } from '../../utils/matchFormat'
+import { totalSeconds, DEFAULT_FORMAT, nextStep, periodAfter, periodLabelKey, periodLength, periodSecondsAtStart, type Step } from '../../utils/matchFormat'
 import { canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
@@ -299,6 +299,7 @@ export default function MatchTrackerPage() {
     primeAlertAudio()
     setMatch((m) => m && {
       ...m, period, status: 'active', timer_status: 'running', timer_elapsed_seconds: 0, timer_started_at: serverNowIso(),
+      period_seconds: periodSecondsAtStart(m.period_seconds, period),
     })
     await timer.startPeriod(period)
     await refreshMatch()
