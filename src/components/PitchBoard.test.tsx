@@ -101,3 +101,22 @@ it('marks guests so they stand apart from regular players', () => {
   expect(screen.getByRole('button', { name: 'Khalil (guest)' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Ali' })).toBeInTheDocument()
 })
+
+describe('team labels', () => {
+  const label = { id: 'l1', kind: 'label' as const, team: 'green' as const, text: 'Green Team', x: 0.5, y: 0.1 }
+
+  it('show the team name at their spot on the pitch', () => {
+    render(<PitchBoard players={[]} onMove={vi.fn()} drawings={[label]} />)
+    const shown = screen.getByText('Green Team')
+    expect(shown.closest('[style]')!.getAttribute('style')).toMatch(/left: 50%; top: 10%/)
+    // Not something to press while moving players
+    expect(screen.queryByRole('button', { name: /Green Team/ })).not.toBeInTheDocument()
+  })
+
+  it('are removed when tapped with the eraser', () => {
+    const onEraseShape = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="erase" drawings={[label]} onAddShape={vi.fn()} onEraseShape={onEraseShape} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Green Team' }))
+    expect(onEraseShape).toHaveBeenCalledWith('l1')
+  })
+})

@@ -281,7 +281,7 @@ describe('making a coach board from the teams', () => {
     await waitFor(() => expect(screen.getByText(/^board page/)).toBeInTheDocument())
     expect(rows('lineups')).toHaveLength(1)
     const board = rows('lineups')[0]
-    expect(board).toMatchObject({ league_id: 'L1', name: '2026-10-06: Green / Blue / Yellow', drawings: [], guests: [] })
+    expect(board).toMatchObject({ league_id: 'L1', name: '2026-10-06: Green / Blue / Yellow', guests: [] })
     expect(screen.getByText(`board page ${board.id}`)).toBeInTheDocument()
 
     expect(rows('lineup_players').map((r) => r.player_id).sort()).toEqual(attending)
@@ -293,6 +293,37 @@ describe('making a coach board from the teams', () => {
     }
     expect(spotOf('p1').y).toBeLessThan(spotOf('p3').y)
     expect(spotOf('p3').y).toBeLessThan(spotOf('p5').y)
+  })
+
+  it('writes each team name above its row', async () => {
+    s2().draft_teams = [['p1', 'p2'], ['p3', 'p4'], ['p5', 'p6']]
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(3))
+    await user.click(screen.getByRole('button', { name: 'Make coach board' }))
+    await waitFor(() => expect(screen.getByText(/^board page/)).toBeInTheDocument())
+
+    const labels = rows('lineups')[0].drawings as { id: string; kind: string; team: string; text: string; x: number; y: number }[]
+    expect(labels.map((l) => [l.kind, l.team, l.text, l.x])).toEqual([
+      ['label', 'green', 'Green Team', 0.5], ['label', 'blue', 'Blue Team', 0.5], ['label', 'yellow', 'Yellow Team', 0.5],
+    ])
+    expect(new Set(labels.map((l) => l.id)).size).toBe(3)
+    // Each name sits between the row above and its own row
+    expect(labels[0].y).toBeLessThan(spotOf('p1').y)
+    expect(labels[1].y).toBeGreaterThan(spotOf('p1').y)
+    expect(labels[1].y).toBeLessThan(spotOf('p3').y)
+    expect(labels[2].y).toBeGreaterThan(spotOf('p3').y)
+    expect(labels[2].y).toBeLessThan(spotOf('p5').y)
+  })
+
+  it('leaves out the name of a team with nobody in it', async () => {
+    s2().draft_teams = [['p1', 'p2', 'p3'], ['p4', 'p5', 'p6'], []]
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText(/^0 players/)
+    await user.click(screen.getByRole('button', { name: 'Make coach board' }))
+    await waitFor(() => expect(screen.getByText(/^board page/)).toBeInTheDocument())
+    expect((rows('lineups')[0].drawings as { team: string }[]).map((l) => l.team)).toEqual(['green', 'blue'])
   })
 
   it('uses the teams as they are arranged now', async () => {

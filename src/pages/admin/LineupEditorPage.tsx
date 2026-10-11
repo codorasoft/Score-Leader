@@ -6,7 +6,7 @@ import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContex
 import { PitchBoard } from '../../components/PitchBoard'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { BoardToolbar } from '../../components/BoardToolbar'
-import { parseDrawings, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
+import { clearDrawn, hasDrawn, parseDrawings, undoDrawn, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
 import { drawBoardImage, shareCanvas } from '../../lib/shareImage'
 import { GUEST_NAME_MAX, lineupChanges, makeGuest, parseGuests, spotForNewPlayer, type BoardPlayer, type BoardSpot, type Guest } from '../../utils/board'
 import type { Player } from '../../lib/types'
@@ -166,8 +166,8 @@ export default function LineupEditorPage() {
         onTool={setTool}
         color={color}
         onColor={setColor}
-        canUndo={drawings.length > 0}
-        onUndo={() => draw(drawings.slice(0, -1))}
+        canUndo={hasDrawn(drawings)}
+        onUndo={() => draw(undoDrawn(drawings))}
         onClear={() => setConfirmClear(true)}
       />
       {pitchPlayers.length === 0 && <p className="text-sm text-gray-400 text-center mt-2">{t('lineups.emptyBoard')}</p>}
@@ -225,7 +225,7 @@ export default function LineupEditorPage() {
             <p className="font-bold mb-5">{t('board.confirmClear')}</p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmClear(false)} className="flex-1 py-2 bg-gray-700 rounded font-semibold">{t('common.cancel')}</button>
-              <button onClick={() => { draw([]); setConfirmClear(false) }} className="flex-1 py-2 bg-red-600 rounded font-semibold">{t('board.clear')}</button>
+              <button onClick={() => { draw(clearDrawn(drawings)); setConfirmClear(false) }} className="flex-1 py-2 bg-red-600 rounded font-semibold">{t('board.clear')}</button>
             </div>
           </div>
         </div>

@@ -527,6 +527,7 @@
   "board": {
     "drawingArea": "Drawing area",
     "removeDrawing": "Remove drawing",
+    "removeLabel": "Remove {{name}}",
     "tools": "Board tools",
     "move": "Move",
     "pass": "Pass",

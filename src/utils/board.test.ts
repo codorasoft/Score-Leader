@@ -1,4 +1,4 @@
-import { spotForNewPlayer, clampSpot, lineupChanges, makeGuest, parseGuests, spotsForTeams } from './board'
+import { spotForNewPlayer, clampSpot, lineupChanges, makeGuest, parseGuests, spotsForTeams, labelSpotsForTeams } from './board'
 
 describe('spotForNewPlayer', () => {
   it('fills rows of four from the bottom of the pitch upwards', () => {
@@ -91,5 +91,34 @@ describe('spotsForTeams', () => {
       expect(s.y).toBeLessThan(1)
     }
     expect(new Set(spots.map((s) => `${s.x},${s.y}`)).size).toBe(66)
+  })
+})
+
+describe('labelSpotsForTeams', () => {
+  it('puts each team name in the middle, just above its row', () => {
+    const teams = [['a', 'b'], ['c', 'd'], ['e', 'f']]
+    const rows = [...new Set(spotsForTeams(teams).map((s) => s.y))]
+    const labels = labelSpotsForTeams(teams)
+    expect(labels.map((l) => l.x)).toEqual([0.5, 0.5, 0.5])
+    labels.forEach((l, i) => {
+      expect(l.y).toBeLessThan(rows[i])
+      expect(rows[i] - l.y).toBeCloseTo(0.062, 3)
+      // Below the row before it
+      if (i > 0) expect(l.y).toBeGreaterThan(rows[i - 1])
+    })
+  })
+
+  it('goes above the first line of a team that wraps onto two', () => {
+    const teams = [['a', 'b', 'c', 'd', 'e', 'f', 'g'], ['h']]
+    const firstLine = Math.min(...spotsForTeams(teams).filter((s) => s.playerId !== 'h').map((s) => s.y))
+    expect(labelSpotsForTeams(teams)[0].y).toBeLessThan(firstLine)
+  })
+
+  it('never leaves the pitch, however many teams and lines there are', () => {
+    const teams = Array.from({ length: 6 }, (_, t) => Array.from({ length: 11 }, (_, i) => `t${t}p${i}`))
+    for (const l of labelSpotsForTeams(teams)) {
+      expect(l.y).toBeGreaterThan(0)
+      expect(l.y).toBeLessThan(1)
+    }
   })
 })

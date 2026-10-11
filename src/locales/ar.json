@@ -620,6 +620,7 @@
   "board": {
     "drawingArea": "منطقة الرسم",
     "removeDrawing": "حذف الرسم",
+    "removeLabel": "حذف {{name}}",
     "tools": "أدوات اللوحة",
     "move": "تحريك",
     "pass": "تمريرة",

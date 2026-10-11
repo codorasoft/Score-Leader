@@ -10,7 +10,7 @@ import { partnerships, type Pair } from '../../utils/playerMatches'
 import { TeamSwapBoard } from '../../components/TeamSwapBoard'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
 import { matchRowFields, setupFirstMatch } from '../../utils/matchRotation'
-import { spotsForTeams } from '../../utils/board'
+import { labelSpotsForTeams, spotsForTeams } from '../../utils/board'
 import { TEAM_COLORS } from '../../lib/teamColors'
 import { draftOf, restoreDraft } from '../../utils/teamEdit'
 import type { Match, MatchEvent, Player, Session, Team, TeamColor, TeamPlayer } from '../../lib/types'
@@ -201,16 +201,21 @@ export default function TeamBuilderPage() {
     }
   }
 
-  // A new coach board with every team on it, a row each in the order shown here; its name says
-  // which row is which team. The teams are kept with the session, so leaving for the board is safe.
+  // A new coach board with every team on it, a row each in the order shown here, with the team's
+  // name above its row. The teams are kept with the session, so leaving for the board is safe.
   const makeBoard = async () => {
     if (makingBoard) return
     setMakingBoard(true)
     const id = crypto.randomUUID()
     const name = t('teamBuilder.boardName', { date: sessionDate, teams: colors.map((c) => t(`common.teamColor.${c}`)).join(' / ') }).slice(0, 80)
-    const { error } = await supabase.from('lineups').insert({ id, league_id: league.id, name, drawings: [], guests: [] })
+    const rows = draftOf(teams)
+    const labelSpots = labelSpotsForTeams(rows)
+    const drawings = colors.flatMap((c, i) => (rows[i]?.length
+      ? [{ id: crypto.randomUUID(), kind: 'label' as const, team: c, text: t('common.teamName', { color: t(`common.teamColor.${c}`) }), ...labelSpots[i] }]
+      : []))
+    const { error } = await supabase.from('lineups').insert({ id, league_id: league.id, name, drawings, guests: [] })
     if (!error) {
-      const spots = spotsForTeams(draftOf(teams)).map((b) => ({ lineup_id: id, player_id: b.playerId, x: b.x, y: b.y }))
+      const spots = spotsForTeams(rows).map((b) => ({ lineup_id: id, player_id: b.playerId, x: b.x, y: b.y }))
       const placed = await supabase.from('lineup_players').insert(spots)
       if (!placed.error) { navigate(adminPath(`/lineups/${id}`)); return }
       // No players on it: don't leave an empty board in the list
