@@ -6,6 +6,9 @@
   --color-team-yellow: #EAB308;
 }
 
+/* A wide screen with a mouse: there a team card has room for the name alone, and shows the rest on hover */
+@custom-variant desktop (@media (min-width: 64rem) and (hover: hover));
+
 [lang="ar"] {
   font-family: 'Cairo', system-ui, sans-serif;
 }
