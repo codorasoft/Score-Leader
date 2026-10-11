@@ -7,7 +7,7 @@ vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase
 
 import { InLeague } from '../../test/league'
 import { db, resetDb } from '../../test/fakeSupabase'
-import { finishedLeague, match, players, session } from '../../test/fixtures'
+import { event, finishedLeague, match, players, session } from '../../test/fixtures'
 import { PRESETS } from '../../utils/matchFormat'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 import SessionDetailPage from './SessionDetailPage'
@@ -57,6 +57,17 @@ it('says when the extra time is open', async () => {
   resetDb({ ...finishedLeague(), sessions: [{ ...session, ...PRESETS.knockout, extra_time_minutes: 0 }] })
   renderPage(FEATURES.filter((f) => f !== 'voting'))
   expect(await screen.findByText('2 × 10 min · open extra time · penalties · no goal limit')).toBeInTheDocument()
+})
+
+it('the goal list shown while editing measures times against the session format too', async () => {
+  resetDb({
+    ...finishedLeague(), sessions: [{ ...session, ...PRESETS.halves }],
+    matches: [match('m1', { status: 'completed', team1_score: 1, winner_team_id: 'tg' })],
+    match_events: [event('e1', 'm1', 'p2', 'tg', 'goal', { elapsed_seconds: 550 })],
+  })
+  renderPage(FEATURES.filter((f) => f !== 'voting'))
+  await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+  expect(screen.getByText('09:10')).toBeInTheDocument()
 })
 
 describe('editing a level match', () => {

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { SessionMatchList } from './SessionMatchList'
 import type { Match, MatchEvent, Player, Team } from '../lib/types'
+import { PRESETS } from '../utils/matchFormat'
 
 const teams: Team[] = [
   { id: 'red', session_id: 's', color: 'green', name: null },
@@ -56,10 +57,49 @@ it('labels: aet win, penalties with score, true draw', () => {
   expect(screen.getByText('Draw')).toBeInTheDocument()
 })
 
-it('prefixes timeline times with the period only when asked', () => {
+it('prefixes timeline times with the period only in a format with more than one period', () => {
   const g = [ev({ id: 'g', match_id: 'm1', event_type: 'goal', player_id: 'Ali', team_id: 'red', elapsed_seconds: 95, period: 2 })]
   const { rerender } = render(<SessionMatchList matches={[matches[0]]} events={g} teams={teams} players={players} />)
   expect(screen.queryByText(/2H/)).not.toBeInTheDocument()
-  rerender(<SessionMatchList matches={[matches[0]]} events={g} teams={teams} players={players} periods />)
+  rerender(<SessionMatchList matches={[matches[0]]} events={g} teams={teams} players={players} format={PRESETS.quick} />)
+  expect(screen.queryByText(/2H/)).not.toBeInTheDocument()
+  rerender(<SessionMatchList matches={[matches[0]]} events={g} teams={teams} players={players} format={PRESETS.halves} />)
   expect(screen.getByText('2H 01:35')).toBeInTheDocument()
+})
+
+describe('timeline times are measured against the length of their own period', () => {
+  const goalAt = (elapsed_seconds: number, period: number) =>
+    [ev({ id: 'g', match_id: 'm1', event_type: 'goal', player_id: 'Ali', team_id: 'red', elapsed_seconds, period })]
+  const show = (g: MatchEvent[], format?: typeof PRESETS.quick) =>
+    render(<SessionMatchList matches={[matches[0]]} events={g} teams={teams} players={players} format={format} />)
+
+  it('a goal late in a 10-minute half is ordinary time, not overrun', () => {
+    show(goalAt(550, 2), PRESETS.halves)
+    expect(screen.getByText('2H 09:10')).toBeInTheDocument()
+  })
+
+  it('a goal after the end of a 10-minute half is overrun of that half', () => {
+    show(goalAt(650, 1), PRESETS.halves)
+    expect(screen.getByText('1H 10:00 +00:50')).toBeInTheDocument()
+  })
+
+  it('a Quick match (7 minutes) still shows later goals as overrun', () => {
+    show(goalAt(500, 1), PRESETS.quick)
+    expect(screen.getByText('07:00 +01:20')).toBeInTheDocument()
+  })
+
+  it('without a format it is a 7-minute match, as before', () => {
+    show(goalAt(500, 1))
+    expect(screen.getByText('07:00 +01:20')).toBeInTheDocument()
+  })
+
+  it('fixed extra time uses the length of its halves and the ET1 / ET2 tags', () => {
+    show(goalAt(320, 4), PRESETS.knockout)
+    expect(screen.getByText('ET2 05:00 +00:20')).toBeInTheDocument()
+  })
+
+  it('open extra time is tagged ET and its time just counts up', () => {
+    show(goalAt(800, 3), { ...PRESETS.knockout, extra_time_minutes: 0 })
+    expect(screen.getByText('ET 13:20')).toBeInTheDocument()
+  })
 })

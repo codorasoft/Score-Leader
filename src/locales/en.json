@@ -328,6 +328,7 @@
       "2": "2H",
       "3": "ET1",
       "4": "ET2",
+      "extra": "ET",
       "5": "P"
     },
     "winsAet": "{{team}} wins aet",

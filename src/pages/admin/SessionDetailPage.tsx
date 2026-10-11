@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { fetchSession } from '../../lib/sessionData'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { recomputeResult } from '../../utils/matchEdit'
-import { eventClockSeconds, formatMatchClock } from '../../utils/matchClock'
+import { eventClockSeconds, formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionStandings } from '../../components/SessionStandings'
@@ -19,7 +19,7 @@ import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 import { MatchFormatLine } from '../../components/MatchFormatLine'
-import { DEFAULT_FORMAT } from '../../utils/matchFormat'
+import { DEFAULT_FORMAT, periodLength } from '../../utils/matchFormat'
 import { resultLabel } from '../../utils/resultLabel'
 
 const colorDot = styleMap('dot')
@@ -310,7 +310,7 @@ export default function SessionDetailPage() {
                               <div key={g.id} className="flex items-center justify-between bg-gray-700/60 rounded px-3 py-1.5 text-sm">
                                 <span>
                                   {eventClockSeconds(g) != null && (
-                                    <span className="font-mono text-xs text-gray-400 me-2" dir="ltr">{formatMatchClock(eventClockSeconds(g)!)}</span>
+                                    <span className="font-mono text-xs text-gray-400 me-2" dir="ltr">{formatMatchClock(eventClockSeconds(g)!, periodLength(g.period, format) ?? MATCH_DURATION_SECONDS)}</span>
                                   )}
                                   ⚽ {playerName(g.player_id)}
                                   {assist && (
@@ -360,7 +360,7 @@ export default function SessionDetailPage() {
 
               {!isEditing && timelineId === m.id && (
                 <div className="mt-3 pt-3 border-t border-gray-700">
-                  <MatchTimeline events={matchEvents} teams={teams} players={players} periods={!!session && (session.period_count > 1 || session.extra_time_minutes != null)} />
+                  <MatchTimeline events={matchEvents} teams={teams} players={players} format={session ?? undefined} />
                 </div>
               )}
 
