@@ -271,7 +271,10 @@
     "noGoals": "لا أهداف",
     "rotationNote": "تغيير هذه النتيجة لن يعيد ترتيب المباريات التي لُعبت بعدها.",
     "noMatchSetUp": "لا توجد مباراة جاهزة. ابدأ المباراة التالية للمتابعة.",
-    "startMatch": "ابدأ المباراة {{number}}"
+    "startMatch": "ابدأ المباراة {{number}}",
+    "teamsNotConfirmed": "لم تُؤكَّد الفرق بعد",
+    "chooseTeams": "اختيار الفرق",
+    "choosePlayers": "اختيار اللاعبين"
   },
   "leaderboard": {
     "title": "قائمة المتصدرين",

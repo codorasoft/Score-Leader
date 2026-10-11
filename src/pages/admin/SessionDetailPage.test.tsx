@@ -7,7 +7,7 @@ vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase
 
 import { InLeague } from '../../test/league'
 import { db, resetDb } from '../../test/fakeSupabase'
-import { finishedLeague, match, session } from '../../test/fixtures'
+import { finishedLeague, match, players, session } from '../../test/fixtures'
 import { PRESETS } from '../../utils/matchFormat'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 import SessionDetailPage from './SessionDetailPage'
@@ -18,6 +18,8 @@ const renderPage = (features?: readonly FeatureKey[]) =>
       <Routes>
         <Route path="/admin/eagles/sessions/:sessionId" element={<SessionDetailPage />} />
         <Route path="/admin/eagles/history" element={<p>history page</p>} />
+        <Route path="/admin/eagles/sessions/:sessionId/teams" element={<p>teams page</p>} />
+        <Route path="/admin/eagles/sessions/:sessionId/players" element={<p>players page</p>} />
       </Routes>
     </MemoryRouter></InLeague>,
   )
@@ -93,4 +95,32 @@ it('redirects to history when the session id in the URL is malformed', async () 
   db.errors.sessions = { code: '22P02', message: 'invalid input syntax for type uuid' }
   renderPage()
   expect(await screen.findByText('history page')).toBeInTheDocument()
+})
+
+describe('a session whose teams are not confirmed yet', () => {
+  const draft = { ...session, status: 'draft' as const }
+  const attendance = ['p1', 'p2'].map((player_id) => ({ league_id: 'L1', session_id: 's1', player_id }))
+
+  it('leads to the team builder instead of an empty match list', async () => {
+    resetDb({ players, sessions: [draft], session_players: attendance })
+    renderPage()
+    expect(await screen.findByText('Teams are not confirmed yet')).toBeInTheDocument()
+    expect(screen.queryByText('No completed matches yet')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: 'Choose teams' }))
+    expect(await screen.findByText('teams page')).toBeInTheDocument()
+  })
+
+  it('leads to picking players first when nobody is picked yet', async () => {
+    resetDb({ players, sessions: [draft] })
+    renderPage()
+    await userEvent.click(await screen.findByRole('link', { name: 'Choose players' }))
+    expect(await screen.findByText('players page')).toBeInTheDocument()
+  })
+
+  it('is not offered once the teams are confirmed', async () => {
+    resetDb({ ...finishedLeague(), sessions: [{ ...session, status: 'active' }], matches: [] })
+    renderPage()
+    expect(await screen.findByText('No completed matches yet')).toBeInTheDocument()
+    expect(screen.queryByText('Teams are not confirmed yet')).not.toBeInTheDocument()
+  })
 })

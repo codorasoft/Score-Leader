@@ -50,6 +50,7 @@ export default function SessionDetailPage() {
   const [loadFailed, setLoadFailed] = useState(false)
   const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
   const [starting, setStarting] = useState(false)
+  const [hasPlayers, setHasPlayers] = useState(false)
 
   // The session with everything linked to it, and its awards, side by side in one round
   const load = async () => {
@@ -68,6 +69,11 @@ export default function SessionDetailPage() {
     // Not found, or another league's session
     const data = sessRes.value
     if (!data) { navigate(adminPath('/history'), { replace: true }); return }
+    // A session without confirmed teams carries on at the team builder, or at picking players when nobody is picked yet
+    if (data.session.status === 'draft') {
+      const { data: picked } = await supabase.from('session_players').select('player_id').eq('session_id', sessionId).limit(1)
+      setHasPlayers((picked ?? []).length > 0)
+    }
     setAwards(awardRes.value)
     setSession(data.session)
     setMatches(data.matches)
@@ -205,11 +211,23 @@ export default function SessionDetailPage() {
         </section>
       )}
 
+      {session?.status === 'draft' && (
+        <section className="mb-6 bg-gray-800 rounded-xl p-4">
+          <p className="text-sm text-gray-300 mb-3">{t('sessionDetail.teamsNotConfirmed')}</p>
+          <Link
+            to={adminPath(`/sessions/${sessionId}/${hasPlayers ? 'teams' : 'players'}`)}
+            className="block w-full py-3 bg-blue-600 rounded-xl font-bold text-center hover:bg-blue-500"
+          >
+            {t(hasPlayers ? 'sessionDetail.chooseTeams' : 'sessionDetail.choosePlayers')}
+          </Link>
+        </section>
+      )}
+
       <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
       <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
       {voting && sessionId && <div className="mb-6"><SessionVotes sessionId={sessionId} /></div>}
 
-      {completed.length === 0 && (
+      {completed.length === 0 && session?.status !== 'draft' && (
         <p className="text-gray-500 text-center py-8">{t('sessionDetail.noMatches')}</p>
       )}
 
