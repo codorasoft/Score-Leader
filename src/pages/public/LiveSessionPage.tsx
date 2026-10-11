@@ -78,7 +78,6 @@ export default function LiveSessionPage() {
     team ? t('common.teamName', { color: t(`common.teamColor.${team.color}`) }) : ''
   const team1 = teams.find((tm) => tm.id === match?.team1_id)
   const team2 = teams.find((tm) => tm.id === match?.team2_id)
-  const showPeriods = session.period_count > 1 || session.extra_time_minutes != null
   const len = match ? periodLength(match.period, session) ?? 0 : 0
   const halfTime = !!match && match.timer_status === 'stopped' && match.period_seconds.length >= match.period && match.status !== 'completed'
 
@@ -128,14 +127,14 @@ export default function LiveSessionPage() {
 
           <section className="bg-gray-800 rounded-xl p-3">
             <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>
-            <MatchTimeline events={events.filter((e) => e.match_id === match.id)} teams={teams} players={players} periods={showPeriods} />
+            <MatchTimeline events={events.filter((e) => e.match_id === match.id)} teams={teams} players={players} format={session} />
           </section>
         </div>
       )}
 
       <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
       <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
-      <SessionMatchList matches={matches} events={events} teams={teams} players={players} periods={showPeriods} />
+      <SessionMatchList matches={matches} events={events} teams={teams} players={players} format={session} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import type { Match, MatchEvent, Player, Team } from '../lib/types'
 import { MatchTimeline } from './MatchTimeline'
 import { styleMap } from '../lib/teamColors'
 import { resultLabel } from '../utils/resultLabel'
+import type { MatchFormat } from '../utils/matchFormat'
 
 const colorDot = styleMap('dot')
 
@@ -12,11 +13,12 @@ interface Props {
   events: MatchEvent[]
   teams: Team[]
   players: Player[]
-  periods?: boolean
+  // The session's match format, for the timelines
+  format?: MatchFormat
 }
 
 // Finished matches of a session, newest first: the last one is highlighted with its timeline open.
-export function SessionMatchList({ matches, events, teams, players, periods = false }: Props) {
+export function SessionMatchList({ matches, events, teams, players, format }: Props) {
   const { t } = useTranslation()
   const finished = matches
     .filter((m) => m.status === 'completed')
@@ -58,7 +60,7 @@ export function SessionMatchList({ matches, events, teams, players, periods = fa
         </button>
         {isOpen && (
           <div className="px-3 pb-3 border-t border-gray-700/60 pt-3">
-            <MatchTimeline events={events.filter((e) => e.match_id === m.id)} teams={teams} players={players} periods={periods} />
+            <MatchTimeline events={events.filter((e) => e.match_id === m.id)} teams={teams} players={players} format={format} />
           </div>
         )}
       </div>

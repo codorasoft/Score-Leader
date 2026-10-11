@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import type { MatchEvent, Player, Team } from '../lib/types'
 import { buildTimeline } from '../utils/timeline'
-import { formatMatchClock } from '../utils/matchClock'
+import { formatMatchClock, MATCH_DURATION_SECONDS } from '../utils/matchClock'
+import { extraTimeIsOpen, periodLength, type MatchFormat } from '../utils/matchFormat'
 import { useFeature } from '../contexts/LeagueContext'
 import { styleMap } from '../lib/teamColors'
 
@@ -11,11 +12,18 @@ interface Props {
   events: MatchEvent[]
   teams: Team[]
   players: Player[]
-  periods?: boolean
+  // The session's match format. Without it every match is taken as one 7-minute period.
+  format?: MatchFormat
 }
 
-export function MatchTimeline({ events, teams, players, periods = false }: Props) {
+export function MatchTimeline({ events, teams, players, format }: Props) {
   const { t } = useTranslation()
+  // Times are tagged with their period only where a match has more than one
+  const tagged = !!format && (format.period_count > 1 || format.extra_time_minutes != null)
+  // Open extra time is one stretch, so it is not a "first half" of extra time
+  const tag = (period: number) => t(period === 3 && format && extraTimeIsOpen(format) ? 'timeline.periodShort.extra' : `timeline.periodShort.${period}`)
+  // A time counts as overrun only past the end of its own period
+  const limit = (period: number) => (format ? periodLength(period, format) : null) ?? MATCH_DURATION_SECONDS
   const cards = useFeature('cards')
   const swaps = useFeature('swaps')
   const entries = buildTimeline(events).filter(
@@ -35,7 +43,7 @@ export function MatchTimeline({ events, teams, players, periods = false }: Props
       {entries.map((e) => (
         <li key={e.id} className="flex items-start gap-3 text-sm">
           <span className="font-mono text-xs text-gray-400 w-24 shrink-0 pt-0.5" dir="ltr">
-            {periods && `${t(`timeline.periodShort.${e.period}`)} `}{e.clock != null ? formatMatchClock(e.clock) : '—'}
+            {tagged && `${tag(e.period)} `}{e.clock != null ? formatMatchClock(e.clock, limit(e.period)) : '—'}
           </span>
           <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${colorDot[team(e.teamId)?.color ?? ''] ?? 'bg-gray-500'}`} />
           <span className="min-w-0">
