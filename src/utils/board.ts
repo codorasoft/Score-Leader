@@ -25,6 +25,26 @@ export const clampSpot = (s: BoardSpot): BoardSpot => ({
 
 export interface BoardPlayer { playerId: string; x: number; y: number }
 
+const ROW_MAX = 6
+
+// Every team on one board: a row each from the top down, its players spread evenly across in the
+// order given. A team of more than six wraps onto further lines inside its own band of the pitch.
+export function spotsForTeams(teams: string[][]): BoardPlayer[] {
+  return teams.flatMap((team, row) => {
+    const lines = Math.ceil(team.length / ROW_MAX)
+    const perLine = Math.ceil(team.length / lines)
+    return team.map((playerId, i) => {
+      const line = Math.floor(i / perLine)
+      const inLine = Math.min(perLine, team.length - line * perLine)
+      return {
+        playerId,
+        x: round(((i % perLine) + 0.5) / inLine),
+        y: round((row + (line + 0.5) / lines) / teams.length),
+      }
+    })
+  })
+}
+
 // Saving replaces the stored board: players taken off are removed, everyone else is upserted.
 export function lineupChanges(lineupId: string, savedPlayerIds: string[], current: BoardPlayer[]) {
   const keep = new Set(current.map((p) => p.playerId))

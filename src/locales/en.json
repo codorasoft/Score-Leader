@@ -82,6 +82,8 @@
   "teamBuilder": {
     "title": "Team Builder",
     "shuffleAll": "Shuffle All",
+    "makeBoard": "Make coach board",
+    "boardName": "{{date}}: {{teams}}",
     "noGkWarning": "Fewer goalkeepers than teams ({{teams}}) — designate field players as GKs if needed.",
     "confirmAndStart": "Confirm Teams & Start",
     "saving": "Saving…",

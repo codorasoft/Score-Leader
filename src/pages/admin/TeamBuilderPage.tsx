@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLeague, useFeature, useAdminPath } from '../../contexts/LeagueContext'
@@ -10,7 +10,9 @@ import { partnerships, type Pair } from '../../utils/playerMatches'
 import { TeamSwapBoard } from '../../components/TeamSwapBoard'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
 import { matchRowFields, setupFirstMatch } from '../../utils/matchRotation'
+import { spotsForTeams } from '../../utils/board'
 import { TEAM_COLORS } from '../../lib/teamColors'
+import { draftOf, restoreDraft } from '../../utils/teamEdit'
 import type { Match, MatchEvent, Player, Session, Team, TeamColor, TeamPlayer } from '../../lib/types'
 
 const WEIGHT_KEY = 'balanceFormWeight'
@@ -39,6 +41,7 @@ export default function TeamBuilderPage() {
   const { t } = useTranslation()
   const league = useLeague()
   const smart = useFeature('smart_balancing')
+  const coachBoard = useFeature('coach_board')
   const adminPath = useAdminPath()
   const [attendees, setAttendees] = useState<Player[]>([])
   const [form, setForm] = useState<Map<string, number>>(new Map())
@@ -49,70 +52,110 @@ export default function TeamBuilderPage() {
   const [teamCount, setTeamCount] = useState(3)
   const colors = TEAM_COLORS.slice(0, teamCount)
   const [teams, setTeams] = useState<Player[][]>([[], [], []])
-  const [needsGk, setNeedsGk] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [sessionDate, setSessionDate] = useState('')
+  const [makingBoard, setMakingBoard] = useState(false)
   const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
+  const needsGk = attendees.length > 0 && attendees.filter((p) => p.position === 'GK').length < teamCount
 
   const strengthOf = useCallback(
     (p: Player) => blendStrength(p.skill_rating, form.get(p.id), formPercent / 100),
     [form, formPercent],
   )
 
-  const synergy = useCallback((a: Player, b: Player) => {
-    if (!smart || !splitDuos) return 0
-    const pair = pairs.find((p) => (p.a === a.id && p.b === b.id) || (p.a === b.id && p.b === a.id))
-    if (!pair || pair.matches < DUO_MIN_MATCHES) return 0
-    return Math.max(0, (pair.wins / pair.matches - 0.5) * DUO_SCALE)
-  }, [pairs, splitDuos, smart])
+  // Balanced teams for a stars/form mix and duo rule. Everything is passed in, so the teams can be
+  // made while loading and as soon as a setting changes, before the page has drawn it.
+  const balance = (list: Player[], count: number, formOf: Map<string, number>, duos: Pair[], percent: number, split: boolean) =>
+    balanceTeams(
+      list,
+      count,
+      (p) => blendStrength(p.skill_rating, formOf.get(p.id), percent / 100),
+      (a, b) => {
+        if (!smart || !split) return 0
+        const pair = duos.find((p) => (p.a === a.id && p.b === b.id) || (p.a === b.id && p.b === a.id))
+        if (!pair || pair.matches < DUO_MIN_MATCHES) return 0
+        return Math.max(0, (pair.wins / pair.matches - 0.5) * DUO_SCALE)
+      },
+    ).teams
 
-  const rebalance = useCallback(() => {
-    const result = balanceTeams(attendees, teamCount, strengthOf, synergy)
-    setTeams(result.teams)
-    setNeedsGk(result.needsGkAssignment)
-  }, [attendees, teamCount, strengthOf, synergy])
+  // The arrangement is kept with the session so coming back, on any device, shows the same teams
+  // instead of a new shuffle. Saves go out one after another, so the last change is the one kept.
+  // A save that fails only means the next visit shuffles again.
+  const saves = useRef<Promise<unknown>>(Promise.resolve())
+  // Only for a session whose teams are not confirmed yet. Also off until the session shows it has
+  // the column: the app can be deployed before the migration, and there every save would be
+  // refused and shown as an error.
+  const canSave = useRef(false)
+  const saveDraft = (draft: string[][] | null) => {
+    if (!canSave.current) return
+    saves.current = saves.current.then(() => supabase.from('sessions').update({ draft_teams: draft }).eq('id', sessionId)).catch(() => {})
+  }
+
+  const arrange = (next: Player[][]) => {
+    setTeams(next)
+    saveDraft(draftOf(next))
+  }
+
+  const reshuffle = (percent = formPercent, split = splitDuos) => arrange(balance(attendees, teamCount, form, pairs, percent, split))
 
   useEffect(() => {
+    let stale = false
     const load = async () => {
       if (!sessionId) return
       const [{ data: sessionRow }, { data: spRows }] = await Promise.all([
-        supabase.from('sessions').select('team_count').eq('id', sessionId).eq('league_id', league.id).maybeSingle(),
+        supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).maybeSingle(),
         supabase.from('session_players').select('player_id').eq('session_id', sessionId),
       ])
       // Not found, or another league's session
-      if (!sessionRow) return
-      setTeamCount((sessionRow as { team_count: number }).team_count)
+      if (stale || !sessionRow) return
+      const { team_count: count, draft_teams: saved, date, status } = sessionRow as Session
+      setSessionDate(date)
+      canSave.current = status === 'draft' && 'draft_teams' in sessionRow
+      setTeamCount(count)
       const playerIds = (spRows ?? []).map((r: { player_id: string }) => r.player_id)
       if (playerIds.length === 0) return
+      let list: Player[]
+      let formOf = new Map<string, number>()
+      let duos: Pair[] = []
       if (!smart) {
         const { data: playerRows } = await supabase.from('players').select('*').in('id', playerIds)
-        setAttendees((playerRows ?? []) as Player[])
-        return
+        list = (playerRows ?? []) as Player[]
+      } else {
+        const [{ data: playerRows }, sessions, matches, events, teamPlayers] = await Promise.all([
+          supabase.from('players').select('*').in('id', playerIds),
+          selectAll<Session>((a, b) => supabase.from('sessions').select('*').eq('league_id', league.id).range(a, b)),
+          selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('league_id', league.id).eq('status', 'completed').range(a, b)),
+          selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').in('player_id', playerIds).range(a, b)),
+          selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').in('player_id', playerIds).range(a, b)),
+        ])
+        list = (playerRows ?? []) as Player[]
+        formOf = formRatings({ sessions, matches, events, teamPlayers }, DEFAULT_FORM_SESSIONS)
+        duos = partnerships({ sessions, matches, events, teamPlayers })
       }
-      const [{ data: playerRows }, sessions, matches, events, teamPlayers] = await Promise.all([
-        supabase.from('players').select('*').in('id', playerIds),
-        selectAll<Session>((a, b) => supabase.from('sessions').select('*').eq('league_id', league.id).range(a, b)),
-        selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('league_id', league.id).eq('status', 'completed').range(a, b)),
-        selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').in('player_id', playerIds).range(a, b)),
-        selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').in('player_id', playerIds).range(a, b)),
-      ])
-      setForm(formRatings({ sessions, matches, events, teamPlayers }, DEFAULT_FORM_SESSIONS))
-      setPairs(partnerships({ sessions, matches, events, teamPlayers }))
-      setAttendees((playerRows ?? []) as Player[])
+      if (stale) return
+      setForm(formOf)
+      setPairs(duos)
+      setAttendees(list)
+      if (list.length === 0) return
+      // The teams from the last visit when they still fit who is attending; otherwise new ones
+      const kept = restoreDraft(saved, list, count)
+      if (kept) setTeams(kept)
+      else arrange(balance(list, count, formOf, duos, formPercent, splitDuos))
     }
     load()
+    return () => { stale = true }
   }, [sessionId, league.id, smart])
-
-  // Rebalance when attendees and form arrive, and whenever the stars/form mix changes
-  useEffect(() => { if (attendees.length > 0) rebalance() }, [rebalance, attendees.length])
 
   const changeSplitDuos = (value: boolean) => {
     setSplitDuos(value)
     try { localStorage.setItem(SPLIT_DUOS_KEY, String(value)) } catch { /* not remembered, still applied */ }
+    reshuffle(formPercent, value)
   }
 
   const changeWeight = (value: number) => {
     setFormPercent(value)
     try { localStorage.setItem(WEIGHT_KEY, String(value)) } catch { /* not remembered, still applied */ }
+    reshuffle(value, splitDuos)
   }
 
   const handleConfirm = async () => {
@@ -132,6 +175,9 @@ export default function TeamBuilderPage() {
     await supabase.from('team_players').insert(teamPlayerRows)
 
     await supabase.from('sessions').update({ status: 'active' }).eq('id', sessionId)
+    // The confirmed teams are in teams / team_players now. Cleared on its own, after the session
+    // has started, so that starting never depends on it.
+    saveDraft(null)
 
     const created = teamRows as Team[]
     const idOf = (c: TeamColor) => created.find((tm) => tm.color === c)!.id
@@ -155,18 +201,47 @@ export default function TeamBuilderPage() {
     }
   }
 
+  // A new coach board with every team on it, a row each in the order shown here; its name says
+  // which row is which team. The teams are kept with the session, so leaving for the board is safe.
+  const makeBoard = async () => {
+    if (makingBoard) return
+    setMakingBoard(true)
+    const id = crypto.randomUUID()
+    const name = t('teamBuilder.boardName', { date: sessionDate, teams: colors.map((c) => t(`common.teamColor.${c}`)).join(' / ') }).slice(0, 80)
+    const { error } = await supabase.from('lineups').insert({ id, league_id: league.id, name, drawings: [], guests: [] })
+    if (!error) {
+      const spots = spotsForTeams(draftOf(teams)).map((b) => ({ lineup_id: id, player_id: b.playerId, x: b.x, y: b.y }))
+      const placed = await supabase.from('lineup_players').insert(spots)
+      if (!placed.error) { navigate(adminPath(`/lineups/${id}`)); return }
+      // No players on it: don't leave an empty board in the list
+      await supabase.from('lineups').delete().eq('id', id)
+    }
+    setMakingBoard(false)
+  }
+
   const mix = t('teamBuilder.balanceMix', { stars: 100 - formPercent, form: formPercent })
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <h1 className="text-xl font-bold">{t('teamBuilder.title')}</h1>
-        <button
-          onClick={rebalance}
-          className="px-4 py-2 text-sm bg-gray-700 rounded hover:bg-gray-600"
-        >
-          {t('teamBuilder.shuffleAll')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {coachBoard && (
+            <button
+              onClick={makeBoard}
+              disabled={makingBoard || teams.every((team) => team.length === 0)}
+              className="px-4 py-2 text-sm bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
+            >
+              <span aria-hidden="true">📋 </span>{t('teamBuilder.makeBoard')}
+            </button>
+          )}
+          <button
+            onClick={() => reshuffle()}
+            className="px-4 py-2 text-sm bg-gray-700 rounded hover:bg-gray-600"
+          >
+            {t('teamBuilder.shuffleAll')}
+          </button>
+        </div>
       </div>
 
       {smart && (
@@ -204,7 +279,7 @@ export default function TeamBuilderPage() {
         </div>
       )}
 
-      <TeamSwapBoard teams={teams} colors={colors} onChange={setTeams} strengthOf={strengthOf} />
+      <TeamSwapBoard teams={teams} colors={colors} onChange={arrange} strengthOf={strengthOf} />
 
       {/* With two teams both always play, so there is nothing to choose */}
       {colors.length > 2 && <FirstMatchPicker colors={colors} playing={firstPlaying} onChange={setFirstPlaying} />}

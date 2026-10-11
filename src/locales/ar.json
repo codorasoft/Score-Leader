@@ -94,6 +94,8 @@
   "teamBuilder": {
     "title": "بناء الفرق",
     "shuffleAll": "خلط الفرق",
+    "makeBoard": "إنشاء لوحة المدرب",
+    "boardName": "{{date}}: {{teams}}",
     "noGkWarning": "عدد حراس المرمى أقل من عدد الفرق ({{teams}}) — حدد لاعبين ميدانيين كحراس إذا لزم الأمر.",
     "confirmAndStart": "تأكيد الفرق والبدء",
     "saving": "جار الحفظ…",
