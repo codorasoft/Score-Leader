@@ -8,9 +8,14 @@ import { players } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
-vi.mock('../../utils/fingerprint', () => ({ getFingerprint: async () => 'device-1' }))
 
 import VotePage from './VotePage'
+
+// This phone has voted (or opened a vote) before: its id is already stored
+beforeEach(() => {
+  localStorage.clear()
+  localStorage.setItem('scoreleader.voter', 'device-1')
+})
 
 const vote = (status = 'open') => ({ id: 'v1', league_id: 'L1', session_id: 's1', award_type: 'mvp', status, vote_token: 'tok-v', decided_by: 'vote', winner_player_id: null })
 const nominations = [{ award_vote_id: 'v1', player_id: 'p2' }, { award_vote_id: 'v1', player_id: 'p5' }]
@@ -33,6 +38,23 @@ it('lets a player pick a nominee and records one vote for this device', async ()
   await user.click(submit)
   expect(await screen.findByText('Your vote has been recorded.')).toBeInTheDocument()
   expect(rows('award_vote_entries')).toEqual([expect.objectContaining({ award_vote_id: 'v1', voter_fingerprint: 'device-1', player_id: 'p5' })])
+})
+
+it('lets two phones of the same model both vote', async () => {
+  resetDb({ award_votes: [vote()], award_vote_nominations: nominations, players })
+  const user = userEvent.setup()
+  // jsdom gives every render the same browser details, like two identical phones
+  for (const choice of ['Hadi', 'Omar']) {
+    localStorage.clear() // a phone that has never opened a vote
+    const { unmount } = renderPage()
+    await user.click(await screen.findByRole('button', { name: choice }))
+    await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
+    expect(await screen.findByText('Your vote has been recorded.')).toBeInTheDocument()
+    unmount()
+  }
+  const entries = rows('award_vote_entries')
+  expect(entries.map((e) => e.player_id)).toEqual(['p5', 'p2'])
+  expect(entries[0].voter_fingerprint).not.toBe(entries[1].voter_fingerprint)
 })
 
 it('does not offer a second vote from the same device', async () => {

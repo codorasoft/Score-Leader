@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
-import { getFingerprint } from '../../utils/fingerprint'
+import { getVoterId } from '../../utils/voterId'
 import { useFeature } from '../../contexts/LeagueContext'
 import { serverErrorKey } from '../../lib/errorText'
 import type { AwardVote, Player } from '../../lib/types'
@@ -22,7 +22,7 @@ export default function VotePage() {
 
   useEffect(() => {
     const init = async () => {
-      const fp = await getFingerprint()
+      const fp = getVoterId()
 
       const { data: voteData } = await supabase
         .from('award_votes').select('*').eq('vote_token', voteToken).single()
@@ -58,7 +58,7 @@ export default function VotePage() {
     if (!chosen || !vote || sending) return
     setSending(true)
     setSendError('')
-    const fp = await getFingerprint()
+    const fp = getVoterId()
     const { error } = await supabase.from('award_vote_entries').insert({
       award_vote_id: vote.id,
       voter_fingerprint: fp,
