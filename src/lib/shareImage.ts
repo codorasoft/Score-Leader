@@ -2,7 +2,7 @@ import type { Player } from './types'
 import type { PlayerCard } from '../utils/playerCard'
 import { TIER_STYLE } from '../components/PlayerCardView'
 import { DRAW_COLORS, type Shape } from '../utils/boardDrawings'
-import { styleMap } from './teamColors'
+import { styleMap, teamStyle } from './teamColors'
 
 const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans Arabic", sans-serif'
 
@@ -193,6 +193,21 @@ export function drawSessionImage(data: SessionImageData): HTMLCanvasElement {
   return canvas
 }
 
+// A name as lines no wider than maxWidth, broken at spaces. A word is never split, so a single
+// word can still be wider than the line.
+export function wrapLines(text: string, maxWidth: number, measure: (s: string) => number): string[] {
+  const lines: string[] = []
+  for (const word of text.trim().split(/\s+/)) {
+    const last = lines[lines.length - 1]
+    if (last !== undefined && measure(`${last} ${word}`) <= maxWidth) lines[lines.length - 1] = `${last} ${word}`
+    else lines.push(word)
+  }
+  return lines
+}
+
+// Widest a player's name gets on the board image: five players across leave 192 each
+const NAME_WIDTH = 172
+
 // Full pitch from above with every player where the admin placed them.
 export async function drawBoardImage(data: {
   title: string
@@ -242,6 +257,24 @@ export async function drawBoardImage(data: {
 
   // Arrows and zones go under the players, the same as on screen (sizes in pitch units, u)
   for (const shape of data.drawings ?? []) {
+    if (shape.kind === 'label') {
+      // A team's name in a dark pill, led by its colour dot (on the right for right-to-left text)
+      ctx.font = `700 30px ${FONT}`
+      const dot = 9, gap = 12, pad = 18
+      const w = pad * 2 + dot * 2 + gap + ctx.measureText(shape.text).width
+      const cx = PITCH_X + shape.x * PW, cy = PITCH_Y + shape.y * PH
+      const side = /[\u0590-\u08FF]/.test(shape.text) ? -1 : 1
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'
+      roundRect(ctx, cx - w / 2, cy - 24, w, 48, 24)
+      ctx.fill()
+      ctx.fillStyle = teamStyle(shape.team).hex
+      ctx.beginPath()
+      ctx.arc(cx - side * (w / 2 - pad - dot), cy, dot, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(shape.text, cx + side * (dot + gap / 2), cy + 10)
+      continue
+    }
     const color = DRAW_COLORS[shape.color]
     if (shape.kind === 'zone') {
       ctx.beginPath()
@@ -305,13 +338,25 @@ export async function drawBoardImage(data: {
     ctx.stroke()
     ctx.setLineDash([])
 
-    fitText(ctx, p.name, 200, 28, 800)
-    const labelW = Math.min(210, ctx.measureText(p.name).width + 20)
+    // The whole name, on as many lines as it needs, so neighbours never cover each other's
+    // letters; only a single word wider than the line is made smaller
+    let size = 28
+    ctx.font = `800 ${size}px ${FONT}`
+    const width = (text: string) => ctx.measureText(text).width
+    const lines = wrapLines(p.name, NAME_WIDTH, width)
+    let widest = Math.max(...lines.map(width))
+    if (widest > NAME_WIDTH) {
+      size = Math.max(14, Math.floor(size * NAME_WIDTH / widest))
+      ctx.font = `800 ${size}px ${FONT}`
+      widest = Math.max(...lines.map(width))
+    }
+    const lineH = Math.round(size * 1.2)
+    const top = cy + r + 6
     ctx.fillStyle = 'rgba(0,0,0,0.6)'
-    roundRect(ctx, cx - labelW / 2, cy + r + 6, labelW, 40, 10)
+    roundRect(ctx, cx - widest / 2 - 10, top, widest + 20, lines.length * lineH + 6, 10)
     ctx.fill()
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(p.name, cx, cy + r + 35)
+    lines.forEach((line, n) => ctx.fillText(line, cx, top + lineH * n + size + 1))
   })
 
   ctx.fillStyle = '#64748b'

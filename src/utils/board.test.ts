@@ -1,4 +1,4 @@
-import { spotForNewPlayer, clampSpot, lineupChanges, makeGuest, parseGuests } from './board'
+import { spotForNewPlayer, clampSpot, lineupChanges, makeGuest, parseGuests, spotsForTeams, labelSpotsForTeams } from './board'
 
 describe('spotForNewPlayer', () => {
   it('fills rows of four from the bottom of the pitch upwards', () => {
@@ -50,5 +50,75 @@ describe('guests', () => {
       'nonsense',
     ])).toEqual([{ id: 'a', name: 'Khalil', x: 0.3, y: 0.4 }])
     expect(parseGuests(undefined)).toEqual([])
+  })
+})
+
+describe('spotsForTeams', () => {
+  it('gives each team a row, from the top down, with its players spread evenly across', () => {
+    expect(spotsForTeams([['a', 'b'], ['c', 'd'], ['e', 'f']])).toEqual([
+      { playerId: 'a', x: 0.25, y: 0.1667 }, { playerId: 'b', x: 0.75, y: 0.1667 },
+      { playerId: 'c', x: 0.25, y: 0.5 }, { playerId: 'd', x: 0.75, y: 0.5 },
+      { playerId: 'e', x: 0.25, y: 0.8333 }, { playerId: 'f', x: 0.75, y: 0.8333 },
+    ])
+  })
+
+  it('centres a player who is alone in a team, and skips a team with nobody', () => {
+    expect(spotsForTeams([['a'], []])).toEqual([{ playerId: 'a', x: 0.5, y: 0.25 }])
+  })
+
+  it('keeps the order of the players within a row', () => {
+    const xs = spotsForTeams([['a', 'b', 'c', 'd', 'e']]).map((s) => s.x)
+    expect(xs).toEqual([0.1, 0.3, 0.5, 0.7, 0.9])
+  })
+
+  it('wraps a team of more than six onto two lines inside its own band', () => {
+    const spots = spotsForTeams([['a', 'b', 'c', 'd', 'e', 'f', 'g'], ['h']])
+    const first = spots.filter((s) => s.playerId !== 'h')
+    // Four on the first line, three on the second, both in the top half
+    expect(first.map((s) => s.y)).toEqual([0.125, 0.125, 0.125, 0.125, 0.375, 0.375, 0.375])
+    expect(first.slice(4).map((s) => s.x)).toEqual([0.1667, 0.5, 0.8333])
+    expect(spots.find((s) => s.playerId === 'h')).toEqual({ playerId: 'h', x: 0.5, y: 0.75 })
+  })
+
+  it('keeps everyone on the pitch and nobody on the same spot, up to six teams of eleven', () => {
+    const teams = Array.from({ length: 6 }, (_, t) => Array.from({ length: 11 }, (_, i) => `t${t}p${i}`))
+    const spots = spotsForTeams(teams)
+    expect(spots).toHaveLength(66)
+    for (const s of spots) {
+      expect(s.x).toBeGreaterThan(0)
+      expect(s.x).toBeLessThan(1)
+      expect(s.y).toBeGreaterThan(0)
+      expect(s.y).toBeLessThan(1)
+    }
+    expect(new Set(spots.map((s) => `${s.x},${s.y}`)).size).toBe(66)
+  })
+})
+
+describe('labelSpotsForTeams', () => {
+  it('puts each team name in the middle, just above its row', () => {
+    const teams = [['a', 'b'], ['c', 'd'], ['e', 'f']]
+    const rows = [...new Set(spotsForTeams(teams).map((s) => s.y))]
+    const labels = labelSpotsForTeams(teams)
+    expect(labels.map((l) => l.x)).toEqual([0.5, 0.5, 0.5])
+    labels.forEach((l, i) => {
+      expect(l.y).toBeLessThan(rows[i])
+      expect(rows[i] - l.y).toBeCloseTo(0.062, 3)
+      // Below the row before it
+      if (i > 0) expect(l.y).toBeGreaterThan(rows[i - 1])
+    })
+  })
+
+  it('goes above the first line of a team that wraps onto two', () => {
+    const teams = [['a', 'b', 'c', 'd', 'e', 'f', 'g'], ['h']]
+    const firstLine = Math.min(...spotsForTeams(teams).filter((s) => s.playerId !== 'h').map((s) => s.y))
+    expect(labelSpotsForTeams(teams)[0].y).toBeLessThan(firstLine)
+  })
+
+  it('never leaves the pitch, however many teams and lines there are', () => {
+    const teams = Array.from({ length: 6 }, (_, t) => Array.from({ length: 11 }, (_, i) => `t${t}p${i}`))
+    for (const l of labelSpotsForTeams(teams)) {
+      expect(l.y).toBeGreaterThan(0)
+      expect(l.y).toBeLessThan(1)
+    }
   })
 })

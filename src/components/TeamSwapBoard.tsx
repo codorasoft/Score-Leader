@@ -16,6 +16,13 @@ interface Props {
   strengthOf?: (p: Player) => number
 }
 
+// On a desktop the three columns are narrow, so a card shows the position and the full name. While it
+// is hovered or reached with the keyboard the name fades and the stars and power show over its end.
+// The selected card keeps its name as it is. The swap arrow is left out there too: it would cut the
+// names off again, and the ring already marks the cards to swap with.
+const nameFade = 'desktop:group-hover:opacity-30 desktop:group-focus-visible:opacity-30'
+const statsShow = 'desktop:group-hover:opacity-100 desktop:group-focus-visible:opacity-100'
+
 // Tap a player to select them, then tap a player on another team to swap, or "Move here".
 export function TeamSwapBoard({ teams, colors, onChange, strengthOf }: Props) {
   const { t } = useTranslation()
@@ -49,9 +56,9 @@ export function TeamSwapBoard({ teams, colors, onChange, strengthOf }: Props) {
           const isTarget = selected && idx !== selectedTeam
           return (
             <section key={color} className={`border rounded-xl p-3 ${colorStyles[color]}`}>
-              <div className="flex items-baseline justify-between mb-3">
-                <h2 className="font-bold">{t('common.teamName', { color: t(`common.teamColor.${color}`) })}</h2>
-                <span className="text-xs text-gray-300">
+              <div className="flex items-baseline justify-between gap-1.5 mb-3">
+                <h2 className="font-bold min-w-0 truncate lg:text-[13px]">{t('common.teamName', { color: t(`common.teamColor.${color}`) })}</h2>
+                <span className="text-xs text-gray-300 whitespace-nowrap lg:text-[11px]">
                   {strengthOf
                     ? t('teamBuilder.teamStrength', { count: members.length, power: members.reduce((n, p) => n + strengthOf(p), 0).toFixed(1) })
                     : t('teamBuilder.teamSummary', { count: members.length, stars: teamStars(members) })}
@@ -67,17 +74,19 @@ export function TeamSwapBoard({ teams, colors, onChange, strengthOf }: Props) {
                       type="button"
                       aria-pressed={isSelected}
                       onClick={() => tapPlayer(player.id, idx)}
-                      className={`w-full min-h-[44px] rounded-lg px-3 py-2 flex items-center gap-2 text-start transition-colors ${
+                      className={`group relative w-full min-h-[44px] rounded-lg px-3 py-2 flex items-center gap-2 text-start transition-colors ${
                         isSelected
                           ? 'bg-blue-600 ring-2 ring-blue-300'
                           : isTarget ? 'bg-gray-700 hover:bg-gray-600 ring-1 ring-blue-400/50' : 'bg-gray-700 hover:bg-gray-600'
                       }`}
                     >
                       <PositionBadge position={player.position} />
-                      <span className="text-sm flex-1 truncate">{player.name}</span>
-                      <span className="text-xs text-yellow-400" aria-hidden="true">{'★'.repeat(player.skill_rating)}</span>
-                      {strengthOf && <span className="text-xs text-gray-300 font-mono w-9 text-end">⚡{strengthOf(player).toFixed(1)}</span>}
-                      {isTarget && <span className="text-blue-300" aria-hidden="true">⇄</span>}
+                      <span className={`text-sm flex-1 truncate transition-opacity ${isSelected ? '' : nameFade}`}>{player.name}</span>
+                      <span className={`flex items-center gap-2 transition-opacity desktop:absolute desktop:inset-y-0 desktop:end-3 desktop:opacity-0 ${isSelected ? '' : statsShow}`}>
+                        <span className="text-xs text-yellow-400" aria-hidden="true">{'★'.repeat(player.skill_rating)}</span>
+                        {strengthOf && <span className="text-xs text-gray-300 font-mono w-9 text-end">⚡{strengthOf(player).toFixed(1)}</span>}
+                      </span>
+                      {isTarget && <span className="text-blue-300 desktop:hidden" aria-hidden="true">⇄</span>}
                     </button>
                   )
                 })}

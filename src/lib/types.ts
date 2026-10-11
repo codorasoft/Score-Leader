@@ -30,6 +30,8 @@ export interface Session {
   // How many teams play and how many players each has (2–6 teams of 3–11)
   team_count: number
   team_size: number
+  // The team builder's arrangement before the teams are confirmed: player ids per team, in colour order
+  draft_teams?: string[][] | null
   // Match format: how long a match is, whether it can go to extra time or penalties, and what a draw does
   period_count: number
   period_minutes: number

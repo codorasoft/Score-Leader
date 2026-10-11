@@ -25,6 +25,37 @@ export const clampSpot = (s: BoardSpot): BoardSpot => ({
 
 export interface BoardPlayer { playerId: string; x: number; y: number }
 
+const ROW_MAX = 6
+// How far above its row a team's name sits, as a share of the pitch's length: clear of the tokens
+const LABEL_ABOVE = 0.062
+const linesOf = (size: number) => Math.max(1, Math.ceil(size / ROW_MAX))
+
+// Every team on one board: a row each from the top down, its players spread evenly across in the
+// order given. A team of more than six wraps onto further lines inside its own band of the pitch.
+export function spotsForTeams(teams: string[][]): BoardPlayer[] {
+  return teams.flatMap((team, row) => {
+    const lines = linesOf(team.length)
+    const perLine = Math.ceil(team.length / lines)
+    return team.map((playerId, i) => {
+      const line = Math.floor(i / perLine)
+      const inLine = Math.min(perLine, team.length - line * perLine)
+      return {
+        playerId,
+        x: round(((i % perLine) + 0.5) / inLine),
+        y: round((row + (line + 0.5) / lines) / teams.length),
+      }
+    })
+  })
+}
+
+// Where each team's name goes on that board: in the middle, just above the first line of its row
+export function labelSpotsForTeams(teams: string[][]): BoardSpot[] {
+  return teams.map((team, row) => ({
+    x: 0.5,
+    y: round(Math.max(0.02, (row + 0.5 / linesOf(team.length)) / teams.length - LABEL_ABOVE)),
+  }))
+}
+
 // Saving replaces the stored board: players taken off are removed, everyone else is upserted.
 export function lineupChanges(lineupId: string, savedPlayerIds: string[], current: BoardPlayer[]) {
   const keep = new Set(current.map((p) => p.playerId))

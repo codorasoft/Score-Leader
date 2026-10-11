@@ -2,7 +2,10 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Player } from '../lib/types'
 import { clampSpot, type BoardSpot } from '../utils/board'
-import { DRAW_COLORS, shapeFromDrag, type DrawColor, type DrawTool, type Shape } from '../utils/boardDrawings'
+import { DRAW_COLORS, shapeFromDrag, type DrawColor, type DrawTool, type Label, type Shape } from '../utils/boardDrawings'
+import { styleMap } from '../lib/teamColors'
+
+const colorDot = styleMap('dot')
 
 export function PitchMarkings() {
   return (
@@ -28,6 +31,8 @@ export function PitchMarkings() {
 
 // Shapes are stored as 0..1 of the pitch; the SVG uses the pitch's 100 x 150 units.
 export function ShapeView({ shape, onErase, eraseLabel }: { shape: Shape; onErase?: () => void; eraseLabel?: string }) {
+  // Team names are text, placed over the pitch by the board itself
+  if (shape.kind === 'label') return null
   const color = DRAW_COLORS[shape.color]
   const erasable = onErase
     ? { onClick: onErase, role: 'button', 'aria-label': eraseLabel, className: 'cursor-pointer', style: { pointerEvents: 'auto' as const } }
@@ -88,6 +93,8 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
   }
 
   const preview = sketch && shapeFromDrag(tool, sketch.from, sketch.to, color, 'preview')
+  const labels = drawings.filter((d): d is Label => d.kind === 'label')
+  const labelLook = 'absolute z-[6] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 whitespace-nowrap rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-bold text-white'
 
   return (
     <div ref={pitchRef} className="relative w-full aspect-[2/3] rounded-xl overflow-hidden shadow-lg" dir="ltr">
@@ -101,6 +108,15 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
         {preview && <ShapeView shape={preview} />}
       </svg>
 
+      {/* Team names: under the players, and something to press only for the eraser */}
+      {labels.map((l) => {
+        const place = { left: `${l.x * 100}%`, top: `${l.y * 100}%` }
+        const content = <><span className={`w-2 h-2 rounded-full shrink-0 ${colorDot[l.team] ?? 'bg-gray-400'}`} aria-hidden="true" />{l.text}</>
+        return tool === 'erase' && onEraseShape
+          ? <button key={l.id} type="button" dir="auto" aria-label={t('board.removeLabel', { name: l.text })} onClick={() => onEraseShape(l.id)} className={`${labelLook} cursor-pointer`} style={place}>{content}</button>
+          : <div key={l.id} dir="auto" className={`${labelLook} pointer-events-none`} style={place}>{content}</div>
+      })}
+
       {players.map(({ player, x, y, guest }) => {
         const isDragged = dragging?.playerId === player.id
         const spot = isDragged ? dragging.spot : { x, y }
@@ -109,7 +125,9 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
             key={player.id}
             type="button"
             aria-label={guest ? t('lineups.guestLabel', { name: player.name }) : player.name}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none touch-none transition-transform ${isDragged ? 'z-20 scale-110' : 'z-10'} ${tool !== 'move' ? 'pointer-events-none' : ''}`}
+            // The spot is the centre of the circle (22px down from its top), as in the shared image, so a
+            // name on two lines hangs lower instead of lifting its token out of line with the others
+            className={`absolute -translate-x-1/2 -translate-y-[22px] flex flex-col items-center select-none touch-none transition-transform ${isDragged ? 'z-20 scale-110' : 'z-10'} ${tool !== 'move' ? 'pointer-events-none' : ''}`}
             style={{ left: `${spot.x * 100}%`, top: `${spot.y * 100}%` }}
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId)
@@ -128,7 +146,7 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
                 ? <img src={player.photo_url} alt="" draggable={false} className="w-full h-full object-cover" />
                 : player.name.charAt(0).toUpperCase()}
             </span>
-            <span className="mt-0.5 max-w-[72px] truncate text-[10px] font-semibold text-white bg-black/55 rounded px-1">
+            <span className="mt-0.5 max-w-[72px] text-center leading-tight break-words text-[10px] font-semibold text-white bg-black/55 rounded px-1">
               {player.name}
             </span>
           </button>

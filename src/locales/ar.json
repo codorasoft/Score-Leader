@@ -94,6 +94,8 @@
   "teamBuilder": {
     "title": "بناء الفرق",
     "shuffleAll": "خلط الفرق",
+    "makeBoard": "إنشاء لوحة المدرب",
+    "boardName": "{{date}}: {{teams}}",
     "noGkWarning": "عدد حراس المرمى أقل من عدد الفرق ({{teams}}) — حدد لاعبين ميدانيين كحراس إذا لزم الأمر.",
     "confirmAndStart": "تأكيد الفرق والبدء",
     "saving": "جار الحفظ…",
@@ -271,7 +273,10 @@
     "noGoals": "لا أهداف",
     "rotationNote": "تغيير هذه النتيجة لن يعيد ترتيب المباريات التي لُعبت بعدها.",
     "noMatchSetUp": "لا توجد مباراة جاهزة. ابدأ المباراة التالية للمتابعة.",
-    "startMatch": "ابدأ المباراة {{number}}"
+    "startMatch": "ابدأ المباراة {{number}}",
+    "teamsNotConfirmed": "لم تُؤكَّد الفرق بعد",
+    "chooseTeams": "اختيار الفرق",
+    "choosePlayers": "اختيار اللاعبين"
   },
   "leaderboard": {
     "title": "قائمة المتصدرين",
@@ -615,6 +620,7 @@
   "board": {
     "drawingArea": "منطقة الرسم",
     "removeDrawing": "حذف الرسم",
+    "removeLabel": "حذف {{name}}",
     "tools": "أدوات اللوحة",
     "move": "تحريك",
     "pass": "تمريرة",
