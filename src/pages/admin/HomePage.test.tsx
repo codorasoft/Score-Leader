@@ -78,6 +78,14 @@ describe('live / start block', () => {
     renderHome()
     expect(await screen.findByText('10:00 +00:50')).toBeInTheDocument()
   })
+  it('a match in open extra time shows its clock counting up', async () => {
+    h.rows.sessions = [{ ...session('s1', today, 'active'), ...PRESETS.knockout, extra_time_minutes: 0 }]
+    h.rows.matches = [match('active', { period: 3, period_seconds: [600, 600], timer_elapsed_seconds: 1000 })]
+    h.rows.teams = [{ id: 'ta', session_id: 's1', color: 'green', name: null }, { id: 'tb', session_id: 's1', color: 'blue', name: null }]
+    renderHome()
+    expect(await screen.findByText('16:40')).toBeInTheDocument()
+  })
+
   it('a new session without players: continue to attendance', async () => {
     h.rows.sessions = [session('s1', today, 'draft')]
     renderHome()

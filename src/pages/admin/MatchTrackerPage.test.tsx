@@ -494,3 +494,50 @@ describe('periods', () => {
     expect(m1().period_seconds).toHaveLength(4)
   })
 })
+
+describe('open extra time', () => {
+  const open = { ...PRESETS.knockout, extra_time_minutes: 0 }
+
+  it('level after normal time: one stretch of extra time, then penalties when still level', async () => {
+    seed(open, match('m1', { period: 2, period_seconds: [600, 600], timer_status: 'stopped', timer_elapsed_seconds: 600, status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Start Extra time' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 3, timer_status: 'running' }))
+    await user.click(await screen.findByRole('button', { name: 'End Extra time' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    // No second half of extra time
+    expect(screen.queryByRole('button', { name: /Start Extra time/ })).toBeNull()
+    await user.click(await screen.findByRole('button', { name: 'Go to penalties' }))
+    await waitFor(() => expect(m1()).toMatchObject({ period: 5, timer_status: 'stopped' }))
+    expect(m1().period_seconds).toHaveLength(3)
+  })
+
+  it('the clock keeps counting up, with no time-up message, however long it runs', async () => {
+    seed(open, match('m1', { period: 3, period_seconds: [600, 600], timer_status: 'paused', timer_elapsed_seconds: 1000, status: 'active' }))
+    renderPage()
+    expect(await screen.findByText('16:40')).toBeInTheDocument()
+    expect(screen.getByText('Extra time')).toBeInTheDocument()
+    expect(screen.queryByText(/Time's up/)).toBeNull()
+    expect(document.body.textContent).not.toMatch(/\+\d\d:\d\d/)
+  })
+
+  it('a leader when the referee ends it wins after extra time', async () => {
+    seed(open, match('m1', { period: 3, period_seconds: [600, 600], timer_status: 'running', status: 'active' }))
+    scored('tg', 1)
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: false, draw_resolved_by: 'extra_time', winner_team_id: 'tg' }))
+    expect(m1().period_seconds).toHaveLength(3)
+  })
+
+  it('without penalties, still level when it ends: the draw rule settles it', async () => {
+    seed({ ...open, penalties: false, draw_rule: 'draw' }, match('m1', { period: 3, period_seconds: [600, 600, 480], timer_status: 'stopped', timer_elapsed_seconds: 480, status: 'active' }))
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Draw — end match' }))
+    await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, winner_team_id: null }))
+  })
+})

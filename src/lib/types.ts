@@ -35,6 +35,7 @@ export interface Session {
   // Match format: how long a match is, whether it can go to extra time or penalties, and what a draw does
   period_count: number
   period_minutes: number
+  // null: no extra time. 0: open, one stretch that the referee ends. 1–15: two halves of that many minutes
   extra_time_minutes: number | null
   penalties: boolean
   goal_limit: number | null

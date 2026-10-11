@@ -54,3 +54,44 @@ describe('nextStep', () => {
     expect(nextStep(PRESETS.knockout, m({ period: 5 }), 0)).toEqual({ kind: 'penalties' })
   })
 })
+
+describe('open extra time (no set length, ended by the referee)', () => {
+  const open = { ...PRESETS.knockout, extra_time_minutes: 0 }
+  const openNoPens = { ...open, penalties: false }
+
+  it('is one stretch with no limit, not two halves', () => {
+    expect(periodsFor(open).map(p => [p.number, p.kind, p.minutes])).toEqual([[1,'regular',10],[2,'regular',10],[3,'extra',Infinity],[5,'penalties',null]])
+    expect(periodLength(3, open)).toBe(Infinity)
+    expect(periodLabelKey(3, open)).toBe('match.period.extra')
+    // Fixed extra time keeps its two named halves
+    expect(periodLabelKey(3, PRESETS.knockout)).toBe('match.period.extra1')
+  })
+
+  it('is its own format, not the knockout preset', () => expect(presetName(open)).toBe('custom'))
+
+  it('follows normal time only when the match is level', () => {
+    expect(periodAfter(open, 2, true)?.number).toBe(3)
+    expect(periodAfter(open, 2, false)).toBeNull()
+  })
+
+  it('is followed by penalties when still level, and by nothing when there is a leader', () => {
+    expect(periodAfter(open, 3, true)?.kind).toBe('penalties')
+    expect(periodAfter(open, 3, false)).toBeNull()
+    expect(periodAfter(openNoPens, 3, true)).toBeNull()
+  })
+
+  it('never runs out of time while it is being played', () => {
+    expect(nextStep(open, m({ period: 3, period_seconds: [600, 600] }), 5400)).toEqual({ kind: 'endPeriod', period: 3, timeUp: false })
+  })
+
+  it('once the referee ends it: a leader wins, level goes to penalties or the draw rule', () => {
+    const ended = { period: 3, period_seconds: [600, 600, 480], timer_status: 'stopped' as const }
+    expect(nextStep(open, m({ ...ended, team1_score: 1 }), 480)).toEqual({ kind: 'endMatch', reason: 'timeUp' })
+    expect(nextStep(open, m(ended), 480)).toEqual({ kind: 'penalties' })
+    expect(nextStep({ ...openNoPens, draw_rule: 'draw' }, m(ended), 480)).toEqual({ kind: 'draw' })
+    expect(nextStep({ ...openNoPens, draw_rule: 'stay' }, m(ended), 480)).toEqual({ kind: 'endMatch', reason: 'timeUp' })
+  })
+
+  it('a goal limit does not end it', () =>
+    expect(nextStep({ ...open, goal_limit: 1 }, m({ period: 3, period_seconds: [600, 600], team1_score: 1 }), 10).kind).toBe('endPeriod'))
+})

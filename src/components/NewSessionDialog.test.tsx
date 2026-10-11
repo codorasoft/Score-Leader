@@ -197,6 +197,44 @@ describe('match format', () => {
     await waitFor(() => expect(rows('sessions')[0]).toMatchObject({ period_count: 2, period_minutes: 10, extra_time_minutes: null, penalties: false, goal_limit: null, draw_rule: 'draw' }))
   })
 
+  it('extra time steps from Off to Open to a number of minutes', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Halves' }))
+    const extraTime = () => screen.getByRole('status', { name: 'Extra time (min)' }).textContent
+    expect(extraTime()).toBe('Off')
+    await user.click(screen.getByRole('button', { name: 'More extra time' }))
+    expect(extraTime()).toBe('Open')
+    expect(screen.getByText(/open extra time/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'More extra time' }))
+    expect(extraTime()).toBe('1')
+    await user.click(screen.getByRole('button', { name: 'Less extra time' }))
+    expect(extraTime()).toBe('Open')
+    await user.click(screen.getByRole('button', { name: 'Less extra time' }))
+    expect(extraTime()).toBe('Off')
+  })
+
+  it('saves open extra time as 0 minutes', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Halves' }))
+    await user.click(screen.getByRole('button', { name: 'More extra time' }))
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(rows('sessions')[0]).toMatchObject({ period_count: 2, period_minutes: 10, extra_time_minutes: 0 }))
+  })
+
+  it('a fixed extra time is still saved as its minutes', async () => {
+    resetDb()
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('radio', { name: 'Halves' }))
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole('button', { name: 'More extra time' }))
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(rows('sessions')[0]).toMatchObject({ extra_time_minutes: 3 }))
+  })
+
   it("starts from the last session's format", async () => {
     resetDb({ sessions: [{ ...session, ...PRESETS.knockout, created_at: '2026-10-01T00:00:00Z' }] })
     renderDialog()
