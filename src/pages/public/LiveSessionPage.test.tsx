@@ -165,3 +165,16 @@ it('a Quick session shows Match under the clock and no period prefixes', async (
   expect(screen.getAllByText('Nour').length).toBeGreaterThan(0)
   expect(document.body.textContent).not.toMatch(/\b[12]H\b/)
 })
+
+it('open extra time shows a clock that keeps counting up, named Extra time', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    sessions: [{ ...session, status: 'active', ...PRESETS.knockout, extra_time_minutes: 0 }],
+    matches: [...league.matches, match('m3', { match_number: 3, status: 'active', period: 3, period_seconds: [600, 600], timer_status: 'paused', timer_elapsed_seconds: 1000 })],
+  })
+  renderPage()
+  expect(await screen.findByText('16:40')).toBeInTheDocument()
+  expect(screen.getByText('Extra time')).toBeInTheDocument()
+  expect(document.body.textContent).not.toMatch(/\+\d\d:\d\d/)
+})

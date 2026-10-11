@@ -10,6 +10,10 @@ export const PRESETS: Record<PresetName, MatchFormat> = {
 }
 export const DEFAULT_FORMAT: MatchFormat = PRESETS.quick
 
+// extra_time_minutes of 0 is open extra time: one stretch with no set length, ended by the referee
+export const OPEN_EXTRA_TIME = 0
+export const extraTimeIsOpen = (f: MatchFormat) => f.extra_time_minutes === OPEN_EXTRA_TIME
+
 export function presetName(f: MatchFormat): PresetName | 'custom' {
   for (const name of Object.keys(PRESETS) as PresetName[]) {
     const p = PRESETS[name]
@@ -19,12 +23,15 @@ export function presetName(f: MatchFormat): PresetName | 'custom' {
   return 'custom'
 }
 
+// minutes: null for a shoot-out (no clock), Infinity for open extra time (a clock with no limit)
 export interface Period { number: number; kind: 'regular' | 'extra' | 'penalties'; minutes: number | null }
 
 export function periodsFor(f: MatchFormat): Period[] {
   const out: Period[] = []
   for (let n = 1; n <= f.period_count; n++) out.push({ number: n, kind: 'regular', minutes: f.period_minutes })
-  if (f.extra_time_minutes) {
+  if (extraTimeIsOpen(f)) {
+    out.push({ number: 3, kind: 'extra', minutes: Infinity })
+  } else if (f.extra_time_minutes) {
     out.push({ number: 3, kind: 'extra', minutes: f.extra_time_minutes })
     out.push({ number: 4, kind: 'extra', minutes: f.extra_time_minutes })
   }
@@ -37,7 +44,7 @@ export function periodLabelKey(period: number, f: MatchFormat): string {
   switch (period) {
     case 1: return 'match.period.first'
     case 2: return 'match.period.second'
-    case 3: return 'match.period.extra1'
+    case 3: return extraTimeIsOpen(f) ? 'match.period.extra' : 'match.period.extra1'
     case 4: return 'match.period.extra2'
     default: return 'match.period.penalties'
   }
@@ -58,7 +65,8 @@ export function periodAfter(f: MatchFormat, period: number, level: boolean): Per
   const find = (n: number) => all.find(p => p.number === n) ?? null
   if (period < f.period_count) return find(period + 1)
   if (period === f.period_count) return level ? (find(3) ?? find(5)) : null
-  if (period === 3) return find(4)
+  // Open extra time has no second half: it is the last period before penalties
+  if (period === 3) return find(4) ?? (level ? find(5) : null)
   if (period === 4) return level ? find(5) : null
   return null
 }

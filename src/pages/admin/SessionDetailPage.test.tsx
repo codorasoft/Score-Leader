@@ -53,6 +53,12 @@ it('shows the session format under the date', async () => {
   expect(await screen.findByText('2 × 10 min · no goal limit · a draw stays a draw')).toBeInTheDocument()
 })
 
+it('says when the extra time is open', async () => {
+  resetDb({ ...finishedLeague(), sessions: [{ ...session, ...PRESETS.knockout, extra_time_minutes: 0 }] })
+  renderPage(FEATURES.filter((f) => f !== 'voting'))
+  expect(await screen.findByText('2 × 10 min · open extra time · penalties · no goal limit')).toBeInTheDocument()
+})
+
 describe('editing a level match', () => {
   // Only match 2 (Green v Yellow, level) is kept, so the page has a single Edit button
   const level = (extra: Parameters<typeof match>[1]) => match('m2', {

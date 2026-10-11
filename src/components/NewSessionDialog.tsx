@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { serverErrorKey } from '../lib/errorText'
 import { useAdminPath, useLeague } from '../contexts/LeagueContext'
-import { DEFAULT_FORMAT, PRESETS, presetName, type MatchFormat, type PresetName } from '../utils/matchFormat'
+import { DEFAULT_FORMAT, OPEN_EXTRA_TIME, PRESETS, presetName, type MatchFormat, type PresetName } from '../utils/matchFormat'
 import { MatchFormatLine } from './MatchFormatLine'
 
 export const TEAMS = { min: 2, max: 6 }
@@ -49,6 +49,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   const chooseSize = (n: number) => { touched.current = true; setTeamSize(n) }
   const [fmt, setFmt] = useState<MatchFormat>(DEFAULT_FORMAT)
   const chosen = presetName(fmt)
+  const extraStep = fmt.extra_time_minutes == null ? 0 : fmt.extra_time_minutes + 1
   const editFormat = (patch: Partial<MatchFormat>) => { touched.current = true; setFmt((f) => ({ ...f, ...patch })) }
   const choosePreset = (name: PresetName) => { touched.current = true; setFmt(PRESETS[name]) }
 
@@ -140,8 +141,11 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
                 less={t('format.fewerPeriods')} more={t('format.morePeriods')} onChange={(n) => editFormat({ period_count: n })} />
               <Stepper label={t('format.minutes')} value={fmt.period_minutes} min={1} max={45}
                 less={t('format.fewerMinutes')} more={t('format.moreMinutes')} onChange={(n) => editFormat({ period_minutes: n })} />
-              <Stepper label={t('format.extraTime')} value={fmt.extra_time_minutes ?? 0} min={0} max={15} display={fmt.extra_time_minutes ? undefined : t('format.off')}
-                less={t('format.fewerExtraTime')} more={t('format.moreExtraTime')} onChange={(n) => editFormat({ extra_time_minutes: n || null })} />
+              {/* Steps: off, open (the referee ends it), then 1 to 15 minutes */}
+              <Stepper label={t('format.extraTime')} value={extraStep} min={0} max={16}
+                display={extraStep === 0 ? t('format.off') : extraStep === 1 ? t('format.open') : String(fmt.extra_time_minutes)}
+                less={t('format.fewerExtraTime')} more={t('format.moreExtraTime')}
+                onChange={(n) => editFormat({ extra_time_minutes: n === 0 ? null : n === 1 ? OPEN_EXTRA_TIME : n - 1 })} />
               <Stepper label={t('format.goalLimit')} value={fmt.goal_limit ?? 0} min={0} max={10} display={fmt.goal_limit ? undefined : t('format.off')}
                 less={t('format.lowerGoalLimit')} more={t('format.higherGoalLimit')} onChange={(n) => editFormat({ goal_limit: n || null })} />
             </div>
