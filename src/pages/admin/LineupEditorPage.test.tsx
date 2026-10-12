@@ -133,7 +133,7 @@ describe('free text on the board', () => {
     await open()
     fireEvent.click(screen.getByRole('button', { name: 'Text' }))
     fireEvent.click(screen.getByRole('button', { name: 'Red' }))
-    expect(screen.getByText('Tap the pitch where the text should go.')).toBeInTheDocument()
+    expect(screen.getByText('Tap the pitch to add a text, or tap a text to change it.')).toBeInTheDocument()
     tapPitch(100, 60)
 
     const dialog = screen.getByRole('dialog')
@@ -148,6 +148,86 @@ describe('free text on the board', () => {
     expect(insert.mock.calls[0][0].drawings).toEqual([
       expect.objectContaining({ kind: 'text', color: 'red', text: 'Press high', x: 0.5, y: 0.2 }),
     ])
+  })
+
+  const addText = (words: string, clientX: number, clientY: number) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Text' }))
+    tapPitch(clientX, clientY)
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Text on the board'), { target: { value: words } })
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add' }))
+  }
+  const tapText = (words: string) => {
+    const text = screen.getByRole('button', { name: words })
+    fireEvent.pointerDown(text, { pointerId: 1, clientX: 100, clientY: 150 })
+    fireEvent.pointerUp(text, { pointerId: 1, clientX: 100, clientY: 150 })
+    fireEvent.click(text)
+  }
+
+  it('tapping a text opens it: new words and a new colour replace the old ones, and are saved', async () => {
+    await open()
+    addText('Hold', 100, 150)
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+    tapText('Hold')
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByLabelText('Text on the board')).toHaveValue('Hold')
+    // It opens in the text's own colour (yellow, the board's first colour), not a new one
+    expect(within(dialog).getByRole('button', { name: 'Yellow' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.change(within(dialog).getByLabelText('Text on the board'), { target: { value: ' Hold the   line ' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Blue' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hold')).not.toBeInTheDocument()
+    expect(screen.getByText('Hold the line').closest('[style]')).toHaveStyle({ color: '#3b82f6' })
+    expect(screen.getByText('Hold the line').closest('[style]')!.getAttribute('style')).toMatch(/left: 50%; top: 50%/)
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Save/ }).at(-1)!)
+    await waitFor(() => expect(insert).toHaveBeenCalled())
+    expect(insert.mock.calls[0][0].drawings).toEqual([
+      expect.objectContaining({ kind: 'text', color: 'blue', text: 'Hold the line', x: 0.5, y: 0.5 }),
+    ])
+  })
+
+  it('with the text tool, tapping a text edits it and adds no second one', async () => {
+    await open()
+    addText('Hold', 100, 150)
+    tapText('Hold')
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByLabelText('Text on the board')).toHaveValue('Hold')
+    fireEvent.change(within(dialog).getByLabelText('Text on the board'), { target: { value: 'Press' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(screen.getByText('Press')).toBeInTheDocument()
+    expect(screen.queryByText('Hold')).not.toBeInTheDocument()
+  })
+
+  it('a text can be removed from its editor, and Cancel leaves it as it was', async () => {
+    await open()
+    addText('Hold', 100, 150)
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }))
+
+    tapText('Hold')
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Text on the board'), { target: { value: 'Changed' } })
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByText('Hold')).toBeInTheDocument()
+    expect(screen.queryByText('Changed')).not.toBeInTheDocument()
+
+    tapText('Hold')
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hold')).not.toBeInTheDocument()
+  })
+
+  it('a new text has no Remove button, and its colour can be chosen in the dialog', async () => {
+    await open()
+    fireEvent.click(screen.getByRole('button', { name: 'Text' }))
+    tapPitch(100, 150)
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
+    fireEvent.change(within(dialog).getByLabelText('Text on the board'), { target: { value: 'Wide' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'White' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
+    expect(screen.getByText('Wide').closest('[style]')).toHaveStyle({ color: '#ffffff' })
   })
 
   it('Cancel adds nothing', async () => {

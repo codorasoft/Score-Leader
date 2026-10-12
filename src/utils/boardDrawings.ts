@@ -68,6 +68,14 @@ export function moveText(shapes: Shape[], id: string, to: Point): Shape[] {
   return shapes.map((s) => (s.id === id && s.kind === 'text' ? { ...s, x: round(to.x), y: round(to.y) } : s))
 }
 
+// The drawings with one text's words and colour changed, in place. Empty words change nothing
+// (a text is taken away with the eraser or its Remove button, never by emptying it).
+export function editText(shapes: Shape[], id: string, text: string, color: DrawColor): Shape[] {
+  const clean = tidy(text)
+  if (!clean) return shapes
+  return shapes.map((s) => (s.id === id && s.kind === 'text' ? { ...s, text: clean, color } : s))
+}
+
 const unit = (v: unknown) => typeof v === 'number' && v >= 0 && v <= 1
 
 // Saved drawings come back as JSON; anything malformed is dropped rather than breaking the board.
