@@ -67,6 +67,11 @@ vi.mock('../pages/public/PlayerProfilePage', () => stub('PlayerProfilePage'))
 vi.mock('../pages/public/RecordsPage', () => stub('RecordsPage'))
 vi.mock('../pages/public/LeagueHomePage', () => stub('LeagueHomePage'))
 vi.mock('../pages/public/CardsPage', () => stub('CardsPage'))
+vi.mock('../pages/super/TrainingTypesPage', () => stub('TrainingTypesPage'))
+vi.mock('../pages/admin/TrainingsPage', () => stub('TrainingsPage'))
+vi.mock('../pages/admin/TrainingViewPage', () => stub('TrainingViewPage'))
+vi.mock('../pages/admin/TrainingBuilderPage', () => stub('TrainingBuilderPage'))
+vi.mock('../pages/super/TrainingTypePage', () => stub('TrainingTypePage'))
 
 import { routes } from '../router'
 import { fetchLeagueInfoById, fetchMyLeagues } from '../lib/tenancy'
@@ -182,6 +187,24 @@ describe('admin redirects', () => {
     const router = renderAt('/admin/eagles')
     await expectPath(router, '/admin/eagles/home')
   })
+  it('with training, the trainings list and one training open', async () => {
+    const router = renderAt('/admin/eagles/trainings')
+    expect(await screen.findByText('TrainingsPage')).toBeInTheDocument()
+    await act(() => router.navigate('/admin/eagles/trainings/x1'))
+    expect(await screen.findByText('TrainingViewPage')).toBeInTheDocument()
+  })
+  it('a new training and editing one open the builder, not the view', async () => {
+    const router = renderAt('/admin/eagles/trainings/new')
+    expect(await screen.findByText('TrainingBuilderPage')).toBeInTheDocument()
+    await act(() => router.navigate('/admin/eagles/trainings/x1/edit'))
+    expect(await screen.findByText('TrainingBuilderPage')).toBeInTheDocument()
+    expect(screen.queryByText('TrainingViewPage')).not.toBeInTheDocument()
+  })
+  it.each(['/admin/eagles/trainings', '/admin/eagles/trainings/x1', '/admin/eagles/trainings/new', '/admin/eagles/trainings/x1/edit'])('training off sends %s to history', async (path) => {
+    h.profile = { profile: profile({ features: ['cards'] }), loading: false }
+    const router = renderAt(path)
+    await expectPath(router, '/admin/eagles/history')
+  })
   it('coach board off sends lineups to history', async () => {
     h.profile = { profile: profile({ features: ['cards'] }), loading: false }
     const router = renderAt('/admin/eagles/lineups')
@@ -221,6 +244,19 @@ describe('admin start-up', () => {
     expect(await screen.findByText('HistoryPage')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/admin/eagles/history')
     expect(fetchMyLeagues).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('superadmin training catalog', () => {
+  beforeEach(() => { h.profile = { profile: profile({ role: 'superadmin' }), loading: false } })
+  it('/super/training lists the training types', async () => {
+    renderAt('/super/training')
+    expect(await screen.findByText('TrainingTypesPage')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Training' })).toHaveAttribute('href', '/super/training')
+  })
+  it('/super/training/:typeId opens one type', async () => {
+    renderAt('/super/training/t1')
+    expect(await screen.findByText('TrainingTypePage')).toBeInTheDocument()
   })
 })
 

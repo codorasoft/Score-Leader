@@ -4,6 +4,9 @@
 
 import { forgetCachedLeagues } from '../lib/leagueCache'
 
+// Like the real API (supabase/config.toml max_rows), one response holds at most this many rows
+const MAX_ROWS = 1000
+
 type Row = Record<string, unknown>
 type Filter = (row: Row) => boolean
 type ApiError = { message: string; code?: string }
@@ -21,6 +24,9 @@ export const db = {
   // The pitch outbox sends nothing while signed out
   signedIn: true,
   nextId: 1,
+  // Every database function call, and the result to answer one with (default: no data, no error)
+  rpcs: [] as { fn: string; args: unknown }[],
+  rpcResults: {} as Record<string, { data: unknown; error: ApiError | null }>,
 }
 
 export function resetDb(tables: Record<string, Row[]> = {}) {
@@ -31,6 +37,8 @@ export function resetDb(tables: Record<string, Row[]> = {}) {
   db.holds = {}
   db.signedIn = true
   db.nextId = 1
+  db.rpcs = []
+  db.rpcResults = {}
   forgetCachedLeagues()
 }
 
@@ -87,6 +95,12 @@ function shape(table: string, row: Row, cols: Column[]): Row {
   return out
 }
 
+// Numbers sort as numbers (10 after 9); everything else as text
+function compare(a: unknown, b: unknown): number {
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0
+}
+
 function query(table: string) {
   const filters: Filter[] = []
   const described: string[] = []
@@ -136,9 +150,9 @@ function query(table: string) {
     db.reads++
     let out = [...hit]
     for (const { col, asc } of [...orderBy].reverse()) {
-      out.sort((a, c) => (String(a[col]) < String(c[col]) ? -1 : String(a[col]) > String(c[col]) ? 1 : 0) * (asc ? 1 : -1))
+      out.sort((a, c) => compare(a[col], c[col]) * (asc ? 1 : -1))
     }
-    out = out.slice(from, to + 1)
+    out = out.slice(from, Math.min(to, from + MAX_ROWS - 1) + 1)
     if (embeddedTables(columns).length) out = out.map((r) => shape(table, r, columns))
     return { data: head ? null : out, error: null, count: count ? hit.length : null, status: 200 }
   }
@@ -195,7 +209,12 @@ export const supabase = {
   from: query,
   channel,
   removeChannel: async () => 'ok',
-  rpc: async () => ({ data: null, error: null }),
+  // Waits for db.holds['rpc:<name>'], so a test can keep a call in flight
+  rpc: async (fn: string, args?: unknown) => {
+    db.rpcs.push({ fn, args })
+    await db.holds[`rpc:${fn}`]
+    return db.rpcResults[fn] ?? { data: null, error: null }
+  },
   functions: { invoke: async () => ({ data: null, error: null }) },
   storage: {
     from: () => ({

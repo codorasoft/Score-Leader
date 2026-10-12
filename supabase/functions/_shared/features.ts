@@ -1,6 +1,7 @@
 export const FEATURES = [
   'cards', 'swaps', 'smart_balancing', 'awards', 'voting', 'leaderboard', 'potm',
   'profiles', 'badges', 'records', 'player_cards', 'photos', 'summary_share', 'coach_board',
+  'training',
 ] as const
 
 export type FeatureKey = (typeof FEATURES)[number]

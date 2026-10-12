@@ -17,6 +17,7 @@ export default function SuperLayout() {
           <nav className="flex items-center gap-1 text-sm flex-1">
             <NavLink to="/super" end className={tab}>{t('super.tabs.admins')}</NavLink>
             <NavLink to="/super/leagues" className={tab}>{t('super.tabs.leagues')}</NavLink>
+            <NavLink to="/super/training" className={tab}>{t('super.tabs.training')}</NavLink>
           </nav>
           <div className="flex items-center gap-2">
             <LanguageToggle />

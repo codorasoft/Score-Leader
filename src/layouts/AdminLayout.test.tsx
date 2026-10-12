@@ -26,7 +26,7 @@ it('Home is the first tab and is marked current on the home page', () => {
   const nav = renderAt('/admin/eagles/home')
   const links = nav.getAllByRole('link')
   // No New Session tab: sessions start from Home
-  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Coach Board'])
+  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training', 'Coach Board'])
   expect(links[0]).toHaveAttribute('href', '/admin/eagles/home')
   expect(links[0]).toHaveAttribute('aria-current', 'page')
 })
@@ -45,11 +45,20 @@ it('without the coach board there are three tabs', () => {
 it('the phone tab bar splits its full width between the tabs it has', () => {
   const bar = renderAt('/admin/eagles/home')
   const nav = bar.getAllByRole('link')[0].closest('nav') as HTMLElement
-  expect(nav.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))')
+  expect(nav.style.gridTemplateColumns).toBe('repeat(5, minmax(0, 1fr))')
 })
 
 it('the phone tab bar has three equal columns without the coach board', () => {
   const bar = renderAt('/admin/eagles/home', ['cards'])
   const nav = bar.getAllByRole('link')[0].closest('nav') as HTMLElement
   expect(nav.style.gridTemplateColumns).toBe('repeat(3, minmax(0, 1fr))')
+})
+
+it('with training only there are four tabs, and Training is current inside a training', () => {
+  const nav = renderAt('/admin/eagles/trainings/t1', ['training'])
+  const links = nav.getAllByRole('link')
+  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training'])
+  expect(nav.getByRole('link', { name: 'Training' })).toHaveAttribute('href', '/admin/eagles/trainings')
+  expect(nav.getByRole('link', { name: 'Training' })).toHaveAttribute('aria-current', 'page')
+  expect(nav.getByRole('link', { name: 'History' })).not.toHaveAttribute('aria-current')
 })

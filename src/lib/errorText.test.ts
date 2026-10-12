@@ -18,6 +18,7 @@ it.each([
   ['new row violates row-level security policy for table "players"', 'serverErrors.notAllowed'],
   ['duplicate key value violates unique constraint "leagues_slug_key"', 'serverErrors.duplicate'],
   ['player belongs to another league', 'serverErrors.otherLeague'],
+  ['training not found', 'serverErrors.trainingNotFound'],
   ['some brand new failure', 'serverErrors.generic'],
 ])('serverErrorKey(%s) = %s', (message, key) => expect(serverErrorKey(message)).toBe(key))
 

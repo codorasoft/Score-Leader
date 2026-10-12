@@ -15,6 +15,7 @@ const RULES: [RegExp, string][] = [
   [/row-level security/i, 'notAllowed'],
   [/duplicate key/i, 'duplicate'],
   [/another league/i, 'otherLeague'],
+  [/training not found/i, 'trainingNotFound'],
 ]
 
 export function serverErrorKey(message: string | undefined): string {
