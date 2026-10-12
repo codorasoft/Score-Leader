@@ -9,6 +9,10 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import MoveButtons from '../../components/MoveButtons'
 import NotAvailablePage from '../NotAvailablePage'
 
+// The catalog is shown this many videos at a time, so a long one is not one endless list.
+// The list itself is read in one go (it is small); thumbnails load only when they come into view.
+const CATALOG_STEP = 10
+
 // Builds a training (a new one, or an existing one under /edit): a day, an optional title and
 // the catalog videos picked for it, in the order the team will do them.
 export default function TrainingBuilderPage() {
@@ -28,6 +32,9 @@ export default function TrainingBuilderPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // The one training type whose videos the catalog shows; null shows every type
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
+  // How many catalog videos are on screen; "Show more" raises it, a new badge starts again
+  const [visible, setVisible] = useState(CATALOG_STEP)
+  const chooseType = (id: string | null) => { setTypeFilter(id); setVisible(CATALOG_STEP) }
 
   // Latest request, so a slow response for a training or league we have left is dropped
   const current = useRef('')
@@ -69,6 +76,16 @@ export default function TrainingBuilderPage() {
   // A type that is no longer in the catalog filters nothing
   const filtered = groups.filter((g) => g.type.id === typeFilter)
   const shown = filtered.length > 0 ? filtered : groups
+  // The first `visible` videos of the shown types, type after type; a type not reached yet is left out
+  let room = visible
+  const onScreen = shown
+    .map(({ type, videos }) => {
+      const part = videos.slice(0, room)
+      room -= part.length
+      return { type, videos: part }
+    })
+    .filter((g) => g.videos.length > 0)
+  const left = shown.reduce((n, g) => n + g.videos.length, 0) - onScreen.reduce((n, g) => n + g.videos.length, 0)
   const badge = (on: boolean) =>
     `shrink-0 px-3 py-1.5 rounded-full text-sm border ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:text-white'}`
 
@@ -96,7 +113,8 @@ export default function TrainingBuilderPage() {
     else { setSaving(false); setConfirmDelete(false) }
   }
 
-  const field = 'w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700'
+  // 16px text: an iPhone zooms the whole page when a field with smaller text is tapped
+  const field = 'block mt-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-base text-white'
   return (
     <div className="max-w-lg mx-auto">
       <Link to={adminPath(trainingId ? `/trainings/${trainingId}` : '/trainings')} className="text-sm text-blue-400 hover:underline">
@@ -106,16 +124,22 @@ export default function TrainingBuilderPage() {
 
       {/* Not a form: Enter in the title (the phone keyboard's Go key) must not save a half-built training */}
       <div>
-        {/* One row on every screen: the title takes the room the date leaves */}
-        <div className="flex gap-3 mb-6">
-          <label className="block flex-1 min-w-0 text-sm text-gray-400">
-            {t('training.titleLabel')}
-            <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={`${field} mt-1 text-white`} />
-          </label>
-          <label className="block w-40 shrink-0 text-sm text-gray-400">
-            {t('training.date')}
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1 text-white`} />
-          </label>
+        {/* One row on every screen. A phone's own date field does not shrink into a fixed width,
+            and its Arabic text is long, so the date column is as wide as that field needs and the
+            title shrinks into the rest. The wrapper cuts off anything a browser still draws too
+            wide instead of letting it widen the page; its padding leaves room for focus rings. */}
+        <div className="overflow-hidden p-1 -m-1 mb-5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+            <label className="block min-w-0 text-sm text-gray-400">
+              {t('training.titleLabel')}
+              <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={`${field} w-full min-w-0`} />
+            </label>
+            <label className="block min-w-0 text-sm text-gray-400">
+              {t('training.date')}
+              {/* appearance-none: without it an iPhone ignores the widths given to a date field */}
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} appearance-none min-w-0 max-w-full`} />
+            </label>
+          </div>
         </div>
 
         <h2 className="text-sm font-semibold text-gray-400 mb-2">{t('training.picked')}</h2>
@@ -137,14 +161,14 @@ export default function TrainingBuilderPage() {
         {groups.length > 0 && (
           // One badge per type, in one line that scrolls sideways on a phone. Picks are kept when the badge changes.
           <div role="group" aria-label={t('training.filter')} className="flex gap-2 overflow-x-auto pb-2 mb-3">
-            <button type="button" aria-pressed={shown === groups} onClick={() => setTypeFilter(null)} className={badge(shown === groups)}>
+            <button type="button" aria-pressed={shown === groups} onClick={() => chooseType(null)} className={badge(shown === groups)}>
               {t('training.all')}
               <span className="ms-1.5 text-xs opacity-70">{catalog.videos.length}</span>
             </button>
             {groups.map(({ type, videos }) => {
               const on = shown !== groups && type.id === typeFilter
               return (
-                <button key={type.id} type="button" aria-pressed={on} onClick={() => setTypeFilter(type.id)} className={badge(on)}>
+                <button key={type.id} type="button" aria-pressed={on} onClick={() => chooseType(type.id)} className={badge(on)}>
                   {type.name}
                   <span className="ms-1.5 text-xs opacity-70">{videos.length}</span>
                 </button>
@@ -152,7 +176,7 @@ export default function TrainingBuilderPage() {
             })}
           </div>
         )}
-        {shown.map(({ type, videos }) => (
+        {onScreen.map(({ type, videos }) => (
           <section key={type.id} className="mb-4">
             <h3 className="font-semibold mb-2">{type.name}</h3>
             <ul className="space-y-2">
@@ -180,6 +204,15 @@ export default function TrainingBuilderPage() {
             </ul>
           </section>
         ))}
+        {left > 0 && (
+          <button
+            type="button"
+            onClick={() => setVisible((n) => n + CATALOG_STEP)}
+            className="w-full mb-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-semibold text-gray-200"
+          >
+            {t('training.showMore', { left })}
+          </button>
+        )}
 
         {/* Stays in reach under a long catalog */}
         <div className="sticky bottom-0 -mx-4 px-4 py-3 bg-gray-900/95 backdrop-blur border-t border-gray-800">

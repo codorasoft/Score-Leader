@@ -761,6 +761,7 @@
     "catalogEmpty": "No videos in the catalog yet",
     "filter": "Filter by type",
     "all": "All",
+    "showMore": "Show more ({{left}} left)",
     "noVideos": "No videos in this training",
     "delete": "Delete training",
     "confirmDelete": "Delete this training?",

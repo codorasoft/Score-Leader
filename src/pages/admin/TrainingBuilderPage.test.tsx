@@ -99,10 +99,36 @@ describe('TrainingBuilderPage, new training', () => {
     const title = screen.getByLabelText('Title (optional)').closest('label')!
     const date = screen.getByLabelText('Date').closest('label')!
     expect(title.parentElement).toBe(date.parentElement)
-    expect(title.parentElement).toHaveClass('flex')
-    // Nothing that would stack them on a phone
-    expect(title.parentElement!.className).not.toMatch(/grid|flex-col|flex-wrap/)
     expect([...title.parentElement!.children]).toEqual([title, date])
+    // Two columns on every width, never stacked
+    expect(title.parentElement).toHaveClass('grid')
+    expect(title.parentElement!.className).not.toMatch(/grid-cols-1|flex-col|flex-wrap/)
+  })
+
+  // A phone's own date field does not shrink into a fixed width (and its Arabic text is long),
+  // so a fixed-width date pushed the whole page sideways on real phones
+  it('the date takes the width its field needs and the title shrinks into the rest', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    const title = screen.getByLabelText('Title (optional)')
+    const date = screen.getByLabelText('Date')
+    const row = date.closest('label')!.parentElement!
+    expect(row).toHaveClass('grid-cols-[minmax(0,1fr)_auto]')
+    expect(date.closest('label')!.className).not.toMatch(/(^|\s)w-\d/)
+    expect(date.className).not.toMatch(/(^|\s)w-full/)
+    expect(date).toHaveClass('appearance-none', 'min-w-0', 'max-w-full')
+    expect(title).toHaveClass('w-full', 'min-w-0')
+    // Whatever a browser still gets wrong is cut off here instead of widening the page
+    expect(row.parentElement).toHaveClass('overflow-hidden')
+  })
+
+  it('the fields use 16px text, so an iPhone does not zoom the page when one is tapped', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    expect(screen.getByLabelText('Title (optional)')).toHaveClass('text-base')
+    expect(screen.getByLabelText('Date')).toHaveClass('text-base')
   })
 
   it('offers a filter with All and one badge per type that has videos', async () => {
@@ -287,6 +313,81 @@ describe('TrainingBuilderPage, new training', () => {
     db.errors = {}
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await ready()).toBeInTheDocument()
+  })
+})
+
+describe('TrainingBuilderPage, a long catalog', () => {
+  // 25 passing videos, then 3 shooting videos
+  const long = () => ({
+    training_types: [
+      { id: 't1', name: 'Passing', sort_order: 0 },
+      { id: 't2', name: 'Shooting', sort_order: 1 },
+    ],
+    training_videos: [
+      ...Array.from({ length: 25 }, (_, i) => ({ id: `p${i + 1}`, type_id: 't1', title: `Pass ${i + 1}`, youtube_id: 'dQw4w9WgXcQ', sort_order: i })),
+      ...Array.from({ length: 3 }, (_, i) => ({ id: `s${i + 1}`, type_id: 't2', title: `Shot ${i + 1}`, youtube_id: 'abcdefghijk', sort_order: i })),
+    ],
+  })
+  const started = () => screen.findByRole('button', { name: 'Pass 1' })
+  const shownTitles = () => catalogButtons().map((b) => b.textContent)
+
+  it('shows the first 10 videos and says how many are left', async () => {
+    resetDb(long())
+    renderAt('new')
+    await started()
+    expect(shownTitles()).toEqual(Array.from({ length: 10 }, (_, i) => `Pass ${i + 1}`))
+    expect(screen.getByRole('button', { name: 'Show more (18 left)' })).toBeInTheDocument()
+    // The badges still count the whole catalog
+    expect(filter().getAllByRole('button').map((b) => b.textContent)).toEqual(['All28', 'Passing25', 'Shooting3'])
+  })
+
+  it('Show more adds 10 at a time, type after type, until nothing is left', async () => {
+    resetDb(long())
+    renderAt('new')
+    await started()
+    fireEvent.click(screen.getByRole('button', { name: /^Show more/ }))
+    expect(shownTitles()).toHaveLength(20)
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Passing'])
+    expect(screen.getByRole('button', { name: 'Show more (8 left)' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Show more/ }))
+    expect(shownTitles()).toHaveLength(28)
+    expect(shownTitles().slice(-4)).toEqual(['Pass 25', 'Shot 1', 'Shot 2', 'Shot 3'])
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Passing', 'Shooting'])
+    expect(screen.queryByRole('button', { name: /^Show more/ })).not.toBeInTheDocument()
+  })
+
+  it('choosing a badge starts again at 10, and a short type has no Show more', async () => {
+    resetDb(long())
+    renderAt('new')
+    await started()
+    fireEvent.click(screen.getByRole('button', { name: /^Show more/ }))
+    expect(shownTitles()).toHaveLength(20)
+
+    fireEvent.click(filter().getByRole('button', { name: /^Passing/ }))
+    expect(shownTitles()).toHaveLength(10)
+    expect(screen.getByRole('button', { name: 'Show more (15 left)' })).toBeInTheDocument()
+
+    fireEvent.click(filter().getByRole('button', { name: /^Shooting/ }))
+    expect(shownTitles()).toEqual(['Shot 1', 'Shot 2', 'Shot 3'])
+    expect(screen.queryByRole('button', { name: /^Show more/ })).not.toBeInTheDocument()
+
+    fireEvent.click(filter().getByRole('button', { name: /^All/ }))
+    expect(shownTitles()).toHaveLength(10)
+  })
+
+  it('a picked video that is not shown yet stays picked and is saved', async () => {
+    resetDb({ ...long(), trainings: [{ id: 'x1', league_id: 'L1', training_date: '2026-10-10', title: 'Friday' }],
+      training_items: [{ training_id: 'x1', video_id: 's3', position: 0, league_id: 'L1' }] })
+    db.rpcResults.save_training = { data: 'x1', error: null }
+    renderAt('x1/edit')
+    await started()
+    expect(screen.queryByRole('button', { name: 'Shot 3' })).not.toBeInTheDocument()
+    expect(pickedTitles()).toEqual([expect.stringMatching(/^1.*Shot 3/)])
+    fireEvent.click(catalogButton('Pass 2'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('VIEW x1')).toBeInTheDocument()
+    expect(saveArgs()[0]).toMatchObject({ p_video_ids: ['s3', 'p2'] })
   })
 })
 
