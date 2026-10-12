@@ -32,6 +32,7 @@
     "signingIn": "Signing in…"
   },
   "nav": {
+    "schedule": "Schedule",
     "training": "Training plan",
     "players": "Players",
     "history": "History",
@@ -670,6 +671,7 @@
     "summary_share": "Session summary sharing",
     "coach_board": "Coach Board",
     "training": "Training",
+    "schedule": "Schedule",
     "needs": "Needs {{feature}}",
     "selectAll": "Select all",
     "none": "None"
@@ -774,5 +776,43 @@
     "openOnYouTube": "Open on YouTube",
     "moveUp": "Move up",
     "moveDown": "Move down"
+  },
+  "schedule": {
+    "title": "Coach's schedule",
+    "today": "Today",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "add": "Add",
+    "empty": "Nothing on this day",
+    "allDay": "All day",
+    "kinds": {
+      "task": "Task",
+      "training": "Training",
+      "match": "Match",
+      "other": "Other"
+    },
+    "session": "Match session",
+    "plan": "Training plan",
+    "repeats": "Repeats every week",
+    "done": "Done: {{title}}",
+    "newItem": "New item",
+    "editItem": "Edit item",
+    "kind": "Type",
+    "itemTitle": "Title",
+    "date": "Date",
+    "start": "Start",
+    "end": "End",
+    "note": "Note",
+    "repeatOn": "Repeat every week on",
+    "until": "Until (optional)",
+    "problems": {
+      "times": "The end must be after the start.",
+      "until": "The last day cannot be before the first."
+    },
+    "delete": "Delete",
+    "deleteOne": "Only this day",
+    "deleteAll": "All days",
+    "confirmDelete": "Delete “{{title}}”?",
+    "confirmDeleteRepeating": "“{{title}}” repeats. Delete only this day, or all days?"
   }
 }

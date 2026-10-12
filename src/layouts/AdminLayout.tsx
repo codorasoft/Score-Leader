@@ -20,17 +20,20 @@ const ICONS = {
   lineup: icon('M4 3h16v18H4zM4 12h16M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5'),
   // A screen with a play button
   training: icon('M4 5h16v14H4zM10 9l5 3-5 3z'),
+  // A calendar page
+  schedule: icon('M5 5h14v15H5zM5 10h14M9 3v4M15 3v4'),
   signOut: icon('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9'),
 }
 
 // History covers the history list and everything inside an existing session
-function activeTab(pathname: string): 'home' | 'players' | 'history' | 'training' | 'lineup' | null {
+function activeTab(pathname: string): 'home' | 'players' | 'history' | 'training' | 'lineup' | 'schedule' | null {
   const [page] = pathname.split('/').slice(3)
   if (!page || page === 'home') return 'home'
   if (page === 'settings') return null
   if (page === 'players') return 'players'
   if (page === 'trainings') return 'training'
   if (page === 'lineups') return 'lineup'
+  if (page === 'schedule') return 'schedule'
   return 'history'
 }
 
@@ -43,6 +46,7 @@ export default function AdminLayout() {
   const adminPath = useAdminPath()
   const coachBoard = useFeature('coach_board')
   const training = useFeature('training')
+  const schedule = useFeature('schedule')
   const current = activeTab(location.pathname)
   const owned = leagues.find(l => l.id === league.id)
 
@@ -53,6 +57,7 @@ export default function AdminLayout() {
     { key: 'history', to: adminPath('/history'), label: t('nav.history') },
     ...(training ? [{ key: 'training' as const, to: adminPath('/trainings'), label: t('nav.training') }] : []),
     ...(coachBoard ? [{ key: 'lineup' as const, to: adminPath('/lineups'), label: t('nav.lineup') }] : []),
+    ...(schedule ? [{ key: 'schedule' as const, to: adminPath('/schedule'), label: t('nav.schedule') }] : []),
   ]
 
   return (

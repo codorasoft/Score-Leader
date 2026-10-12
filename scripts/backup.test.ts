@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 it('skips every table that a not-yet-applied migration brings', () => {
   const src = readFileSync(resolve(__dirname, 'backup.ts'), 'utf8')
   const optional = src.match(/const OPTIONAL = new Set\(\[([^\]]*)\]\)/)?.[1] ?? ''
-  for (const table of ['admin_profiles', 'leagues', 'training_types', 'training_videos', 'trainings', 'training_items']) {
+  for (const table of ['admin_profiles', 'leagues', 'training_types', 'training_videos', 'trainings', 'training_items', 'schedule_items']) {
     expect(optional).toContain(`'${table}'`)
   }
 })

@@ -32,6 +32,7 @@
     "signingIn": "جار الدخول…"
   },
   "nav": {
+    "schedule": "الجدول",
     "training": "خطة التدريب",
     "players": "اللاعبون",
     "history": "السجل",
@@ -775,6 +776,7 @@
     "summary_share": "مشاركة ملخص الجلسة",
     "coach_board": "لوحة المدرب",
     "training": "التدريب",
+    "schedule": "الجدول",
     "needs": "يتطلب {{feature}}",
     "selectAll": "تحديد الكل",
     "none": "لا شيء"
@@ -891,5 +893,43 @@
     "openOnYouTube": "فتح في يوتيوب",
     "moveUp": "تحريك للأعلى",
     "moveDown": "تحريك للأسفل"
+  },
+  "schedule": {
+    "title": "جدول المدرب",
+    "today": "اليوم",
+    "prevMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
+    "add": "إضافة",
+    "empty": "لا شيء في هذا اليوم",
+    "allDay": "طوال اليوم",
+    "kinds": {
+      "task": "مهمة",
+      "training": "تدريب",
+      "match": "مباراة",
+      "other": "أخرى"
+    },
+    "session": "جلسة مباريات",
+    "plan": "خطة تدريب",
+    "repeats": "يتكرر كل أسبوع",
+    "done": "تم: {{title}}",
+    "newItem": "عنصر جديد",
+    "editItem": "تعديل العنصر",
+    "kind": "النوع",
+    "itemTitle": "العنوان",
+    "date": "التاريخ",
+    "start": "البداية",
+    "end": "النهاية",
+    "note": "ملاحظة",
+    "repeatOn": "يتكرر كل أسبوع في أيام",
+    "until": "حتى (اختياري)",
+    "problems": {
+      "times": "يجب أن تكون النهاية بعد البداية.",
+      "until": "لا يمكن أن يكون اليوم الأخير قبل الأول."
+    },
+    "delete": "حذف",
+    "deleteOne": "هذا اليوم فقط",
+    "deleteAll": "كل الأيام",
+    "confirmDelete": "هل تريد حذف «{{title}}»؟",
+    "confirmDeleteRepeating": "«{{title}}» يتكرر. هل تريد حذف هذا اليوم فقط أم كل الأيام؟"
   }
 }

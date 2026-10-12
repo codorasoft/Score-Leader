@@ -71,6 +71,7 @@ vi.mock('../pages/super/TrainingTypesPage', () => stub('TrainingTypesPage'))
 vi.mock('../pages/admin/TrainingsPage', () => stub('TrainingsPage'))
 vi.mock('../pages/admin/TrainingViewPage', () => stub('TrainingViewPage'))
 vi.mock('../pages/admin/TrainingBuilderPage', () => stub('TrainingBuilderPage'))
+vi.mock('../pages/admin/SchedulePage', () => stub('SchedulePage'))
 vi.mock('../pages/super/TrainingTypePage', () => stub('TrainingTypePage'))
 
 import { routes } from '../router'
@@ -203,6 +204,15 @@ describe('admin redirects', () => {
   it.each(['/admin/eagles/trainings', '/admin/eagles/trainings/x1', '/admin/eagles/trainings/new', '/admin/eagles/trainings/x1/edit'])('training off sends %s to history', async (path) => {
     h.profile = { profile: profile({ features: ['cards'] }), loading: false }
     const router = renderAt(path)
+    await expectPath(router, '/admin/eagles/history')
+  })
+  it('with the schedule, its page opens', async () => {
+    renderAt('/admin/eagles/schedule')
+    expect(await screen.findByText('SchedulePage')).toBeInTheDocument()
+  })
+  it('schedule off sends its page to history', async () => {
+    h.profile = { profile: profile({ features: ['cards'] }), loading: false }
+    const router = renderAt('/admin/eagles/schedule')
     await expectPath(router, '/admin/eagles/history')
   })
   it('coach board off sends lineups to history', async () => {

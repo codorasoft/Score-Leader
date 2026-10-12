@@ -29,8 +29,20 @@ export const db = {
   rpcResults: {} as Record<string, { data: unknown; error: ApiError | null }>,
 }
 
+// Columns the database fills in itself, by table: generated columns and column defaults.
+const GENERATED: Record<string, (row: Row) => Row> = {
+  // repeats is generated; the two date lists have '{}' as their default
+  schedule_items: (row) => ({
+    skipped_dates: row.skipped_dates ?? [],
+    done_dates: row.done_dates ?? [],
+    repeats: Array.isArray(row.repeat_days) && row.repeat_days.length > 0,
+  }),
+}
+const generate = (table: string, row: Row) => (GENERATED[table] ? Object.assign(row, GENERATED[table](row)) : row)
+
 export function resetDb(tables: Record<string, Row[]> = {}) {
   db.tables = structuredClone(tables)
+  for (const [table, list] of Object.entries(db.tables)) list.forEach((row) => generate(table, row))
   db.writes = []
   db.reads = 0
   db.errors = {}
@@ -127,7 +139,7 @@ function query(table: string) {
     if (op !== 'select') forgetCachedLeagues()
     if (op === 'insert' || op === 'upsert') {
       const list = (Array.isArray(payload) ? payload : [payload]) as Row[]
-      const added = list.map((r) => ({ id: `${table}-${db.nextId++}`, ...r }))
+      const added = list.map((r) => generate(table, { id: `${table}-${db.nextId++}`, ...r }))
       for (const r of added) {
         const existing = op === 'upsert' ? all.findIndex((x) => x.id === r.id) : -1
         if (existing >= 0) all[existing] = { ...all[existing], ...r }
@@ -137,7 +149,7 @@ function query(table: string) {
       return { data: returning ? added : null, error: null, count: null, status: 201 }
     }
     if (op === 'update') {
-      for (const r of hit) Object.assign(r, payload)
+      for (const r of hit) generate(table, Object.assign(r, payload))
       db.writes.push({ table, op, values: payload, filters: described })
       return { data: returning ? hit : null, error: null, count: null, status: 200 }
     }
