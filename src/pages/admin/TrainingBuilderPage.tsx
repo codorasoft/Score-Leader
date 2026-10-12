@@ -96,7 +96,8 @@ export default function TrainingBuilderPage() {
     else { setSaving(false); setConfirmDelete(false) }
   }
 
-  const field = 'w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700'
+  // 16px text: an iPhone zooms the whole page when a field with smaller text is tapped
+  const field = 'block mt-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-base text-white'
   return (
     <div className="max-w-lg mx-auto">
       <Link to={adminPath(trainingId ? `/trainings/${trainingId}` : '/trainings')} className="text-sm text-blue-400 hover:underline">
@@ -106,16 +107,22 @@ export default function TrainingBuilderPage() {
 
       {/* Not a form: Enter in the title (the phone keyboard's Go key) must not save a half-built training */}
       <div>
-        {/* One row on every screen: the title takes the room the date leaves */}
-        <div className="flex gap-3 mb-6">
-          <label className="block flex-1 min-w-0 text-sm text-gray-400">
-            {t('training.titleLabel')}
-            <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={`${field} mt-1 text-white`} />
-          </label>
-          <label className="block w-40 shrink-0 text-sm text-gray-400">
-            {t('training.date')}
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1 text-white`} />
-          </label>
+        {/* One row on every screen. A phone's own date field does not shrink into a fixed width,
+            and its Arabic text is long, so the date column is as wide as that field needs and the
+            title shrinks into the rest. The wrapper cuts off anything a browser still draws too
+            wide instead of letting it widen the page; its padding leaves room for focus rings. */}
+        <div className="overflow-hidden p-1 -m-1 mb-5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+            <label className="block min-w-0 text-sm text-gray-400">
+              {t('training.titleLabel')}
+              <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={`${field} w-full min-w-0`} />
+            </label>
+            <label className="block min-w-0 text-sm text-gray-400">
+              {t('training.date')}
+              {/* appearance-none: without it an iPhone ignores the widths given to a date field */}
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} appearance-none min-w-0 max-w-full`} />
+            </label>
+          </div>
         </div>
 
         <h2 className="text-sm font-semibold text-gray-400 mb-2">{t('training.picked')}</h2>

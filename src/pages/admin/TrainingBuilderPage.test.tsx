@@ -99,10 +99,36 @@ describe('TrainingBuilderPage, new training', () => {
     const title = screen.getByLabelText('Title (optional)').closest('label')!
     const date = screen.getByLabelText('Date').closest('label')!
     expect(title.parentElement).toBe(date.parentElement)
-    expect(title.parentElement).toHaveClass('flex')
-    // Nothing that would stack them on a phone
-    expect(title.parentElement!.className).not.toMatch(/grid|flex-col|flex-wrap/)
     expect([...title.parentElement!.children]).toEqual([title, date])
+    // Two columns on every width, never stacked
+    expect(title.parentElement).toHaveClass('grid')
+    expect(title.parentElement!.className).not.toMatch(/grid-cols-1|flex-col|flex-wrap/)
+  })
+
+  // A phone's own date field does not shrink into a fixed width (and its Arabic text is long),
+  // so a fixed-width date pushed the whole page sideways on real phones
+  it('the date takes the width its field needs and the title shrinks into the rest', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    const title = screen.getByLabelText('Title (optional)')
+    const date = screen.getByLabelText('Date')
+    const row = date.closest('label')!.parentElement!
+    expect(row).toHaveClass('grid-cols-[minmax(0,1fr)_auto]')
+    expect(date.closest('label')!.className).not.toMatch(/(^|\s)w-\d/)
+    expect(date.className).not.toMatch(/(^|\s)w-full/)
+    expect(date).toHaveClass('appearance-none', 'min-w-0', 'max-w-full')
+    expect(title).toHaveClass('w-full', 'min-w-0')
+    // Whatever a browser still gets wrong is cut off here instead of widening the page
+    expect(row.parentElement).toHaveClass('overflow-hidden')
+  })
+
+  it('the fields use 16px text, so an iPhone does not zoom the page when one is tapped', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    expect(screen.getByLabelText('Title (optional)')).toHaveClass('text-base')
+    expect(screen.getByLabelText('Date')).toHaveClass('text-base')
   })
 
   it('offers a filter with All and one badge per type that has videos', async () => {
