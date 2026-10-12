@@ -9,6 +9,10 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import MoveButtons from '../../components/MoveButtons'
 import NotAvailablePage from '../NotAvailablePage'
 
+// The catalog is shown this many videos at a time, so a long one is not one endless list.
+// The list itself is read in one go (it is small); thumbnails load only when they come into view.
+const CATALOG_STEP = 10
+
 // Builds a training (a new one, or an existing one under /edit): a day, an optional title and
 // the catalog videos picked for it, in the order the team will do them.
 export default function TrainingBuilderPage() {
@@ -28,6 +32,9 @@ export default function TrainingBuilderPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // The one training type whose videos the catalog shows; null shows every type
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
+  // How many catalog videos are on screen; "Show more" raises it, a new badge starts again
+  const [visible, setVisible] = useState(CATALOG_STEP)
+  const chooseType = (id: string | null) => { setTypeFilter(id); setVisible(CATALOG_STEP) }
 
   // Latest request, so a slow response for a training or league we have left is dropped
   const current = useRef('')
@@ -69,6 +76,16 @@ export default function TrainingBuilderPage() {
   // A type that is no longer in the catalog filters nothing
   const filtered = groups.filter((g) => g.type.id === typeFilter)
   const shown = filtered.length > 0 ? filtered : groups
+  // The first `visible` videos of the shown types, type after type; a type not reached yet is left out
+  let room = visible
+  const onScreen = shown
+    .map(({ type, videos }) => {
+      const part = videos.slice(0, room)
+      room -= part.length
+      return { type, videos: part }
+    })
+    .filter((g) => g.videos.length > 0)
+  const left = shown.reduce((n, g) => n + g.videos.length, 0) - onScreen.reduce((n, g) => n + g.videos.length, 0)
   const badge = (on: boolean) =>
     `shrink-0 px-3 py-1.5 rounded-full text-sm border ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:text-white'}`
 
@@ -144,14 +161,14 @@ export default function TrainingBuilderPage() {
         {groups.length > 0 && (
           // One badge per type, in one line that scrolls sideways on a phone. Picks are kept when the badge changes.
           <div role="group" aria-label={t('training.filter')} className="flex gap-2 overflow-x-auto pb-2 mb-3">
-            <button type="button" aria-pressed={shown === groups} onClick={() => setTypeFilter(null)} className={badge(shown === groups)}>
+            <button type="button" aria-pressed={shown === groups} onClick={() => chooseType(null)} className={badge(shown === groups)}>
               {t('training.all')}
               <span className="ms-1.5 text-xs opacity-70">{catalog.videos.length}</span>
             </button>
             {groups.map(({ type, videos }) => {
               const on = shown !== groups && type.id === typeFilter
               return (
-                <button key={type.id} type="button" aria-pressed={on} onClick={() => setTypeFilter(type.id)} className={badge(on)}>
+                <button key={type.id} type="button" aria-pressed={on} onClick={() => chooseType(type.id)} className={badge(on)}>
                   {type.name}
                   <span className="ms-1.5 text-xs opacity-70">{videos.length}</span>
                 </button>
@@ -159,7 +176,7 @@ export default function TrainingBuilderPage() {
             })}
           </div>
         )}
-        {shown.map(({ type, videos }) => (
+        {onScreen.map(({ type, videos }) => (
           <section key={type.id} className="mb-4">
             <h3 className="font-semibold mb-2">{type.name}</h3>
             <ul className="space-y-2">
@@ -187,6 +204,15 @@ export default function TrainingBuilderPage() {
             </ul>
           </section>
         ))}
+        {left > 0 && (
+          <button
+            type="button"
+            onClick={() => setVisible((n) => n + CATALOG_STEP)}
+            className="w-full mb-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-semibold text-gray-200"
+          >
+            {t('training.showMore', { left })}
+          </button>
+        )}
 
         {/* Stays in reach under a long catalog */}
         <div className="sticky bottom-0 -mx-4 px-4 py-3 bg-gray-900/95 backdrop-blur border-t border-gray-800">
