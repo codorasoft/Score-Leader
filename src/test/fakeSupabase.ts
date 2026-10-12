@@ -29,9 +29,14 @@ export const db = {
   rpcResults: {} as Record<string, { data: unknown; error: ApiError | null }>,
 }
 
-// Columns the database works out itself, by table. The real ones are generated columns.
+// Columns the database fills in itself, by table: generated columns and column defaults.
 const GENERATED: Record<string, (row: Row) => Row> = {
-  schedule_items: (row) => ({ repeats: Array.isArray(row.repeat_days) && row.repeat_days.length > 0 }),
+  // repeats is generated; the two date lists have '{}' as their default
+  schedule_items: (row) => ({
+    skipped_dates: row.skipped_dates ?? [],
+    done_dates: row.done_dates ?? [],
+    repeats: Array.isArray(row.repeat_days) && row.repeat_days.length > 0,
+  }),
 }
 const generate = (table: string, row: Row) => (GENERATED[table] ? Object.assign(row, GENERATED[table](row)) : row)
 

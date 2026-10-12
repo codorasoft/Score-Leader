@@ -31,9 +31,11 @@ const TABLES: Record<string, string[]> = {
   training_videos: ['id'],
   trainings: ['id'],
   training_items: ['training_id', 'video_id'],
+  // arrives with the schedule migration; skipped while absent
+  schedule_items: ['id'],
 }
 
-const OPTIONAL = new Set(['admin_profiles', 'leagues', 'training_types', 'training_videos', 'trainings', 'training_items'])
+const OPTIONAL = new Set(['admin_profiles', 'leagues', 'training_types', 'training_videos', 'trainings', 'training_items', 'schedule_items'])
 
 function readEnvUrl(): string | undefined {
   try {
