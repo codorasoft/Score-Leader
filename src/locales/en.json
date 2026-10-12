@@ -670,6 +670,7 @@
     "summary_share": "Session summary sharing",
     "coach_board": "Coach Board",
     "training": "Training",
+    "schedule": "Schedule",
     "needs": "Needs {{feature}}",
     "selectAll": "Select all",
     "none": "None"

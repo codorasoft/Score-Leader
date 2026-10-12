@@ -775,6 +775,7 @@
     "summary_share": "مشاركة ملخص الجلسة",
     "coach_board": "لوحة المدرب",
     "training": "التدريب",
+    "schedule": "الجدول",
     "needs": "يتطلب {{feature}}",
     "selectAll": "تحديد الكل",
     "none": "لا شيء"

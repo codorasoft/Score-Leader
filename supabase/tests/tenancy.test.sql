@@ -14,6 +14,7 @@
 --          ...0012 coach board. S only has ...0001, plus the catalog it owns:
 --          ...0013 training type, ...0014 / ...0015 its videos. ...0016 training (league Z only;
 --          A's training gets a generated id, kept in the setting test.a_training).
+--          ...0017 schedule item (repeating), ...0018 schedule item (a task).
 -- Acting as a user: SELECT pg_temp.act_as('<user id>'); ... RESET role;
 -- Acting as a visitor: SELECT pg_temp.act_as(NULL); ... RESET role;
 
@@ -73,7 +74,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players', 'trainings', 'training_items'
+    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items'
   ] LOOP
     EXECUTE format('SELECT count(*) FILTER (WHERE league_id IS NULL) FROM public.%I', t) INTO nulls;
     PERFORM pg_temp.expect(nulls = 0, t || ': no NULL league_id');
@@ -102,10 +103,10 @@ INSERT INTO auth.users (id, email) VALUES
 INSERT INTO public.admin_profiles (user_id, role, email, display_name, max_leagues, features, is_disabled)
 SELECT u.id, v.role, u.email, v.display_name, v.max_leagues, v.features, v.is_disabled
 FROM auth.users u JOIN (VALUES
-  ('aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin A', 2, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[], false),
-  ('bbbbbbbb-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin B', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[], false),
+  ('aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin A', 2, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training,schedule}'::text[], false),
+  ('bbbbbbbb-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin B', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training,schedule}'::text[], false),
   ('cccccccc-0000-4000-8000-000000000001'::uuid, 'superadmin', 'Superadmin S', 0, '{}'::text[], false),
-  ('dddddddd-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin D', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[], true)
+  ('dddddddd-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin D', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training,schedule}'::text[], true)
 ) AS v(id, role, display_name, max_leagues, features, is_disabled) ON v.id = u.id;
 
 INSERT INTO public.leagues (id, owner_id, name, slug) VALUES
@@ -150,7 +151,7 @@ INSERT INTO public.matches (id, session_id, match_number, team1_id, team2_id, wa
 
 -- ===== Feature list CHECK
 
-SELECT pg_temp.expect(public.valid_features('{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[]), 'all 15 features are valid');
+SELECT pg_temp.expect(public.valid_features('{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training,schedule}'::text[]), 'all 16 features are valid');
 SELECT pg_temp.expect(public.valid_features('{}'), 'no features is valid');
 SELECT pg_temp.expect(public.valid_features('{voting,awards}'), 'voting with awards is valid');
 SELECT pg_temp.expect(NOT public.valid_features('{voting}'), 'voting needs awards');
@@ -747,6 +748,98 @@ SELECT pg_temp.expect(
   AND (SELECT count(*) = 0 FROM public.training_items WHERE training_id = current_setting('test.a_training')::uuid),
   'the training stays, without the deleted video');
 
+-- ===== Schedule: owner only, and only with schedule
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.schedule_items (id, league_id, kind, title, item_date, start_time, end_time, note, repeat_days, repeat_until)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000017', 'aaaaaaaa-0000-4000-8000-000000000002', 'training', 'Team training', '2026-10-11', '18:00', '19:30', 'Bring bibs', '{0,2}', '2026-12-31')$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.schedule_items (id, league_id, kind, title, item_date)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000018', 'aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Book the pitch', '2026-10-12')$sql$,
+  1);
+SELECT pg_temp.expect(
+  (SELECT repeats FROM public.schedule_items WHERE id = 'aaaaaaaa-0000-4000-8000-000000000017')
+  AND (SELECT NOT repeats AND repeat_days = '{}' AND skipped_dates = '{}' AND done_dates = '{}' AND start_time IS NULL
+       FROM public.schedule_items WHERE id = 'aaaaaaaa-0000-4000-8000-000000000018'),
+  'repeats follows repeat_days; a plain item is all day and repeats on no day');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.schedule_items SET done_dates = '{2026-10-12}', skipped_dates = '{2026-10-13}'
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000018'$sql$,
+  1);
+
+-- Every check refuses its bad row
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'party', 'Party', '2026-10-12')$sql$,
+  'schedule_items_kind_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', '   ', '2026-10-12')$sql$,
+  'schedule_items_title_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, end_time) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'End without start', '2026-10-12', '10:00')$sql$,
+  'schedule_items_times_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, start_time, end_time) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Ends before it starts', '2026-10-12', '10:00', '09:00')$sql$,
+  'schedule_items_times_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, start_time, end_time) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Ends when it starts', '2026-10-12', '10:00', '10:00')$sql$,
+  'schedule_items_times_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_days) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Day 7', '2026-10-12', '{7}')$sql$,
+  'schedule_items_repeat_days_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_days) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Same day twice', '2026-10-12', '{1,1}')$sql$,
+  'schedule_items_repeat_days_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_days, repeat_until) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Until before start', '2026-10-12', '{1}', '2026-10-11')$sql$,
+  'schedule_items_repeat_until_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_until) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Until without repeat', '2026-10-12', '2026-12-31')$sql$,
+  'schedule_items_repeat_until_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, note) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Long note', '2026-10-12', repeat('x', 501))$sql$,
+  'schedule_items_note_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date) VALUES ('bbbbbbbb-0000-4000-8000-000000000002', 'task', 'Planted', '2026-10-12')$sql$,
+  'row-level security');
+SELECT pg_temp.expect((SELECT count(*) = 2 FROM public.schedule_items), 'A reads the two items of a-league');
+RESET role;
+
+-- Another admin, the superadmin and visitors get nothing
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect((SELECT count(*) = 0 FROM public.schedule_items), 'B cannot read A''s schedule');
+SELECT pg_temp.expect_count($sql$UPDATE public.schedule_items SET title = 'Hacked'$sql$, 0);
+SELECT pg_temp.expect_count($sql$DELETE FROM public.schedule_items$sql$, 0);
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Planted', '2026-10-12')$sql$,
+  'row-level security');
+RESET role;
+
+SELECT pg_temp.act_as('cccccccc-0000-4000-8000-000000000001');
+SELECT pg_temp.expect((SELECT count(*) = 0 FROM public.schedule_items), 'the superadmin reads no schedule');
+RESET role;
+
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect((SELECT count(*) = 0 FROM public.schedule_items), 'visitors read no schedule');
+RESET role;
+
+SELECT pg_temp.expect(
+  (SELECT title = 'Team training' FROM public.schedule_items WHERE id = 'aaaaaaaa-0000-4000-8000-000000000017')
+  AND (SELECT count(*) = 2 FROM public.schedule_items WHERE league_id = 'aaaaaaaa-0000-4000-8000-000000000002'),
+  'A''s schedule is unchanged after the others'' attempts');
+
+-- Without the feature: nothing
+UPDATE public.admin_profiles SET features = array_remove(features, 'schedule') WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect((SELECT count(*) = 0 FROM public.schedule_items), 'without schedule A reads no items');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'No feature', '2026-10-12')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.schedule_items$sql$, 0);
+RESET role;
+UPDATE public.admin_profiles SET features = array_append(features, 'schedule') WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
+
 -- ===== Storage: the first folder is a league the caller owns (and has photos, for player photos)
 
 SELECT pg_temp.expect(
@@ -845,6 +938,8 @@ INSERT INTO public.trainings (id, league_id, training_date) VALUES
   ('99999999-0000-4000-8000-000000000016', '99999999-0000-4000-8000-000000000002', '2026-10-12');
 INSERT INTO public.training_items (training_id, video_id, position) VALUES
   ('99999999-0000-4000-8000-000000000016', 'cccccccc-0000-4000-8000-000000000015', 0);
+INSERT INTO public.schedule_items (id, league_id, kind, title, item_date) VALUES
+  ('99999999-0000-4000-8000-000000000017', '99999999-0000-4000-8000-000000000002', 'other', 'Z item', '2026-10-12');
 
 DO $$
 DECLARE
@@ -855,7 +950,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players', 'trainings', 'training_items'
+    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items'
   ] LOOP
     EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
     PERFORM pg_temp.expect(n > 0, t || ': fixture league has rows before delete');
@@ -866,7 +961,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players', 'trainings', 'training_items'
+    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items'
   ] LOOP
     EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
     PERFORM pg_temp.expect(n = 0, t || ': no rows left after the league is deleted');
