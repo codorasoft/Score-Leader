@@ -29,6 +29,8 @@ const AdminsPage = lazyPage(() => import('./pages/super/AdminsPage'))
 const NewAdminPage = lazyPage(() => import('./pages/super/NewAdminPage'))
 const AdminDetailPage = lazyPage(() => import('./pages/super/AdminDetailPage'))
 const LeaguesPage = lazyPage(() => import('./pages/super/LeaguesPage'))
+const TrainingTypesPage = lazyPage(() => import('./pages/super/TrainingTypesPage'))
+const TrainingTypePage = lazyPage(() => import('./pages/super/TrainingTypePage'))
 const NewLeaguePage = lazyPage(() => import('./pages/admin/NewLeaguePage'))
 const LeagueSettingsPage = lazyPage(() => import('./pages/admin/LeagueSettingsPage'))
 const HomePage = lazyPage(() => import('./pages/admin/HomePage'))
@@ -67,6 +69,8 @@ export const routes: RouteObject[] = [
           { path: 'admins/new', element: page(<NewAdminPage />) },
           { path: 'admins/:userId', element: page(<AdminDetailPage />) },
           { path: 'leagues', element: page(<LeaguesPage />) },
+          { path: 'training', element: page(<TrainingTypesPage />) },
+          { path: 'training/:typeId', element: page(<TrainingTypePage />) },
         ],
       },
     ],

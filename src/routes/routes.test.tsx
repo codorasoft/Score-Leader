@@ -67,6 +67,8 @@ vi.mock('../pages/public/PlayerProfilePage', () => stub('PlayerProfilePage'))
 vi.mock('../pages/public/RecordsPage', () => stub('RecordsPage'))
 vi.mock('../pages/public/LeagueHomePage', () => stub('LeagueHomePage'))
 vi.mock('../pages/public/CardsPage', () => stub('CardsPage'))
+vi.mock('../pages/super/TrainingTypesPage', () => stub('TrainingTypesPage'))
+vi.mock('../pages/super/TrainingTypePage', () => stub('TrainingTypePage'))
 
 import { routes } from '../router'
 import { fetchLeagueInfoById, fetchMyLeagues } from '../lib/tenancy'
@@ -221,6 +223,19 @@ describe('admin start-up', () => {
     expect(await screen.findByText('HistoryPage')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/admin/eagles/history')
     expect(fetchMyLeagues).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('superadmin training catalog', () => {
+  beforeEach(() => { h.profile = { profile: profile({ role: 'superadmin' }), loading: false } })
+  it('/super/training lists the training types', async () => {
+    renderAt('/super/training')
+    expect(await screen.findByText('TrainingTypesPage')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Training' })).toHaveAttribute('href', '/super/training')
+  })
+  it('/super/training/:typeId opens one type', async () => {
+    renderAt('/super/training/t1')
+    expect(await screen.findByText('TrainingTypePage')).toBeInTheDocument()
   })
 })
 
