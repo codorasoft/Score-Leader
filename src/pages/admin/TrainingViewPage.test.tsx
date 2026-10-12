@@ -52,6 +52,8 @@ describe('TrainingViewPage', () => {
     expect(within(second).getByText('Passing')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/admin/eagles/trainings/x1/edit')
     expect(screen.getByRole('link', { name: /Training/ })).toHaveAttribute('href', '/admin/eagles/trainings')
+    // ‹ and › turn round by themselves in Arabic; flipping them again would point them the wrong way
+    expect(document.querySelector('[class*="scale-x"]')).toBeNull()
   })
 
   it('plays one video at a time, in the page', async () => {

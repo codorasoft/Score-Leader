@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
 
@@ -48,6 +48,8 @@ describe('TrainingTypePage', () => {
     expect(titles).toEqual([expect.stringContaining('Rondo'), expect.stringContaining('Wall pass')])
     expect(screen.queryByText('Volleys')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Training types/ })).toHaveAttribute('href', '/super/training')
+    // ‹ and › turn round by themselves in Arabic; flipping them again would point them the wrong way
+    expect(document.querySelector('[class*="scale-x"]')).toBeNull()
   })
 
   it('says so when the type has no videos', async () => {
@@ -135,6 +137,32 @@ describe('TrainingTypePage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('the video cannot be deleted before its use count is known', async () => {
+    resetDb(catalog())
+    renderAt()
+    const row = await videoRow('Rondo')
+    let release = () => {}
+    db.holds.training_items = new Promise<void>((r) => { release = r })
+    fireEvent.click(within(row).getByRole('button', { name: 'Delete video' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: 'Delete video' })).toBeDisabled()
+    delete db.holds.training_items
+    release()
+    expect(await within(dialog).findByText('Used in 2 trainings; it will be removed from them.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Delete video' })).toBeEnabled()
+  })
+
+  it('when the use count cannot be read, the video can still be deleted', async () => {
+    resetDb(catalog())
+    renderAt()
+    const row = await videoRow('Rondo')
+    db.errors.training_items = { message: 'offline' }
+    fireEvent.click(within(row).getByRole('button', { name: 'Delete video' }))
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Delete video' })).toBeEnabled())
+    expect(within(dialog).queryByText(/Used in/)).not.toBeInTheDocument()
+  })
+
   it('deleting an unused video mentions no trainings, and Cancel keeps it', async () => {
     resetDb(catalog())
     renderAt()
@@ -201,6 +229,20 @@ describe('TrainingTypePage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete type' }))
     expect(await screen.findByText('TYPES LIST')).toBeInTheDocument()
     expect(rows('training_types').map((t) => t.id)).toEqual(['t2'])
+  })
+
+  it('after deleting the type, Back does not return to the deleted type', async () => {
+    resetDb(catalog())
+    const router = createMemoryRouter([
+      { path: '/super/training', element: <p>TYPES LIST</p> },
+      { path: '/super/training/:typeId', element: <TrainingTypePage /> },
+    ], { initialEntries: ['/super/training', '/super/training/t1'] })
+    render(<RouterProvider router={router} />)
+    await screen.findByRole('heading', { name: 'Passing' })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete type' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete type' }))
+    expect(await screen.findByText('TYPES LIST')).toBeInTheDocument()
+    expect(router.state.historyAction).toBe('REPLACE')
   })
 
   it('plays one video at a time', async () => {

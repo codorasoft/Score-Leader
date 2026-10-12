@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
@@ -72,20 +72,20 @@ export default function TrainingBuilderPage() {
     return next
   })
 
-  const save = async (e: FormEvent) => {
-    e.preventDefault()
+  const save = async () => {
     if (saving || !date) return
     setSaving(true)
     const id = await saveTraining({ id: trainingId ?? null, leagueId: league.id, date, title, videoIds: picked })
     // A refused save keeps the form as typed; the failure itself is already on screen as a toast
-    if (id) navigate(adminPath(`/trainings/${id}`))
+    // Replaces this page, so Back does not reopen the form that was just saved
+    if (id) navigate(adminPath(`/trainings/${id}`), { replace: true })
     else setSaving(false)
   }
 
   const remove = async () => {
     if (!trainingId || saving) return
     setSaving(true)
-    if (await deleteTraining(trainingId)) navigate(adminPath('/trainings'))
+    if (await deleteTraining(trainingId)) navigate(adminPath('/trainings'), { replace: true })
     else { setSaving(false); setConfirmDelete(false) }
   }
 
@@ -93,15 +93,16 @@ export default function TrainingBuilderPage() {
   return (
     <div className="max-w-lg mx-auto">
       <Link to={adminPath(trainingId ? `/trainings/${trainingId}` : '/trainings')} className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true" className="inline-block rtl:-scale-x-100">‹</span> {t('training.title')}
+        <span aria-hidden="true">‹</span> {t('training.title')}
       </Link>
       <h1 className="text-xl font-bold mt-2 mb-4">{trainingId ? t('common.edit') : t('training.new')}</h1>
 
-      <form onSubmit={save}>
+      {/* Not a form: Enter in the title (the phone keyboard's Go key) must not save a half-built training */}
+      <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           <label className="block text-sm text-gray-400">
             {t('training.date')}
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className={`${field} mt-1 text-white`} />
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1 text-white`} />
           </label>
           <label className="block text-sm text-gray-400">
             {t('training.titleLabel')}
@@ -156,11 +157,11 @@ export default function TrainingBuilderPage() {
 
         {/* Stays in reach under a long catalog */}
         <div className="sticky bottom-0 -mx-4 px-4 py-3 bg-gray-900/95 backdrop-blur border-t border-gray-800">
-          <button type="submit" disabled={saving || !date} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold disabled:opacity-50">
+          <button type="button" onClick={save} disabled={saving || !date} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold disabled:opacity-50">
             {t('common.save')}
           </button>
         </div>
-      </form>
+      </div>
 
       {trainingId && (
         <button onClick={() => setConfirmDelete(true)} className="w-full mt-6 py-2 rounded-lg text-sm text-red-300 hover:bg-red-900/40">

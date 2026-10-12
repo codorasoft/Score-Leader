@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { selectAll } from './selectAll'
 
 // The training catalog (types and their YouTube videos, kept by the superadmin) and a league's
 // trainings. Linked rows are joined here, with one plain query per table.
@@ -25,17 +26,32 @@ const UNIQUE_VIOLATION = '23505'
 const result = (error: { code?: string } | null): WriteResult =>
   !error ? 'ok' : error.code === UNIQUE_VIOLATION ? 'duplicate' : 'failed'
 
+// Every row of a query, page by page (one response holds at most 1000). Throws when a page fails.
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
+  let failed = false
+  const rows = await selectAll<T>(
+    async (from, to) => {
+      const { data, error } = await page(from, to)
+      return { data: data as T[] | null, error }
+    },
+    () => { failed = true },
+  )
+  if (failed) throw new Error('request failed')
+  return rows
+}
+
 // ===== Catalog
 
 // Throws when a request fails. Types, and videos, each in list order.
 export async function fetchCatalog(): Promise<Catalog> {
+  // id last, so rows in the same place keep one order from page to page
   const [types, videos] = await Promise.all([
-    supabase.from('training_types').select(TYPE_COLUMNS).order('sort_order').order('created_at'),
-    supabase.from('training_videos').select(VIDEO_COLUMNS).order('sort_order').order('created_at'),
+    allRows<TrainingType>((from, to) =>
+      supabase.from('training_types').select(TYPE_COLUMNS).order('sort_order').order('created_at').order('id').range(from, to)),
+    allRows<TrainingVideo>((from, to) =>
+      supabase.from('training_videos').select(VIDEO_COLUMNS).order('sort_order').order('created_at').order('id').range(from, to)),
   ])
-  if (types.error) throw types.error
-  if (videos.error) throw videos.error
-  return { types: (types.data ?? []) as TrainingType[], videos: (videos.data ?? []) as TrainingVideo[] }
+  return { types, videos }
 }
 
 // The place of a new row at the end of a list
@@ -102,16 +118,16 @@ export async function countTrainingsUsing(videoId: string): Promise<number> {
 // Throws when a request fails. Newest date first.
 export async function fetchTrainings(leagueId: string): Promise<TrainingSummary[]> {
   const [trainings, items] = await Promise.all([
-    supabase.from('trainings').select('id, training_date, title').eq('league_id', leagueId)
-      .order('training_date', { ascending: false }).order('created_at', { ascending: false }),
-    supabase.from('training_items').select('training_id').eq('league_id', leagueId),
+    allRows<{ id: string; training_date: string; title: string | null }>((from, to) =>
+      supabase.from('trainings').select('id, training_date, title').eq('league_id', leagueId)
+        .order('training_date', { ascending: false }).order('created_at', { ascending: false }).order('id').range(from, to)),
+    allRows<{ training_id: string }>((from, to) =>
+      supabase.from('training_items').select('training_id').eq('league_id', leagueId)
+        .order('training_id').order('video_id').range(from, to)),
   ])
-  if (trainings.error) throw trainings.error
-  if (items.error) throw items.error
   const counts: Record<string, number> = {}
-  for (const i of (items.data ?? []) as { training_id: string }[]) counts[i.training_id] = (counts[i.training_id] ?? 0) + 1
-  return ((trainings.data ?? []) as { id: string; training_date: string; title: string | null }[])
-    .map(({ id, training_date, title }) => ({ id, training_date, title, video_count: counts[id] ?? 0 }))
+  for (const i of items) counts[i.training_id] = (counts[i.training_id] ?? 0) + 1
+  return trainings.map(({ id, training_date, title }) => ({ id, training_date, title, video_count: counts[id] ?? 0 }))
 }
 
 // Throws when a request fails; null means this league has no such training.

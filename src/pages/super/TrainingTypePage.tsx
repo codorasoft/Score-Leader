@@ -24,8 +24,9 @@ export default function TrainingTypePage() {
   // The new name while the type is being renamed
   const [newName, setNewName] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
-  // The video about to be deleted, and how many trainings use it once that is known
-  const [deleting, setDeleting] = useState<{ video: Video; uses: number | null } | null>(null)
+  // The video about to be deleted, and how many trainings use it: undefined while that is being
+  // counted, null when it could not be
+  const [deleting, setDeleting] = useState<{ video: Video; uses?: number | null } | null>(null)
   const [confirmDeleteType, setConfirmDeleteType] = useState(false)
 
   const load = useCallback(() => {
@@ -70,15 +71,15 @@ export default function TrainingTypePage() {
     setBusy(true)
     const ok = await deleteType(type.id)
     setBusy(false)
-    if (ok) navigate('/super/training')
+    if (ok) navigate('/super/training', { replace: true })
     else setConfirmDeleteType(false)
   }
 
   const askDeleteVideo = (video: Video) => {
-    setDeleting({ video, uses: null })
-    countTrainingsUsing(video.id)
-      .then((uses) => setDeleting((d) => (d?.video.id === video.id ? { video, uses } : d)))
-      .catch(() => { /* the question is still asked, without the count */ })
+    setDeleting({ video })
+    const counted = (uses: number | null) => setDeleting((d) => (d?.video.id === video.id ? { video, uses } : d))
+    // Without a count the question is still asked, just without the warning
+    countTrainingsUsing(video.id).then(counted).catch(() => counted(null))
   }
 
   const removeVideo = async () => {
@@ -94,7 +95,7 @@ export default function TrainingTypePage() {
   return (
     <div>
       <Link to="/super/training" className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true" className="inline-block rtl:-scale-x-100">‹</span> {t('super.training.typesTitle')}
+        <span aria-hidden="true">‹</span> {t('super.training.typesTitle')}
       </Link>
 
       {newName === null ? (
@@ -186,7 +187,8 @@ export default function TrainingTypePage() {
           confirmLabel={t('super.training.deleteVideo')}
           onConfirm={removeVideo}
           onCancel={() => setDeleting(null)}
-          busy={busy}
+          // Not before the warning above can be shown
+          busy={busy || deleting.uses === undefined}
         />
       )}
       {confirmDeleteType && (

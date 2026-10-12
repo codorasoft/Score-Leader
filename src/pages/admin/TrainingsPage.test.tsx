@@ -43,6 +43,8 @@ describe('TrainingsPage', () => {
       '/admin/eagles/trainings/x2', '/admin/eagles/trainings/x5', '/admin/eagles/trainings/x4', '/admin/eagles/trainings/x1',
     ])
     expect(screen.queryByText('Not ours')).not.toBeInTheDocument()
+    // ‹ and › turn round by themselves in Arabic; flipping them again would point them the wrong way
+    expect(document.querySelector('[class*="scale-x"]')).toBeNull()
   })
 
   it('a row shows the title, or the day when there is none, and the video count', async () => {

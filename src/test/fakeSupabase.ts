@@ -4,6 +4,9 @@
 
 import { forgetCachedLeagues } from '../lib/leagueCache'
 
+// Like the real API (supabase/config.toml max_rows), one response holds at most this many rows
+const MAX_ROWS = 1000
+
 type Row = Record<string, unknown>
 type Filter = (row: Row) => boolean
 type ApiError = { message: string; code?: string }
@@ -149,7 +152,7 @@ function query(table: string) {
     for (const { col, asc } of [...orderBy].reverse()) {
       out.sort((a, c) => compare(a[col], c[col]) * (asc ? 1 : -1))
     }
-    out = out.slice(from, to + 1)
+    out = out.slice(from, Math.min(to, from + MAX_ROWS - 1) + 1)
     if (embeddedTables(columns).length) out = out.map((r) => shape(table, r, columns))
     return { data: head ? null : out, error: null, count: count ? hit.length : null, status: 200 }
   }

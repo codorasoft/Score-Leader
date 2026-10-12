@@ -28,6 +28,18 @@ describe('catalog', () => {
     expect(videos.map((v) => v.title)).toEqual(['Volleys', 'Rondo', 'Wall pass'])
   })
 
+  it('reads a catalog with more videos than one response holds', async () => {
+    resetDb({
+      training_types: catalog().training_types,
+      training_videos: Array.from({ length: 1001 }, (_, i) => ({
+        id: `v${String(i).padStart(4, '0')}`, type_id: 't1', title: `Video ${i}`, youtube_id: 'dQw4w9WgXcQ', sort_order: i, created_at: '2026-10-01T10:00:00Z',
+      })),
+    })
+    const { videos } = await fetchCatalog()
+    expect(videos).toHaveLength(1001)
+    expect(videos.at(-1)!.title).toBe('Video 1000')
+  })
+
   it('throws when the catalog cannot be read', async () => {
     resetDb(catalog())
     db.errors.training_videos = { message: 'offline' }
@@ -114,6 +126,25 @@ describe('trainings', () => {
       { id: 'x2', training_date: '2026-10-12', title: null, video_count: 0 },
       { id: 'x1', training_date: '2026-10-10', title: 'Friday', video_count: 2 },
     ])
+  })
+
+  it('counts every video of a league with more rows than one response holds', async () => {
+    resetDb({
+      trainings: [{ id: 'x1', league_id: 'L1', training_date: '2026-10-10', title: 'Big', created_at: '2026-10-01T10:00:00Z' }],
+      training_items: Array.from({ length: 1001 }, (_, i) => ({ training_id: 'x1', video_id: `v${String(i).padStart(4, '0')}`, league_id: 'L1' })),
+    })
+    expect((await fetchTrainings('L1'))[0].video_count).toBe(1001)
+  })
+
+  it('lists every training of a league with more than one response holds', async () => {
+    resetDb({
+      trainings: Array.from({ length: 1001 }, (_, i) => ({
+        id: `x${String(i).padStart(4, '0')}`, league_id: 'L1', training_date: '2026-10-10', title: null, created_at: '2026-10-01T10:00:00Z',
+      })),
+    })
+    const list = await fetchTrainings('L1')
+    expect(list).toHaveLength(1001)
+    expect(new Set(list.map((t) => t.id)).size).toBe(1001)
   })
 
   it('reads one training with its videos in saved order and their type names', async () => {

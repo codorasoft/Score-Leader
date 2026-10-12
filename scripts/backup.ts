@@ -33,7 +33,7 @@ const TABLES: Record<string, string[]> = {
   training_items: ['training_id', 'video_id'],
 }
 
-const OPTIONAL = new Set(['admin_profiles', 'leagues'])
+const OPTIONAL = new Set(['admin_profiles', 'leagues', 'training_types', 'training_videos', 'trainings', 'training_items'])
 
 function readEnvUrl(): string | undefined {
   try {

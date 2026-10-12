@@ -66,7 +66,7 @@ export default function TrainingsPage() {
                         <span className="block font-semibold truncate">{training.title ?? day}</span>
                         <span className="block text-xs text-gray-400">{training.title ? `${day} · ${count}` : count}</span>
                       </span>
-                      <span className="text-gray-500 rtl:-scale-x-100" aria-hidden="true">›</span>
+                      <span className="text-gray-500" aria-hidden="true">›</span>
                     </Link>
                   </li>
                 )

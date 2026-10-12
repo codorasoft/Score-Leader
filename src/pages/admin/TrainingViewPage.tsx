@@ -48,7 +48,7 @@ export default function TrainingViewPage() {
   return (
     <div className="max-w-lg mx-auto">
       <Link to={adminPath('/trainings')} className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true" className="inline-block rtl:-scale-x-100">‹</span> {t('training.title')}
+        <span aria-hidden="true">‹</span> {t('training.title')}
       </Link>
 
       <div className="flex items-start gap-3 mt-2 mb-4">

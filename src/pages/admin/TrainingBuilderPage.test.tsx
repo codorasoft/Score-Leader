@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
@@ -47,6 +47,18 @@ const renderAt = (path: string) => render(
   </MemoryRouter>,
 )
 
+// The same pages on a router whose history can be inspected, entered from the list
+function renderFromList(path: string) {
+  const router = createMemoryRouter([
+    { path: '/admin/:slug/trainings', element: <p>LIST</p> },
+    { path: '/admin/:slug/trainings/new', element: <InLeague><TrainingBuilderPage /></InLeague> },
+    { path: '/admin/:slug/trainings/:trainingId/edit', element: <InLeague><TrainingBuilderPage /></InLeague> },
+    { path: '/admin/:slug/trainings/:trainingId', element: <Shown /> },
+  ], { initialEntries: ['/admin/eagles/trainings', `/admin/eagles/trainings/${path}`] })
+  render(<RouterProvider router={router} />)
+  return router
+}
+
 // Only the date is faked, so waiting for the page still works
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -73,6 +85,8 @@ describe('TrainingBuilderPage, new training', () => {
     expect(screen.queryByRole('button', { name: 'Delete training' })).not.toBeInTheDocument()
     // Picking is not playing
     expect(document.querySelector('iframe')).toBeNull()
+    // ‹ and › turn round by themselves in Arabic; flipping them again would point them the wrong way
+    expect(document.querySelector('[class*="scale-x"]')).toBeNull()
   })
 
   it('says so when the catalog has no videos', async () => {
@@ -127,6 +141,26 @@ describe('TrainingBuilderPage, new training', () => {
     expect(saveArgs()).toEqual([
       { p_id: null, p_league_id: 'L1', p_date: '2026-10-15', p_title: 'Passing day', p_video_ids: ['v2', 'v1'] },
     ])
+  })
+
+  it('Enter in the title cannot save a half-built training: the fields are in no form', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    expect(screen.getByLabelText('Title (optional)').closest('form')).toBeNull()
+    expect(screen.getByLabelText('Date').closest('form')).toBeNull()
+  })
+
+  it('after saving, Back leaves the builder behind instead of reopening an empty form', async () => {
+    resetDb(data())
+    db.rpcResults.save_training = { data: 'x9', error: null }
+    const router = renderFromList('new')
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('VIEW x9')).toBeInTheDocument()
+    expect(router.state.historyAction).toBe('REPLACE')
+    await router.navigate(-1)
+    expect(await screen.findByText('LIST')).toBeInTheDocument()
   })
 
   it('a title of only spaces is sent as no title, and no videos is allowed', async () => {
@@ -225,6 +259,16 @@ describe('TrainingBuilderPage, existing training', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete training' }))
     expect(await screen.findByText('LIST')).toBeInTheDocument()
     expect(rows('trainings').map((t) => t.id)).toEqual(['x3'])
+  })
+
+  it('after deleting, Back does not return to the deleted training', async () => {
+    resetDb(data())
+    const router = renderFromList('x1/edit')
+    await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete training' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete training' }))
+    expect(await screen.findByText('LIST')).toBeInTheDocument()
+    expect(router.state.historyAction).toBe('REPLACE')
   })
 
   it.each(['x3/edit', 'nope/edit'])('%s is not found in this league', async (path) => {
