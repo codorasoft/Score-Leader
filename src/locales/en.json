@@ -32,7 +32,7 @@
     "signingIn": "Signing in…"
   },
   "nav": {
-    "training": "Training",
+    "training": "Training plan",
     "players": "Players",
     "history": "History",
     "signOut": "Sign out",
@@ -587,8 +587,8 @@
       "noVideos": "No videos in this type yet",
       "deleteVideo": "Delete video",
       "confirmDeleteVideo": "Delete “{{title}}”?",
-      "usedIn_one": "Used in {{count}} training; it will be removed from it.",
-      "usedIn_other": "Used in {{count}} trainings; it will be removed from them."
+      "usedIn_one": "Used in {{count}} plan; it will be removed from it.",
+      "usedIn_other": "Used in {{count}} plans; it will be removed from them."
     },
     "title": "Superadmin",
     "brand": "ScoreLeader · Superadmin",
@@ -689,7 +689,7 @@
     "notAllowed": "You are not allowed to change this.",
     "duplicate": "This already exists. Use a different name or address.",
     "otherLeague": "That player belongs to another league.",
-    "trainingNotFound": "This training no longer exists.",
+    "trainingNotFound": "This plan no longer exists.",
     "generic": "Something went wrong. Please try again."
   },
   "home": {
@@ -751,9 +751,9 @@
     "drawDrawShort": "Draw stands"
   },
   "training": {
-    "title": "Training",
-    "new": "New training",
-    "empty": "No trainings yet",
+    "title": "Training plan",
+    "new": "New plan",
+    "empty": "No plans yet",
     "today": "Today",
     "upcoming": "Upcoming",
     "past": "Past",
@@ -767,9 +767,9 @@
     "filter": "Filter by type",
     "all": "All",
     "showMore": "Show more ({{left}} left)",
-    "noVideos": "No videos in this training",
-    "delete": "Delete training",
-    "confirmDelete": "Delete this training?",
+    "noVideos": "No videos in this plan",
+    "delete": "Delete plan",
+    "confirmDelete": "Delete this plan?",
     "play": "Play {{title}}",
     "openOnYouTube": "Open on YouTube",
     "moveUp": "Move up",
