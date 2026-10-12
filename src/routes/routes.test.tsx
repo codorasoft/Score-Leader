@@ -70,6 +70,7 @@ vi.mock('../pages/public/CardsPage', () => stub('CardsPage'))
 vi.mock('../pages/super/TrainingTypesPage', () => stub('TrainingTypesPage'))
 vi.mock('../pages/admin/TrainingsPage', () => stub('TrainingsPage'))
 vi.mock('../pages/admin/TrainingViewPage', () => stub('TrainingViewPage'))
+vi.mock('../pages/admin/TrainingBuilderPage', () => stub('TrainingBuilderPage'))
 vi.mock('../pages/super/TrainingTypePage', () => stub('TrainingTypePage'))
 
 import { routes } from '../router'
@@ -192,7 +193,14 @@ describe('admin redirects', () => {
     await act(() => router.navigate('/admin/eagles/trainings/x1'))
     expect(await screen.findByText('TrainingViewPage')).toBeInTheDocument()
   })
-  it.each(['/admin/eagles/trainings', '/admin/eagles/trainings/x1'])('training off sends %s to history', async (path) => {
+  it('a new training and editing one open the builder, not the view', async () => {
+    const router = renderAt('/admin/eagles/trainings/new')
+    expect(await screen.findByText('TrainingBuilderPage')).toBeInTheDocument()
+    await act(() => router.navigate('/admin/eagles/trainings/x1/edit'))
+    expect(await screen.findByText('TrainingBuilderPage')).toBeInTheDocument()
+    expect(screen.queryByText('TrainingViewPage')).not.toBeInTheDocument()
+  })
+  it.each(['/admin/eagles/trainings', '/admin/eagles/trainings/x1', '/admin/eagles/trainings/new', '/admin/eagles/trainings/x1/edit'])('training off sends %s to history', async (path) => {
     h.profile = { profile: profile({ features: ['cards'] }), loading: false }
     const router = renderAt(path)
     await expectPath(router, '/admin/eagles/history')

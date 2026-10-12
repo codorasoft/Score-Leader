@@ -36,6 +36,7 @@ const LeagueSettingsPage = lazyPage(() => import('./pages/admin/LeagueSettingsPa
 const HomePage = lazyPage(() => import('./pages/admin/HomePage'))
 const TrainingsPage = lazyPage(() => import('./pages/admin/TrainingsPage'))
 const TrainingViewPage = lazyPage(() => import('./pages/admin/TrainingViewPage'))
+const TrainingBuilderPage = lazyPage(() => import('./pages/admin/TrainingBuilderPage'))
 
 const LiveSessionPage = lazyPage(() => import('./pages/public/LiveSessionPage'))
 const VotePage = lazyPage(() => import('./pages/public/VotePage'))
@@ -111,7 +112,9 @@ export const routes: RouteObject[] = [
                 element: <FeatureRoute name="awards" fallback="history">{page(<AwardsPage />)}</FeatureRoute>,
               },
               { path: 'trainings', element: training(page(<TrainingsPage />)) },
+              { path: 'trainings/new', element: training(page(<TrainingBuilderPage />)) },
               { path: 'trainings/:trainingId', element: training(page(<TrainingViewPage />)) },
+              { path: 'trainings/:trainingId/edit', element: training(page(<TrainingBuilderPage />)) },
               { path: 'lineups', element: coachBoard(page(<LineupsPage />)) },
               { path: 'lineups/new', element: coachBoard(page(<LineupEditorPage />)) },
               { path: 'lineups/:lineupId', element: coachBoard(page(<LineupEditorPage />)) },
