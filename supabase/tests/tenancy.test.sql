@@ -11,7 +11,9 @@
 --   suffix ...0001 user, ...0002 league, ...0003 / ...0004 players, ...0005 session,
 --          ...0006 / ...0007 / ...0008 teams (green / blue / yellow), ...0009 match
 --          (team 1 vs team 2, team 3 waiting), ...0010 match event, ...0011 open vote,
---          ...0012 coach board. S only has ...0001.
+--          ...0012 coach board. S only has ...0001, plus the catalog it owns:
+--          ...0013 training type, ...0014 / ...0015 its videos. ...0016 training (league Z only;
+--          A's training gets a generated id, kept in the setting test.a_training).
 -- Acting as a user: SELECT pg_temp.act_as('<user id>'); ... RESET role;
 -- Acting as a visitor: SELECT pg_temp.act_as(NULL); ... RESET role;
 
@@ -71,7 +73,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players'
+    'lineups', 'lineup_players', 'trainings', 'training_items'
   ] LOOP
     EXECUTE format('SELECT count(*) FILTER (WHERE league_id IS NULL) FROM public.%I', t) INTO nulls;
     PERFORM pg_temp.expect(nulls = 0, t || ': no NULL league_id');
@@ -100,10 +102,10 @@ INSERT INTO auth.users (id, email) VALUES
 INSERT INTO public.admin_profiles (user_id, role, email, display_name, max_leagues, features, is_disabled)
 SELECT u.id, v.role, u.email, v.display_name, v.max_leagues, v.features, v.is_disabled
 FROM auth.users u JOIN (VALUES
-  ('aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin A', 2, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board}'::text[], false),
-  ('bbbbbbbb-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin B', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board}'::text[], false),
+  ('aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin A', 2, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[], false),
+  ('bbbbbbbb-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin B', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[], false),
   ('cccccccc-0000-4000-8000-000000000001'::uuid, 'superadmin', 'Superadmin S', 0, '{}'::text[], false),
-  ('dddddddd-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin D', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board}'::text[], true)
+  ('dddddddd-0000-4000-8000-000000000001'::uuid, 'admin', 'Admin D', 1, '{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[], true)
 ) AS v(id, role, display_name, max_leagues, features, is_disabled) ON v.id = u.id;
 
 INSERT INTO public.leagues (id, owner_id, name, slug) VALUES
@@ -148,7 +150,7 @@ INSERT INTO public.matches (id, session_id, match_number, team1_id, team2_id, wa
 
 -- ===== Feature list CHECK
 
-SELECT pg_temp.expect(public.valid_features('{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board}'::text[]), 'all 14 features are valid');
+SELECT pg_temp.expect(public.valid_features('{cards,swaps,smart_balancing,awards,voting,leaderboard,potm,profiles,badges,records,player_cards,photos,summary_share,coach_board,training}'::text[]), 'all 15 features are valid');
 SELECT pg_temp.expect(public.valid_features('{}'), 'no features is valid');
 SELECT pg_temp.expect(public.valid_features('{voting,awards}'), 'voting with awards is valid');
 SELECT pg_temp.expect(NOT public.valid_features('{voting}'), 'voting needs awards');
@@ -584,6 +586,167 @@ SELECT pg_temp.expect(
   'visitors read no coach boards');
 RESET role;
 
+-- ===== Training: catalog by the superadmin, trainings by the owner with training
+
+SELECT pg_temp.act_as('cccccccc-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.training_types (id, name, sort_order)
+       VALUES ('cccccccc-0000-4000-8000-000000000013', 'Passing', 0)$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.training_videos (id, type_id, title, youtube_id, sort_order) VALUES
+       ('cccccccc-0000-4000-8000-000000000014', 'cccccccc-0000-4000-8000-000000000013', 'Rondo', 'dQw4w9WgXcQ', 0),
+       ('cccccccc-0000-4000-8000-000000000015', 'cccccccc-0000-4000-8000-000000000013', 'Wall pass', 'aqz-KE-bpKQ', 1)$sql$,
+  2);
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.training_types SET name = 'Passing drills' WHERE id = 'cccccccc-0000-4000-8000-000000000013'$sql$,
+  1);
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.training_videos (type_id, title, youtube_id, sort_order)
+       VALUES ('cccccccc-0000-4000-8000-000000000013', 'Rondo again', 'dQw4w9WgXcQ', 2)$sql$,
+  'training_videos_type_id_youtube_id_key');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.training_videos (type_id, title, youtube_id, sort_order)
+       VALUES ('cccccccc-0000-4000-8000-000000000013', 'Too short', 'short', 2)$sql$,
+  'youtube_id');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.training_videos (type_id, title, youtube_id, sort_order)
+       VALUES ('cccccccc-0000-4000-8000-000000000013', 'A link, not an id', 'https://youtu.be/dQw4w9WgXcQ', 2)$sql$,
+  'youtube_id');
+RESET role;
+
+-- An admin reads the catalog and changes none of it
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM public.training_types WHERE id = 'cccccccc-0000-4000-8000-000000000013')
+  AND (SELECT count(*) = 2 FROM public.training_videos WHERE type_id = 'cccccccc-0000-4000-8000-000000000013'),
+  'an admin with training reads the catalog');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.training_types (name, sort_order) VALUES ('Mine', 5)$sql$,
+  'row-level security');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.training_videos (type_id, title, youtube_id, sort_order)
+       VALUES ('cccccccc-0000-4000-8000-000000000013', 'Mine', 'abcdefghijk', 5)$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count($sql$UPDATE public.training_types SET name = 'Hacked'$sql$, 0);
+SELECT pg_temp.expect_count($sql$UPDATE public.training_videos SET title = 'Hacked'$sql$, 0);
+SELECT pg_temp.expect_count($sql$DELETE FROM public.training_videos$sql$, 0);
+SELECT pg_temp.expect_count($sql$DELETE FROM public.training_types$sql$, 0);
+
+-- Saving: a blank title is no title; each video once, in the order first given; an id that is
+-- not in the catalog is skipped
+SELECT pg_temp.expect(
+  public.save_training(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', '2026-10-12', '   ', ARRAY[
+    'cccccccc-0000-4000-8000-000000000015', 'cccccccc-0000-4000-8000-000000000014',
+    'cccccccc-0000-4000-8000-000000000015', 'eeeeeeee-0000-4000-8000-000000000099']::uuid[]) IS NOT NULL,
+  'A saves a new training');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 AND bool_and(title IS NULL AND training_date = '2026-10-12')
+   FROM public.trainings WHERE league_id = 'aaaaaaaa-0000-4000-8000-000000000002'),
+  'one training in a-league, its blank title stored as none');
+SELECT pg_temp.expect(
+  (SELECT array_agg(video_id ORDER BY position) = ARRAY[
+            'cccccccc-0000-4000-8000-000000000015', 'cccccccc-0000-4000-8000-000000000014']::uuid[]
+      AND array_agg(position ORDER BY position) = ARRAY[0, 1]
+      AND bool_and(league_id = 'aaaaaaaa-0000-4000-8000-000000000002')
+   FROM public.training_items),
+  'two items in first-given order, with the league of their training');
+SELECT set_config('test.a_training',
+  (SELECT id::text FROM public.trainings WHERE league_id = 'aaaaaaaa-0000-4000-8000-000000000002'), true);
+
+-- Saving again replaces the videos; the league given is ignored, a training never moves
+SELECT pg_temp.expect(
+  public.save_training(current_setting('test.a_training')::uuid, 'bbbbbbbb-0000-4000-8000-000000000002',
+    '2026-10-13', ' Passing ', ARRAY['cccccccc-0000-4000-8000-000000000014']::uuid[])
+    = current_setting('test.a_training')::uuid,
+  'saving an existing training returns its id');
+SELECT pg_temp.expect(
+  (SELECT title = 'Passing' AND training_date = '2026-10-13' AND league_id = 'aaaaaaaa-0000-4000-8000-000000000002'
+   FROM public.trainings WHERE id = current_setting('test.a_training')::uuid)
+  AND (SELECT count(*) = 1 AND min(position) = 0 AND bool_and(video_id = 'cccccccc-0000-4000-8000-000000000014')
+       FROM public.training_items WHERE training_id = current_setting('test.a_training')::uuid),
+  'the second save changed the date, title and videos, not the league');
+RESET role;
+
+-- Another admin neither sees nor changes it
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.trainings) AND (SELECT count(*) = 0 FROM public.training_items),
+  'B cannot read A''s trainings');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_training(current_setting('test.a_training')::uuid, 'bbbbbbbb-0000-4000-8000-000000000002',
+         '2026-11-01', 'Stolen', '{}')$sql$,
+  'training not found');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_training(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', '2026-11-01', 'Planted', '{}')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.training_items (training_id, video_id, position)
+       VALUES (current_setting('test.a_training')::uuid, 'cccccccc-0000-4000-8000-000000000015', 5)$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.trainings SET title = 'Hacked' WHERE id = current_setting('test.a_training')::uuid$sql$, 0);
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM public.training_items WHERE training_id = current_setting('test.a_training')::uuid$sql$, 0);
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM public.trainings WHERE id = current_setting('test.a_training')::uuid$sql$, 0);
+RESET role;
+
+SELECT pg_temp.expect(
+  (SELECT title = 'Passing' AND training_date = '2026-10-13'
+   FROM public.trainings WHERE id = current_setting('test.a_training')::uuid)
+  AND (SELECT count(*) = 1 FROM public.training_items WHERE training_id = current_setting('test.a_training')::uuid),
+  'A''s training is unchanged after B''s attempts');
+
+-- The superadmin counts where a video is used, and nothing more
+SELECT pg_temp.act_as('cccccccc-0000-4000-8000-000000000001');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM public.training_items WHERE video_id = 'cccccccc-0000-4000-8000-000000000014')
+  AND (SELECT count(*) = 0 FROM public.trainings),
+  'the superadmin counts uses of a video and reads no trainings');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.training_items (training_id, video_id, position)
+       VALUES (current_setting('test.a_training')::uuid, 'cccccccc-0000-4000-8000-000000000015', 5)$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.training_items$sql$, 0);
+RESET role;
+
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.training_types) AND (SELECT count(*) = 0 FROM public.training_videos)
+  AND (SELECT count(*) = 0 FROM public.trainings) AND (SELECT count(*) = 0 FROM public.training_items),
+  'visitors read no catalog and no trainings');
+RESET role;
+
+-- Without the feature: no catalog, no trainings
+UPDATE public.admin_profiles SET features = array_remove(features, 'training')
+WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.training_types) AND (SELECT count(*) = 0 FROM public.training_videos)
+  AND (SELECT count(*) = 0 FROM public.trainings) AND (SELECT count(*) = 0 FROM public.training_items),
+  'without training A reads no catalog and no trainings');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_training(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', '2026-11-01', 'No feature', '{}')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_training(current_setting('test.a_training')::uuid, 'aaaaaaaa-0000-4000-8000-000000000002',
+         '2026-11-01', 'No feature', '{}')$sql$,
+  'training not found');
+RESET role;
+
+UPDATE public.admin_profiles SET features = array_append(features, 'training')
+WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
+
+-- Deleting a catalog video takes it out of trainings and keeps the training
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM public.training_videos WHERE id = 'cccccccc-0000-4000-8000-000000000014'$sql$, 1);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM public.trainings WHERE id = current_setting('test.a_training')::uuid)
+  AND (SELECT count(*) = 0 FROM public.training_items WHERE training_id = current_setting('test.a_training')::uuid),
+  'the training stays, without the deleted video');
+
 -- ===== Storage: the first folder is a league the caller owns (and has photos, for player photos)
 
 SELECT pg_temp.expect(
@@ -678,6 +841,10 @@ INSERT INTO public.lineups (id, league_id, name) VALUES
   ('99999999-0000-4000-8000-000000000012', '99999999-0000-4000-8000-000000000002', 'Z Board');
 INSERT INTO public.lineup_players (lineup_id, player_id, x, y) VALUES
   ('99999999-0000-4000-8000-000000000012', '99999999-0000-4000-8000-000000000003', 0.5, 0.5);
+INSERT INTO public.trainings (id, league_id, training_date) VALUES
+  ('99999999-0000-4000-8000-000000000016', '99999999-0000-4000-8000-000000000002', '2026-10-12');
+INSERT INTO public.training_items (training_id, video_id, position) VALUES
+  ('99999999-0000-4000-8000-000000000016', 'cccccccc-0000-4000-8000-000000000015', 0);
 
 DO $$
 DECLARE
@@ -688,7 +855,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players'
+    'lineups', 'lineup_players', 'trainings', 'training_items'
   ] LOOP
     EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
     PERFORM pg_temp.expect(n > 0, t || ': fixture league has rows before delete');
@@ -699,7 +866,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players'
+    'lineups', 'lineup_players', 'trainings', 'training_items'
   ] LOOP
     EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
     PERFORM pg_temp.expect(n = 0, t || ': no rows left after the league is deleted');
