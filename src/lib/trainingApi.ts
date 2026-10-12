@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { selectAll } from './selectAll'
+import { selectAllOrThrow as allRows } from './selectAll'
 
 // The training catalog (types and their YouTube videos, kept by the superadmin) and a league's
 // trainings. Linked rows are joined here, with one plain query per table.
@@ -25,20 +25,6 @@ const UNIQUE_VIOLATION = '23505'
 
 const result = (error: { code?: string } | null): WriteResult =>
   !error ? 'ok' : error.code === UNIQUE_VIOLATION ? 'duplicate' : 'failed'
-
-// Every row of a query, page by page (one response holds at most 1000). Throws when a page fails.
-async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
-  let failed = false
-  const rows = await selectAll<T>(
-    async (from, to) => {
-      const { data, error } = await page(from, to)
-      return { data: data as T[] | null, error }
-    },
-    () => { failed = true },
-  )
-  if (failed) throw new Error('request failed')
-  return rows
-}
 
 // ===== Catalog
 
