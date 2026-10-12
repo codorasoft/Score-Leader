@@ -31,11 +31,13 @@ export const db = {
 
 // Columns the database fills in itself, by table: generated columns and column defaults.
 const GENERATED: Record<string, (row: Row) => Row> = {
-  // repeats is generated; the two date lists have '{}' as their default
+  // repeats is generated; the other four have column defaults
   schedule_items: (row) => ({
     skipped_dates: row.skipped_dates ?? [],
     done_dates: row.done_dates ?? [],
-    repeats: Array.isArray(row.repeat_days) && row.repeat_days.length > 0,
+    repeat_every: row.repeat_every ?? 1,
+    repeat_monthly: row.repeat_monthly ?? false,
+    repeats: (Array.isArray(row.repeat_days) && row.repeat_days.length > 0) || row.repeat_monthly === true,
   }),
 }
 const generate = (table: string, row: Row) => (GENERATED[table] ? Object.assign(row, GENERATED[table](row)) : row)

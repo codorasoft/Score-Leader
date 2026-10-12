@@ -32,7 +32,7 @@
     "signingIn": "Signing in…"
   },
   "nav": {
-    "schedule": "Schedule",
+    "schedule": "Coach's schedule",
     "training": "Training plan",
     "players": "Players",
     "history": "History",
@@ -780,8 +780,6 @@
   "schedule": {
     "title": "Coach's schedule",
     "today": "Today",
-    "prevMonth": "Previous month",
-    "nextMonth": "Next month",
     "add": "Add",
     "empty": "Nothing on this day",
     "allDay": "All day",
@@ -793,7 +791,6 @@
     },
     "session": "Match session",
     "plan": "Training plan",
-    "repeats": "Repeats every week",
     "done": "Done: {{title}}",
     "newItem": "New item",
     "editItem": "Edit item",
@@ -803,16 +800,41 @@
     "start": "Start",
     "end": "End",
     "note": "Note",
-    "repeatOn": "Repeat every week on",
     "until": "Until (optional)",
     "problems": {
       "times": "The end must be after the start.",
-      "until": "The last day cannot be before the first."
+      "until": "The last day cannot be before the first.",
+      "days": "Choose at least one day."
     },
     "delete": "Delete",
     "deleteOne": "Only this day",
     "deleteAll": "All days",
     "confirmDelete": "Delete “{{title}}”?",
-    "confirmDeleteRepeating": "“{{title}}” repeats. Delete only this day, or all days?"
+    "confirmDeleteRepeating": "“{{title}}” repeats. Delete only this day, or all days?",
+    "view": "View",
+    "views": {
+      "month": "Month",
+      "week": "Week",
+      "day": "Day"
+    },
+    "prev": {
+      "month": "Previous month",
+      "week": "Previous week",
+      "day": "Previous day"
+    },
+    "next": {
+      "month": "Next month",
+      "week": "Next week",
+      "day": "Next day"
+    },
+    "addAt": "Add at {{time}}",
+    "repeat": "Repeat",
+    "repeatModes": {
+      "none": "Does not repeat",
+      "weekly": "Every week",
+      "biweekly": "Every 2 weeks",
+      "monthly": "Every month"
+    },
+    "onDays": "On these days"
   }
 }

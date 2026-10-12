@@ -26,7 +26,7 @@ it('Home is the first tab and is marked current on the home page', () => {
   const nav = renderAt('/admin/eagles/home')
   const links = nav.getAllByRole('link')
   // No New Session tab: sessions start from Home
-  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training plan', 'Coach Board', 'Schedule'])
+  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training plan', 'Coach Board', "Coach's schedule"])
   expect(links[0]).toHaveAttribute('href', '/admin/eagles/home')
   expect(links[0]).toHaveAttribute('aria-current', 'page')
 })
@@ -65,8 +65,12 @@ it('with training only there are four tabs, and Training is current inside a tra
 
 it('with the schedule only there are four tabs, and Schedule is current on its page', () => {
   const nav = renderAt('/admin/eagles/schedule', ['schedule'])
-  expect(nav.getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Schedule'])
-  expect(nav.getByRole('link', { name: 'Schedule' })).toHaveAttribute('href', '/admin/eagles/schedule')
-  expect(nav.getByRole('link', { name: 'Schedule' })).toHaveAttribute('aria-current', 'page')
+  expect(nav.getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', "Coach's schedule"])
+  expect(nav.getByRole('link', { name: "Coach's schedule" })).toHaveAttribute('href', '/admin/eagles/schedule')
+  expect(nav.getByRole('link', { name: "Coach's schedule" })).toHaveAttribute('aria-current', 'page')
   expect(nav.getByRole('link', { name: 'History' })).not.toHaveAttribute('aria-current')
+  // A long name goes onto a second line on a phone instead of being cut off
+  const label = nav.getByText("Coach's schedule")
+  expect(label).toHaveClass('line-clamp-2')
+  expect(label).not.toHaveClass('truncate')
 })

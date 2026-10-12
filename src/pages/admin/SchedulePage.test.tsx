@@ -33,6 +33,7 @@ const renderPage = (features: readonly (typeof FEATURES)[number][] = FEATURES) =
 
 // Only the date is faked, so waiting for the page still works
 beforeEach(() => {
+  localStorage.clear()
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 9, 12, 10, 0))
 })
@@ -97,7 +98,7 @@ describe('SchedulePage, the calendar', () => {
     fireEvent.click(day(/^Tuesday, October 13/))
     expect(day(/^Tuesday, October 13/)).toHaveAttribute('aria-pressed', 'true')
     expect(listed()).toEqual([expect.stringMatching(/18:00 – 19:30.*Team training/)])
-    expect(dayList().getByLabelText('Repeats every week')).toBeInTheDocument()
+    expect(dayList().getByLabelText('Every week')).toBeInTheDocument()
     fireEvent.click(day(/^Wednesday, October 14/))
     expect(screen.getByText('Nothing on this day')).toBeInTheDocument()
   })
@@ -174,17 +175,24 @@ describe('SchedulePage, adding and changing items', () => {
     await ready()
     fireEvent.click(screen.getByRole('button', { name: /Add/ }))
     fireEvent.change(dialog().getByLabelText('Title'), { target: { value: 'Recovery' } })
-    // No last day to choose until it repeats
+    // It does not repeat until a way of repeating is chosen: no weekdays and no last day to pick
+    const repeat = within(dialog().getByRole('group', { name: 'Repeat' }))
+    expect(repeat.getAllByRole('button').map((b) => b.textContent)).toEqual(['Does not repeat', 'Every week', 'Every 2 weeks', 'Every month'])
+    expect(repeat.getByRole('button', { name: 'Does not repeat' })).toHaveAttribute('aria-pressed', 'true')
     expect(dialog().queryByLabelText('Until (optional)')).not.toBeInTheDocument()
-    const repeat = within(dialog().getByRole('group', { name: 'Repeat every week on' }))
-    expect(repeat.getAllByRole('button').map((b) => b.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
-    fireEvent.click(repeat.getByRole('button', { name: 'Thu' }))
-    fireEvent.click(repeat.getByRole('button', { name: 'Mon' }))
+    expect(dialog().queryByRole('group', { name: 'On these days' })).not.toBeInTheDocument()
+
+    fireEvent.click(repeat.getByRole('button', { name: 'Every week' }))
+    const days = within(dialog().getByRole('group', { name: 'On these days' }))
+    expect(days.getAllByRole('button').map((b) => b.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+    // The date's own weekday (Monday 12) is already on
+    expect(days.getByRole('button', { name: 'Mon' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(days.getByRole('button', { name: 'Thu' }))
     fireEvent.change(dialog().getByLabelText('Until (optional)'), { target: { value: '2026-10-31' } })
     fireEvent.click(dialog().getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(itemWrites().at(-1)).toMatchObject({ values: { title: 'Recovery', item_date: '2026-10-12', repeat_days: [1, 4], repeat_until: '2026-10-31' } })
+    expect(itemWrites().at(-1)).toMatchObject({ values: { title: 'Recovery', item_date: '2026-10-12', repeat_days: [1, 4], repeat_every: 1, repeat_monthly: false, repeat_until: '2026-10-31' } })
     fireEvent.click(day(/^Thursday, October 15/))
     await waitFor(() => expect(listed()).toEqual([expect.stringMatching(/Recovery/)]))
     fireEvent.click(day(/^Monday, October 26/))
@@ -204,9 +212,16 @@ describe('SchedulePage, adding and changing items', () => {
     fireEvent.change(dialog().getByLabelText('End'), { target: { value: '11:00' } })
     expect(dialog().getByRole('button', { name: 'Save' })).toBeEnabled()
 
-    fireEvent.click(within(dialog().getByRole('group', { name: 'Repeat every week on' })).getByRole('button', { name: 'Mon' }))
+    fireEvent.click(within(dialog().getByRole('group', { name: 'Repeat' })).getByRole('button', { name: 'Every week' }))
     fireEvent.change(dialog().getByLabelText('Until (optional)'), { target: { value: '2026-10-01' } })
     expect(dialog().getByText('The last day cannot be before the first.')).toBeInTheDocument()
+    expect(dialog().getByRole('button', { name: 'Save' })).toBeDisabled()
+    fireEvent.change(dialog().getByLabelText('Until (optional)'), { target: { value: '' } })
+    expect(dialog().getByRole('button', { name: 'Save' })).toBeEnabled()
+
+    // A weekly repeat with every weekday switched off cannot be saved
+    fireEvent.click(within(dialog().getByRole('group', { name: 'On these days' })).getByRole('button', { name: 'Mon' }))
+    expect(dialog().getByText('Choose at least one day.')).toBeInTheDocument()
     expect(dialog().getByRole('button', { name: 'Save' })).toBeDisabled()
   })
 
@@ -295,5 +310,190 @@ describe('SchedulePage, adding and changing items', () => {
     await waitFor(() => expect(dayList().getByRole('checkbox', { name: 'Done: Book the pitch' })).toBeEnabled())
     fireEvent.click(dayList().getByRole('checkbox', { name: 'Done: Book the pitch' }))
     await waitFor(() => expect(rows('schedule_items').find((r) => r.id === 'pitch')).toMatchObject({ done_dates: [] }))
+  })
+})
+
+describe('SchedulePage, other ways of repeating', () => {
+  const add = async (title: string, mode: string) => {
+    fireEvent.click(screen.getByRole('button', { name: /Add/ }))
+    fireEvent.change(dialog().getByLabelText('Title'), { target: { value: title } })
+    fireEvent.click(within(dialog().getByRole('group', { name: 'Repeat' })).getByRole('button', { name: mode }))
+    fireEvent.click(dialog().getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  }
+
+  it('adds an item every two weeks: on in its first week, off the next, on again after', async () => {
+    resetDb({ schedule_items: [] })
+    renderPage()
+    await screen.findByRole('button', { name: /Add/ })
+    await add('Recovery', 'Every 2 weeks')
+    expect(itemWrites().at(-1)).toMatchObject({ values: { item_date: '2026-10-12', repeat_days: [1], repeat_every: 2, repeat_monthly: false } })
+    await waitFor(() => expect(listed()).toEqual([expect.stringMatching(/Recovery/)]))
+    expect(dayList().getByLabelText('Every 2 weeks')).toBeInTheDocument()
+    fireEvent.click(day(/^Monday, October 19/))
+    expect(screen.getByText('Nothing on this day')).toBeInTheDocument()
+    fireEvent.click(day(/^Monday, October 26/))
+    expect(listed()).toEqual([expect.stringMatching(/Recovery/)])
+  })
+
+  it('adds an item every month, on the same day number, with no weekdays to choose', async () => {
+    resetDb({ schedule_items: [] })
+    renderPage()
+    await screen.findByRole('button', { name: /Add/ })
+    fireEvent.click(screen.getByRole('button', { name: /Add/ }))
+    fireEvent.change(dialog().getByLabelText('Title'), { target: { value: 'Pay the pitch' } })
+    fireEvent.click(within(dialog().getByRole('group', { name: 'Repeat' })).getByRole('button', { name: 'Every month' }))
+    expect(dialog().queryByRole('group', { name: 'On these days' })).not.toBeInTheDocument()
+    expect(dialog().getByLabelText('Until (optional)')).toBeInTheDocument()
+    fireEvent.click(dialog().getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(itemWrites().at(-1)).toMatchObject({ values: { item_date: '2026-10-12', repeat_days: [], repeat_every: 1, repeat_monthly: true, repeat_until: null } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Thursday, November 12, 2026/ }))
+    await waitFor(() => expect(listed()).toEqual([expect.stringMatching(/Pay the pitch/)]))
+    expect(dayList().getByLabelText('Every month')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^Friday, November 13, 2026/ }))
+    expect(screen.getByText('Nothing on this day')).toBeInTheDocument()
+  })
+
+  it('an existing item opens on the way it repeats', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    fireEvent.click(day(/^Tuesday, October 13/))
+    fireEvent.click(dayList().getByRole('button', { name: /Team training/ }))
+    expect(within(dialog().getByRole('group', { name: 'Repeat' })).getByRole('button', { name: 'Every week' })).toHaveAttribute('aria-pressed', 'true')
+    const days = within(dialog().getByRole('group', { name: 'On these days' }))
+    expect(days.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent)).toEqual(['Tue', 'Sun'])
+  })
+})
+
+describe('SchedulePage, the week and day views', () => {
+  const view = () => within(screen.getByRole('group', { name: 'View' }))
+  const column = (date: string) => within(document.querySelector(`[data-day="${date}"]`) as HTMLElement)
+  const allDay = (date: string) => within(document.querySelector(`[data-all-day="${date}"]`) as HTMLElement)
+
+  it('opens on the month, and the views are Month, Week and Day', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    expect(view().getAllByRole('button').map((b) => b.textContent)).toEqual(['Month', 'Week', 'Day'])
+    expect(view().getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('the week view shows the seven days of the chosen week with each item at its time', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    fireEvent.click(view().getByRole('button', { name: 'Week' }))
+    expect(screen.getByRole('heading', { level: 2, name: 'Oct 12 – Oct 18, 2026' })).toBeInTheDocument()
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Mon12', 'Tue13', 'Wed14', 'Thu15', 'Fri16', 'Sat17', 'Sun18'])
+    // The month grid and its day list are not shown
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
+
+    // 48px an hour from 07:00: Gym at 08:00 with no end is one hour long, one hour down
+    const gym = column('2026-10-12').getByRole('button', { name: /Gym/ })
+    expect(gym).toHaveStyle({ top: '48px', height: '48px' })
+    // Team training 18:00 – 19:30 on Tuesday and Sunday
+    expect(column('2026-10-13').getByRole('button', { name: /Team training/ })).toHaveStyle({ top: '528px', height: '72px' })
+    expect(column('2026-10-18').getByRole('button', { name: /Team training/ })).toBeInTheDocument()
+    expect(column('2026-10-14').queryByRole('button', { name: /Team training/ })).not.toBeInTheDocument()
+    expect(column('2026-10-16').getByRole('button', { name: /Cup final/ })).toBeInTheDocument()
+
+    // What has no time sits in the all-day row of its day
+    expect(allDay('2026-10-12').getByRole('button', { name: /Book the pitch/ })).toBeInTheDocument()
+    expect(allDay('2026-10-12').getByRole('link', { name: /Match session/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1')
+    expect(allDay('2026-10-12').getByRole('link', { name: /Passing day/ })).toHaveAttribute('href', '/admin/eagles/trainings/p1')
+    expect(allDay('2026-10-13').queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('moves a week at a time, and Today comes back', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    fireEvent.click(view().getByRole('button', { name: 'Week' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next week' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Oct 19 – Oct 25, 2026' })).toBeInTheDocument()
+    await waitFor(() => expect(column('2026-10-20').getByRole('button', { name: /Team training/ })).toBeInTheDocument())
+    expect(column('2026-10-19').queryByRole('button', { name: /Gym/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Previous week' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Previous week' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Oct 5 – Oct 11, 2026' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Oct 12 – Oct 18, 2026' })).toBeInTheDocument()
+  })
+
+  it('the day view shows one day by the hour, and moves a day at a time', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    fireEvent.click(view().getByRole('button', { name: 'Day' }))
+    expect(screen.getByRole('heading', { level: 2, name: 'Monday, October 12, 2026' })).toBeInTheDocument()
+    expect(document.querySelectorAll('[data-day]')).toHaveLength(1)
+    expect(column('2026-10-12').getByRole('button', { name: /08:00.*Gym/ })).toBeInTheDocument()
+    expect(allDay('2026-10-12').getByRole('button', { name: /Book the pitch/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next day' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Tuesday, October 13, 2026' })).toBeInTheDocument()
+    await waitFor(() => expect(column('2026-10-13').getByRole('button', { name: /18:00 – 19:30.*Team training/ })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Previous day' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Monday, October 12, 2026' })).toBeInTheDocument()
+  })
+
+  it('tapping an empty hour starts a new item on that day at that time', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    fireEvent.click(view().getByRole('button', { name: 'Week' }))
+    fireEvent.click(column('2026-10-14').getByRole('button', { name: 'Add at 09:00' }))
+    expect(dialog().getByLabelText('Date')).toHaveValue('2026-10-14')
+    expect(dialog().getByLabelText('Start')).toHaveValue('09:00')
+    fireEvent.change(dialog().getByLabelText('Title'), { target: { value: 'Scout' } })
+    fireEvent.click(dialog().getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(itemWrites().at(-1)).toMatchObject({ values: { item_date: '2026-10-14', start_time: '09:00', title: 'Scout' } })
+    await waitFor(() => expect(column('2026-10-14').getByRole('button', { name: /Scout/ })).toHaveStyle({ top: '96px' }))
+  })
+
+  it('tapping an item in the grid opens it, and a day header opens that day', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    fireEvent.click(view().getByRole('button', { name: 'Week' }))
+    fireEvent.click(column('2026-10-16').getByRole('button', { name: /Cup final/ }))
+    expect(dialog().getByLabelText('Title')).toHaveValue('Cup final')
+    fireEvent.click(dialog().getByRole('button', { name: 'Cancel' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Friday, October 16, 2026' }))
+    expect(view().getByRole('button', { name: 'Day' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { level: 2, name: 'Friday, October 16, 2026' })).toBeInTheDocument()
+    expect(column('2026-10-16').getByRole('button', { name: /Cup final/ })).toBeInTheDocument()
+  })
+
+  it('the grid grows to hold an early or late item', async () => {
+    resetDb({ schedule_items: [
+      item({ id: 'early', title: 'Dawn run', start_time: '05:30:00' }),
+      item({ id: 'late', title: 'Late film', start_time: '22:00:00', end_time: '23:30:00' }),
+    ] })
+    renderPage()
+    await screen.findByRole('button', { name: /Dawn run/ })
+    fireEvent.click(view().getByRole('button', { name: 'Day' }))
+    // From 05:00: half an hour down
+    expect(column('2026-10-12').getByRole('button', { name: /Dawn run/ })).toHaveStyle({ top: '24px' })
+    expect(column('2026-10-12').getByRole('button', { name: 'Add at 05:00' })).toBeInTheDocument()
+    expect(column('2026-10-12').getByRole('button', { name: 'Add at 23:00' })).toBeInTheDocument()
+    expect(column('2026-10-12').queryByRole('button', { name: 'Add at 04:00' })).not.toBeInTheDocument()
+  })
+
+  it('remembers the view that was last used', async () => {
+    resetDb(data())
+    const first = renderPage()
+    await ready()
+    fireEvent.click(view().getByRole('button', { name: 'Week' }))
+    first.unmount()
+    renderPage()
+    await waitFor(() => expect(view().getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true'))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Oct 12 – Oct 18, 2026' })).toBeInTheDocument()
   })
 })

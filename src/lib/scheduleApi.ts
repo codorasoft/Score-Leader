@@ -5,7 +5,7 @@ import type { ScheduleExtras, ScheduleItem, ScheduleRow } from '../utils/schedul
 // The coach's schedule in the database. Which day an item is on is worked out in
 // src/utils/schedule.ts; here the rows are read for a range of days and written.
 
-const COLUMNS = 'id, kind, title, item_date, start_time, end_time, note, repeat_days, repeat_until, skipped_dates, done_dates'
+const COLUMNS = 'id, kind, title, item_date, start_time, end_time, note, repeat_days, repeat_every, repeat_monthly, repeat_until, skipped_dates, done_dates'
 
 // Throws when a request fails. Every item that can be on a day between `from` and `to`:
 // plain items dated inside the range, and repeating ones that have started and not yet ended.
