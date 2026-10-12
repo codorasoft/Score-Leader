@@ -1,11 +1,11 @@
 import {
-  addDays, dotsFor, draftProblem, draftToRow, emptyDraft, isDone, itemsOn, monthGrid, occursOn, shiftMonth, timeLabel,
-  toDraft, weekdayOf, weekdayOrder, weekStartFor, type ScheduleItem,
+  addDays, dotsFor, draftProblem, draftToRow, emptyDraft, gridHours, isDone, itemsOn, layoutDay, monthGrid, occursOn,
+  repeatModeOf, shiftMonth, timeLabel, toDraft, weekdayOf, weekdayOrder, weekOf, weekStartFor, withRepeat, type ScheduleItem,
 } from './schedule'
 
 const item = (over: Partial<ScheduleItem> = {}): ScheduleItem => ({
   id: 'i1', kind: 'task', title: 'Book the pitch', item_date: '2026-10-12', start_time: null, end_time: null, note: null,
-  repeat_days: [], repeat_until: null, skipped_dates: [], done_dates: [], ...over,
+  repeat_days: [], repeat_every: 1, repeat_monthly: false, repeat_until: null, skipped_dates: [], done_dates: [], ...over,
 })
 
 describe('days', () => {
@@ -131,14 +131,89 @@ describe('a day', () => {
   })
 })
 
+describe('repeats every two weeks', () => {
+  // Sundays and Tuesdays, every second week, from Sunday 11 October
+  const training = item({ item_date: '2026-10-11', repeat_days: [0, 2], repeat_every: 2 })
+
+  it('is on its weekdays in the first week and every second week after it', () => {
+    expect(occursOn(training, '2026-10-11')).toBe(true)
+    expect(occursOn(training, '2026-10-13')).toBe(true)
+    expect(occursOn(training, '2026-10-18')).toBe(false)
+    expect(occursOn(training, '2026-10-20')).toBe(false)
+    expect(occursOn(training, '2026-10-25')).toBe(true)
+    expect(occursOn(training, '2026-10-27')).toBe(true)
+    expect(occursOn(training, '2026-11-01')).toBe(false)
+    expect(occursOn(training, '2026-11-08')).toBe(true)
+  })
+
+  it('counts its weeks from its own first day, whatever day the calendar week starts on', () => {
+    // Starts on Tuesday 13: that Tuesday and the Sunday after it are in the same first week
+    const fromTuesday = item({ item_date: '2026-10-13', repeat_days: [0, 2], repeat_every: 2 })
+    expect(occursOn(fromTuesday, '2026-10-13')).toBe(true)
+    expect(occursOn(fromTuesday, '2026-10-18')).toBe(true)
+    expect(occursOn(fromTuesday, '2026-10-20')).toBe(false)
+    expect(occursOn(fromTuesday, '2026-10-25')).toBe(false)
+    expect(occursOn(fromTuesday, '2026-10-27')).toBe(true)
+    expect(occursOn(fromTuesday, '2026-11-01')).toBe(true)
+  })
+
+  it('still stops at its last day and leaves out deleted days', () => {
+    expect(occursOn({ ...training, repeat_until: '2026-10-25' }, '2026-10-27')).toBe(false)
+    expect(occursOn({ ...training, skipped_dates: ['2026-10-25'] }, '2026-10-25')).toBe(false)
+  })
+})
+
+describe('repeats every month', () => {
+  it('is on the same day number of every month from its first day on', () => {
+    const rent = item({ item_date: '2026-10-12', repeat_monthly: true })
+    expect(occursOn(rent, '2026-10-12')).toBe(true)
+    expect(occursOn(rent, '2026-11-12')).toBe(true)
+    expect(occursOn(rent, '2027-02-12')).toBe(true)
+    expect(occursOn(rent, '2026-11-13')).toBe(false)
+    expect(occursOn(rent, '2026-09-12')).toBe(false)
+  })
+
+  it('skips a month that does not have that day', () => {
+    const end = item({ item_date: '2026-10-31', repeat_monthly: true })
+    expect(occursOn(end, '2026-11-30')).toBe(false)
+    expect(occursOn(end, '2026-12-31')).toBe(true)
+    expect(occursOn(end, '2027-02-28')).toBe(false)
+  })
+
+  it('stops at its last day and leaves out deleted days', () => {
+    const rent = item({ item_date: '2026-10-12', repeat_monthly: true, repeat_until: '2026-12-31', skipped_dates: ['2026-11-12'] })
+    expect(occursOn(rent, '2026-11-12')).toBe(false)
+    expect(occursOn(rent, '2026-12-12')).toBe(true)
+    expect(occursOn(rent, '2027-01-12')).toBe(false)
+  })
+})
+
 describe('the item form', () => {
   it('starts as an all-day task on the chosen day that does not repeat', () => {
-    expect(emptyDraft('2026-10-12')).toEqual({ kind: 'task', title: '', date: '2026-10-12', start: '', end: '', note: '', repeatDays: [], until: '' })
+    expect(emptyDraft('2026-10-12')).toEqual({ kind: 'task', title: '', date: '2026-10-12', start: '', end: '', note: '', repeat: 'none', repeatDays: [], until: '' })
   })
 
   it('is filled from an existing item, with times as the form shows them', () => {
     expect(toDraft(item({ kind: 'training', title: 'Team training', item_date: '2026-10-11', start_time: '18:00:00', end_time: '19:30:00', note: 'Bibs', repeat_days: [2, 0], repeat_until: '2026-12-31' })))
-      .toEqual({ kind: 'training', title: 'Team training', date: '2026-10-11', start: '18:00', end: '19:30', note: 'Bibs', repeatDays: [0, 2], until: '2026-12-31' })
+      .toEqual({ kind: 'training', title: 'Team training', date: '2026-10-11', start: '18:00', end: '19:30', note: 'Bibs', repeat: 'weekly', repeatDays: [0, 2], until: '2026-12-31' })
+  })
+
+  it('knows how an item repeats', () => {
+    expect(repeatModeOf(item())).toBe('none')
+    expect(repeatModeOf(item({ repeat_days: [1] }))).toBe('weekly')
+    expect(repeatModeOf(item({ repeat_days: [1], repeat_every: 2 }))).toBe('biweekly')
+    expect(repeatModeOf(item({ repeat_monthly: true }))).toBe('monthly')
+    expect(toDraft(item({ repeat_days: [1], repeat_every: 2 }))).toMatchObject({ repeat: 'biweekly', repeatDays: [1] })
+    expect(toDraft(item({ repeat_monthly: true }))).toMatchObject({ repeat: 'monthly', repeatDays: [] })
+  })
+
+  it("choosing a weekly repeat starts on the date's own weekday, and keeps weekdays already chosen", () => {
+    const monday = { ...emptyDraft('2026-10-12'), title: 'Gym' }
+    expect(withRepeat(monday, 'weekly')).toMatchObject({ repeat: 'weekly', repeatDays: [1] })
+    expect(withRepeat(monday, 'biweekly')).toMatchObject({ repeat: 'biweekly', repeatDays: [1] })
+    expect(withRepeat({ ...monday, repeat: 'weekly', repeatDays: [0, 2] }, 'biweekly')).toMatchObject({ repeat: 'biweekly', repeatDays: [0, 2] })
+    expect(withRepeat({ ...monday, repeat: 'weekly', repeatDays: [0, 2] }, 'monthly')).toMatchObject({ repeat: 'monthly' })
+    expect(withRepeat({ ...monday, repeat: 'weekly', repeatDays: [0, 2] }, 'none')).toMatchObject({ repeat: 'none' })
   })
 
   it('says what stops it from being saved', () => {
@@ -150,17 +225,74 @@ describe('the item form', () => {
     expect(draftProblem({ ...ok, start: '10:00', end: '10:00' })).toBe('times')
     expect(draftProblem({ ...ok, start: '10:00', end: '09:00' })).toBe('times')
     expect(draftProblem({ ...ok, start: '10:00', end: '11:00' })).toBeNull()
-    expect(draftProblem({ ...ok, repeatDays: [1], until: '2026-10-11' })).toBe('until')
-    expect(draftProblem({ ...ok, repeatDays: [1], until: '2026-10-12' })).toBeNull()
-    // An Until left over from before repeating was switched off does not matter
-    expect(draftProblem({ ...ok, until: '2026-10-01' })).toBeNull()
+    // A weekly or two-weekly repeat needs at least one weekday
+    expect(draftProblem({ ...ok, repeat: 'weekly' })).toBe('days')
+    expect(draftProblem({ ...ok, repeat: 'biweekly' })).toBe('days')
+    expect(draftProblem({ ...ok, repeat: 'monthly' })).toBeNull()
+    expect(draftProblem({ ...ok, repeat: 'weekly', repeatDays: [1], until: '2026-10-11' })).toBe('until')
+    expect(draftProblem({ ...ok, repeat: 'monthly', until: '2026-10-11' })).toBe('until')
+    expect(draftProblem({ ...ok, repeat: 'weekly', repeatDays: [1], until: '2026-10-12' })).toBeNull()
+    // What is left over from before repeating was switched off does not matter
+    expect(draftProblem({ ...ok, repeatDays: [], until: '2026-10-01' })).toBeNull()
   })
 
   it('becomes a clean row: trimmed, empty things as nothing, weekdays in order', () => {
-    expect(draftToRow({ kind: 'training', title: '  Team   training ', date: '2026-10-11', start: '18:00', end: '', note: '  ', repeatDays: [2, 0], until: '2026-12-31' }))
-      .toEqual({ kind: 'training', title: 'Team training', item_date: '2026-10-11', start_time: '18:00', end_time: null, note: null, repeat_days: [0, 2], repeat_until: '2026-12-31' })
-    // Not repeating: no last day either
-    expect(draftToRow({ ...emptyDraft('2026-10-12'), title: 'Gym', note: ' Leg day ', until: '2026-12-31' }))
-      .toMatchObject({ repeat_days: [], repeat_until: null, note: 'Leg day', start_time: null })
+    expect(draftToRow({ kind: 'training', title: '  Team   training ', date: '2026-10-11', start: '18:00', end: '', note: '  ', repeat: 'weekly', repeatDays: [2, 0], until: '2026-12-31' }))
+      .toEqual({
+        kind: 'training', title: 'Team training', item_date: '2026-10-11', start_time: '18:00', end_time: null, note: null,
+        repeat_days: [0, 2], repeat_every: 1, repeat_monthly: false, repeat_until: '2026-12-31',
+      })
+  })
+
+  it('becomes a row that repeats the chosen way, and only that way', () => {
+    const base = { ...emptyDraft('2026-10-12'), title: 'Gym', note: ' Leg day ', repeatDays: [3, 1], until: '2026-12-31' }
+    expect(draftToRow({ ...base, repeat: 'none' })).toMatchObject({ repeat_days: [], repeat_every: 1, repeat_monthly: false, repeat_until: null, note: 'Leg day' })
+    expect(draftToRow({ ...base, repeat: 'weekly' })).toMatchObject({ repeat_days: [1, 3], repeat_every: 1, repeat_monthly: false, repeat_until: '2026-12-31' })
+    expect(draftToRow({ ...base, repeat: 'biweekly' })).toMatchObject({ repeat_days: [1, 3], repeat_every: 2, repeat_monthly: false, repeat_until: '2026-12-31' })
+    expect(draftToRow({ ...base, repeat: 'monthly' })).toMatchObject({ repeat_days: [], repeat_every: 1, repeat_monthly: true, repeat_until: '2026-12-31' })
+    expect(draftToRow({ ...base, repeat: 'monthly', until: '' })).toMatchObject({ repeat_until: null })
+  })
+})
+
+describe('the week and day views', () => {
+  it('a week is the seven days from its first weekday that hold the date', () => {
+    expect(weekOf('2026-10-14', 1)).toEqual(['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18'])
+    expect(weekOf('2026-10-14', 6)[0]).toBe('2026-10-10')
+    expect(weekOf('2026-10-12', 1)[0]).toBe('2026-10-12')
+    expect(weekOf('2026-11-01', 1)).toEqual(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01'])
+  })
+
+  it('shows 07:00 to 21:00, and more when an item starts earlier or ends later', () => {
+    expect(gridHours([])).toEqual({ from: 7, to: 21 })
+    expect(gridHours([item({ start_time: '09:00:00', end_time: '10:00:00' })])).toEqual({ from: 7, to: 21 })
+    expect(gridHours([item({ start_time: '05:30:00' }), item({ start_time: '20:30:00', end_time: '22:15:00' })])).toEqual({ from: 5, to: 23 })
+    // No end time counts as one hour
+    expect(gridHours([item({ start_time: '21:00:00' })])).toEqual({ from: 7, to: 22 })
+    expect(gridHours([item({ start_time: '23:30:00' })])).toEqual({ from: 7, to: 24 })
+    // All-day items take no hours
+    expect(gridHours([item()])).toEqual({ from: 7, to: 21 })
+  })
+
+  it('places the timed items of a day by their minutes; no end time is one hour', () => {
+    const gym = item({ id: 'gym', start_time: '08:00:00' })
+    const training = item({ id: 'tr', start_time: '18:00:00', end_time: '19:30:00' })
+    expect(layoutDay([training, item({ id: 'allday' }), gym])).toEqual([
+      { item: gym, start: 480, end: 540, lane: 0, lanes: 1 },
+      { item: training, start: 1080, end: 1170, lane: 0, lanes: 1 },
+    ])
+  })
+
+  it('puts items that overlap side by side, and lets what follows use the full width again', () => {
+    const a = item({ id: 'a', start_time: '09:00:00', end_time: '11:00:00' })
+    const b = item({ id: 'b', start_time: '10:00:00', end_time: '12:00:00' })
+    const c = item({ id: 'c', start_time: '11:00:00', end_time: '12:00:00' })
+    const d = item({ id: 'd', start_time: '14:00:00', end_time: '15:00:00' })
+    expect(layoutDay([d, c, b, a]).map((e) => [e.item.id, e.lane, e.lanes])).toEqual([
+      ['a', 0, 2], ['b', 1, 2], ['c', 0, 2], ['d', 0, 1],
+    ])
+  })
+
+  it('an item that runs to midnight ends at the end of the day', () => {
+    expect(layoutDay([item({ start_time: '23:30:00' })])[0]).toMatchObject({ start: 1410, end: 1440 })
   })
 })

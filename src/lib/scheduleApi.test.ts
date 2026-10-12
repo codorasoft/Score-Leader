@@ -27,11 +27,19 @@ describe('fetchScheduleItems', () => {
         row({ id: 'ended', item_date: '2026-01-04', repeat_days: [0], repeat_until: '2026-09-30' }),
         row({ id: 'not-yet', item_date: '2026-11-01', repeat_days: [0] }),
         row({ id: 'other-weekly', league_id: 'L2', item_date: '2026-01-04', repeat_days: [0] }),
+        // Every month and every two weeks are repeating items too
+        row({ id: 'monthly', item_date: '2026-03-15', repeat_monthly: true }),
+        row({ id: 'two-weekly', item_date: '2026-02-01', repeat_days: [0], repeat_every: 2 }),
+        row({ id: 'monthly-ended', item_date: '2026-03-15', repeat_monthly: true, repeat_until: '2026-08-15' }),
       ],
     })
     const items = await fetchScheduleItems('L1', '2026-10-01', '2026-10-31')
-    expect(items.map((i) => i.id).sort()).toEqual(['ends-inside', 'first-day', 'in', 'last-day', 'weekly'])
-    expect(items.find((i) => i.id === 'weekly')).toMatchObject({ repeat_days: [0, 2], kind: 'task', title: 'Item' })
+    expect(items.map((i) => i.id).sort()).toEqual(['ends-inside', 'first-day', 'in', 'last-day', 'monthly', 'two-weekly', 'weekly'])
+    expect(items.find((i) => i.id === 'weekly')).toMatchObject({ repeat_days: [0, 2], repeat_every: 1, repeat_monthly: false, kind: 'task', title: 'Item' })
+    expect(items.find((i) => i.id === 'two-weekly')).toMatchObject({ repeat_every: 2 })
+    expect(items.find((i) => i.id === 'monthly')).toMatchObject({ repeat_monthly: true, repeat_days: [] })
+    // A plain item comes back with the database's defaults for the repeat fields
+    expect(items.find((i) => i.id === 'in')).toMatchObject({ repeat_every: 1, repeat_monthly: false })
   })
 
   it('throws when the items cannot be read', async () => {
@@ -75,7 +83,7 @@ describe('fetchScheduleExtras', () => {
 describe('writing', () => {
   const draftRow = {
     kind: 'training' as const, title: 'Team training', item_date: '2026-10-11', start_time: '18:00', end_time: '19:30',
-    note: null, repeat_days: [0, 2], repeat_until: null,
+    note: null, repeat_days: [0, 2], repeat_every: 2, repeat_monthly: false, repeat_until: null,
   }
   const saved = (id: string) => rows('schedule_items').find((r) => r.id === id) as unknown as ScheduleItem
 

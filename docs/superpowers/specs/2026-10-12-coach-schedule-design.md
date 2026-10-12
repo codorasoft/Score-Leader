@@ -98,8 +98,33 @@ Loading, load failure with Retry, and the error toast on a refused save work as 
 ## 7. Out of scope
 
 - Reminders and notifications.
-- Week and day views with hours.
-- Repeats other than weekly on chosen weekdays (monthly, every two weeks).
+- Repeats by other rules (every third week, the first Monday of a month, every year).
 - Changing a single day of a repeating item (only deleting it).
 - Sharing the schedule with players or anyone else.
 - One calendar across several leagues.
+
+## 8. Added on 2026-10-12: more repeats, and week and day views
+
+### Repeats
+
+Two new columns on `schedule_items`:
+
+- `repeat_every` smallint, 1–4, default 1: every how many weeks the weekdays in `repeat_days` come round. Weeks are counted in blocks of seven days from `item_date`, so the answer does not depend on the day a calendar week starts on. More than 1 needs `repeat_days`.
+- `repeat_monthly` boolean, default false: every month on the day number of `item_date`. A month without that day (the 31st; the 30th in February) is skipped. Never together with `repeat_days`.
+
+`repeats` is now true for monthly items too, and `repeat_until` is allowed for them.
+
+The form offers **Does not repeat / Every week / Every 2 weeks / Every month**. The weekly choices show the weekday chips, starting on the date's own weekday; at least one weekday is needed.
+
+### Views
+
+A **Month / Week / Day** switch; the last one used is remembered on the device.
+
+- **Week** and **Day** show the hours down the page (07:00–21:00, stretched to hold an earlier or later item) with one column per day. A timed item is a block at its time, as tall as it is long (one hour when it has no end); items that overlap sit side by side.
+- What has no time (all-day items, match sessions, training plans) sits in a row above the hours.
+- Tapping an empty hour starts a new item on that day at that time. Tapping an item opens it. In the week, tapping a day's heading opens that day.
+- The arrows move a month, a week or a day, by the view. Today returns to today.
+
+### Tab
+
+The tab is named **Coach's schedule** (جدول المدرب). On a phone a tab name too long for its column wraps onto a second line.

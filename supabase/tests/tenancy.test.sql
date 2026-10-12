@@ -803,6 +803,37 @@ SELECT pg_temp.expect_error(
 SELECT pg_temp.expect_error(
   $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date) VALUES ('bbbbbbbb-0000-4000-8000-000000000002', 'task', 'Planted', '2026-10-12')$sql$,
   'row-level security');
+-- Repeats every two weeks, and every month
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_days, repeat_every)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'training', 'Every other week', '2026-10-11', '{0,2}', 2)$sql$,
+  1);
+SELECT pg_temp.expect_count(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_monthly, repeat_until)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'other', 'Every month', '2026-10-31', true, '2027-06-30')$sql$,
+  1);
+SELECT pg_temp.expect(
+  (SELECT repeats AND repeat_every = 2 AND NOT repeat_monthly FROM public.schedule_items WHERE title = 'Every other week')
+  AND (SELECT repeats AND repeat_every = 1 AND repeat_monthly AND repeat_days = '{}' FROM public.schedule_items WHERE title = 'Every month')
+  AND (SELECT NOT repeats AND repeat_every = 1 AND NOT repeat_monthly FROM public.schedule_items WHERE id = 'aaaaaaaa-0000-4000-8000-000000000018'),
+  'repeats is true for weekly, two-weekly and monthly items, and false for a plain one');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_every) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Two weeks, no days', '2026-10-12', 2)$sql$,
+  'schedule_items_repeat_every_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_days, repeat_every) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Every 5 weeks', '2026-10-12', '{1}', 5)$sql$,
+  'schedule_items_repeat_every_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_days, repeat_every) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Every 0 weeks', '2026-10-12', '{1}', 0)$sql$,
+  'schedule_items_repeat_every_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_days, repeat_monthly) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Weekly and monthly', '2026-10-12', '{1}', true)$sql$,
+  'schedule_items_repeat_monthly_check');
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.schedule_items (league_id, kind, title, item_date, repeat_monthly, repeat_until) VALUES ('aaaaaaaa-0000-4000-8000-000000000002', 'task', 'Monthly, until before', '2026-10-12', true, '2026-10-11')$sql$,
+  'schedule_items_repeat_until_check');
+SELECT pg_temp.expect_count(
+  $sql$DELETE FROM public.schedule_items WHERE title IN ('Every other week', 'Every month')$sql$, 2);
 SELECT pg_temp.expect((SELECT count(*) = 2 FROM public.schedule_items), 'A reads the two items of a-league');
 RESET role;
 

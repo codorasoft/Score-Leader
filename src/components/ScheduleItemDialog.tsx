@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { draftProblem, SCHEDULE_KINDS, weekdayOrder, type ScheduleDraft } from '../utils/schedule'
+import { draftProblem, SCHEDULE_KINDS, weekdayOrder, withRepeat, type RepeatMode, type ScheduleDraft } from '../utils/schedule'
 import { DOT_COLOR, weekdayName } from './MonthCalendar'
+
+const REPEAT_MODES: RepeatMode[] = ['none', 'weekly', 'biweekly', 'monthly']
 
 interface Props {
   initial: ScheduleDraft
@@ -17,7 +19,7 @@ interface Props {
   onClose: () => void
 }
 
-// The form for one schedule item: what kind it is, when it is, and on which weekdays it repeats.
+// The form for one schedule item: what kind it is, when it is, and how it repeats.
 // Tapping outside cancels.
 export default function ScheduleItemDialog({ initial, editing, weekStartsOn, busy, onSave, onDeleteAll, onDeleteDay, onClose }: Props) {
   const { t, i18n } = useTranslation()
@@ -25,7 +27,7 @@ export default function ScheduleItemDialog({ initial, editing, weekStartsOn, bus
   const [confirming, setConfirming] = useState(false)
   const set = (change: Partial<ScheduleDraft>) => setDraft((d) => ({ ...d, ...change }))
   const problem = draftProblem(draft)
-  const repeats = draft.repeatDays.length > 0
+  const byWeekdays = draft.repeat === 'weekly' || draft.repeat === 'biweekly'
   const toggleDay = (weekday: number) => set({
     repeatDays: draft.repeatDays.includes(weekday) ? draft.repeatDays.filter((d) => d !== weekday) : [...draft.repeatDays, weekday],
   })
@@ -79,15 +81,29 @@ export default function ScheduleItemDialog({ initial, editing, weekStartsOn, bus
         </div>
         {problem === 'times' && <p className="text-sm text-red-400 mt-1">{t('schedule.problems.times')}</p>}
 
-        <p className="text-sm text-gray-400 mt-3 mb-1" id="repeat-label">{t('schedule.repeatOn')}</p>
+        <p className="text-sm text-gray-400 mt-3 mb-1" id="repeat-label">{t('schedule.repeat')}</p>
         <div role="group" aria-labelledby="repeat-label" className="flex flex-wrap gap-1.5">
-          {weekdayOrder(weekStartsOn).map((weekday) => (
-            <button key={weekday} type="button" aria-pressed={draft.repeatDays.includes(weekday)} onClick={() => toggleDay(weekday)} className={chip(draft.repeatDays.includes(weekday))}>
-              {weekdayName(weekday, i18n.language)}
+          {REPEAT_MODES.map((mode) => (
+            <button key={mode} type="button" aria-pressed={draft.repeat === mode} onClick={() => setDraft((d) => withRepeat(d, mode))} className={chip(draft.repeat === mode)}>
+              {t(`schedule.repeatModes.${mode}`)}
             </button>
           ))}
         </div>
-        {repeats && (
+
+        {byWeekdays && (
+          <>
+            <p className="text-sm text-gray-400 mt-3 mb-1" id="days-label">{t('schedule.onDays')}</p>
+            <div role="group" aria-labelledby="days-label" className="flex flex-wrap gap-1.5">
+              {weekdayOrder(weekStartsOn).map((weekday) => (
+                <button key={weekday} type="button" aria-pressed={draft.repeatDays.includes(weekday)} onClick={() => toggleDay(weekday)} className={chip(draft.repeatDays.includes(weekday))}>
+                  {weekdayName(weekday, i18n.language)}
+                </button>
+              ))}
+            </div>
+            {problem === 'days' && <p className="text-sm text-red-400 mt-1">{t('schedule.problems.days')}</p>}
+          </>
+        )}
+        {draft.repeat !== 'none' && (
           <label className={`${label} mt-3`}>
             {t('schedule.until')}
             <input type="date" value={draft.until} onChange={(e) => set({ until: e.target.value })} className={field} />

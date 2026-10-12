@@ -4,17 +4,37 @@ import { useTranslation } from 'react-i18next'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { deleteScheduleItem, fetchScheduleExtras, fetchScheduleItems, saveScheduleItem, setDone, skipDay } from '../../lib/scheduleApi'
 import {
-  dotsFor, draftToRow, emptyDraft, isDone, itemsOn, monthGrid, monthOf, shiftMonth, timeLabel, toDraft, weekStartFor,
-  type Month, type ScheduleDraft, type ScheduleExtras, type ScheduleItem,
+  addDays, dotsFor, draftToRow, emptyDraft, firstOfMonth, isDone, itemsOn, monthGrid, monthOf, repeatModeOf, shiftMonth, timeLabel,
+  toDraft, weekOf, weekStartFor, type Month, type ScheduleDraft, type ScheduleExtras, type ScheduleItem,
 } from '../../utils/schedule'
 import { localToday } from '../../utils/trainingDays'
 import MonthCalendar, { DOT_COLOR, longDay, monthTitle } from '../../components/MonthCalendar'
 import ScheduleItemDialog from '../../components/ScheduleItemDialog'
+import TimeGrid from '../../components/TimeGrid'
 
+type View = 'month' | 'week' | 'day'
+const VIEWS: View[] = ['month', 'week', 'day']
+const VIEW_KEY = 'scoreleader.scheduleView'
 const NO_EXTRAS: ScheduleExtras = { sessions: [], plans: [] }
 
-// The coach's schedule: a full month, and under it the chosen day with everything on it. Match
-// sessions and training plans come from the app itself and open their own pages.
+// The view last used, so a coach who works by the week opens on the week
+function rememberedView(): View {
+  try {
+    const saved = localStorage.getItem(VIEW_KEY)
+    return VIEWS.includes(saved as View) ? (saved as View) : 'month'
+  } catch {
+    return 'month'
+  }
+}
+
+// "Oct 12 – Oct 18, 2026"
+function weekTitle(days: string[], language: string): string {
+  const short = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString(language, { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  return `${short(days[0])} – ${short(days[6])}, ${days[6].slice(0, 4)}`
+}
+
+// The coach's schedule: a month, a week or a day, with everything on it. Match sessions and
+// training plans come from the app itself and open their own pages.
 export default function SchedulePage() {
   const { t, i18n } = useTranslation()
   const league = useLeague()
@@ -22,21 +42,25 @@ export default function SchedulePage() {
   const withPlans = useFeature('training')
   const weekStartsOn = weekStartFor(i18n.language)
   const today = localToday()
-  const [month, setMonth] = useState<Month>(() => monthOf(today))
+  const [view, setView] = useState<View>(rememberedView)
+  // The chosen day; the month, week or day shown is the one that holds it
   const [selected, setSelected] = useState(today)
   const [items, setItems] = useState<ScheduleItem[] | null>(null)
   const [extras, setExtras] = useState<ScheduleExtras>(NO_EXTRAS)
   const [failed, setFailed] = useState(false)
   const [busy, setBusy] = useState(false)
-  // The form: a new item for the chosen day, or the item that was tapped
-  const [form, setForm] = useState<{ item: ScheduleItem | null } | null>(null)
+  // The form: a new item for a day (and maybe a start time), or an item opened from one of its days
+  const [form, setForm] = useState<{ item: ScheduleItem | null; date: string; start?: string } | null>(null)
 
-  // Latest request, so a slow answer for a month or league we have left is dropped
+  const month: Month = monthOf(selected)
+  const week = weekOf(selected, weekStartsOn)
+  const weeks = monthGrid(month.year, month.month, weekStartsOn)
+  // The days whose items are needed for what is on screen
+  const [from, to] = view === 'month' ? [weeks[0][0], weeks[weeks.length - 1][6]] : view === 'week' ? [week[0], week[6]] : [selected, selected]
+
+  // Latest request, so a slow answer for days or a league we have left is dropped
   const current = useRef('')
   const load = useCallback(() => {
-    const weeks = monthGrid(month.year, month.month, weekStartsOn)
-    const from = weeks[0][0]
-    const to = weeks[weeks.length - 1][6]
     const request = `${league.id}/${from}/${to}`
     current.current = request
     setFailed(false)
@@ -47,24 +71,25 @@ export default function SchedulePage() {
         setExtras(more)
       })
       .catch(() => { if (current.current === request) setFailed(true) })
-  }, [league.id, month.year, month.month, weekStartsOn, withPlans])
+  }, [league.id, from, to, withPlans])
 
   useEffect(() => { load() }, [load])
 
+  const choose = (next: View) => {
+    setView(next)
+    try { localStorage.setItem(VIEW_KEY, next) } catch { /* storage blocked: the view is just not remembered */ }
+  }
   // Another month opens on today when it holds today, otherwise on its first day
-  const show = (next: Month) => {
-    const first = `${next.year}-${String(next.month).padStart(2, '0')}-01`
-    setMonth(next)
+  const showMonth = (next: Month) => {
+    const first = firstOfMonth(next)
     setSelected(first.slice(0, 7) === today.slice(0, 7) ? today : first)
   }
-  // A day of a neighbouring month, tapped in the first or last week, opens that month
-  const select = (date: string) => {
-    setSelected(date)
-    const of = monthOf(date)
-    if (of.year !== month.year || of.month !== month.month) setMonth(of)
+  const step = (by: -1 | 1) => {
+    if (view === 'month') showMonth(shiftMonth(month, by))
+    else setSelected(addDays(selected, view === 'week' ? 7 * by : by))
   }
 
-  // One write at a time; the month is read again when it worked
+  // One write at a time; what is on screen is read again when it worked
   const write = async (run: () => Promise<boolean>): Promise<boolean> => {
     if (busy) return false
     setBusy(true)
@@ -82,22 +107,38 @@ export default function SchedulePage() {
   const daySessions = extras.sessions.filter((s) => s.date === selected)
   const dayPlans = extras.plans.filter((p) => p.training_date === selected)
   const nothing = dayItems.length + daySessions.length + dayPlans.length === 0
-  const navButton = 'w-10 h-10 rounded-lg bg-gray-800 hover:bg-gray-700 text-lg'
+  const title = view === 'month' ? monthTitle(month, i18n.language) : view === 'week' ? weekTitle(week, i18n.language) : longDay(selected, i18n.language)
+  const navButton = 'w-10 h-10 shrink-0 rounded-lg bg-gray-800 hover:bg-gray-700 text-lg'
   const row = 'flex items-center gap-3 bg-gray-800 rounded-xl px-3 py-2.5'
+  const addButton = (
+    <button type="button" onClick={() => setForm({ item: null, date: selected })} className="shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold">
+      ＋ {t('schedule.add')}
+    </button>
+  )
 
   return (
     <div className="max-w-lg mx-auto">
-      <h1 className="text-xl font-bold mb-3">{t('schedule.title')}</h1>
+      <div className="flex items-center gap-2 mb-3">
+        <h1 className="flex-1 min-w-0 text-xl font-bold">{t('schedule.title')}</h1>
+        <div role="group" aria-label={t('schedule.view')} className="flex rounded-lg bg-gray-800 p-0.5">
+          {VIEWS.map((v) => (
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => choose(v)}
+              className={`px-3 py-1.5 rounded-md text-sm font-semibold ${view === v ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white'}`}>
+              {t(`schedule.views.${v}`)}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="flex items-center gap-2 mb-3">
-        <button type="button" onClick={() => show(shiftMonth(month, -1))} aria-label={t('schedule.prevMonth')} className={navButton}>
+        <button type="button" onClick={() => step(-1)} aria-label={t(`schedule.prev.${view}`)} className={navButton}>
           <span aria-hidden="true">‹</span>
         </button>
-        <h2 className="flex-1 text-center font-semibold">{monthTitle(month, i18n.language)}</h2>
-        <button type="button" onClick={() => show(shiftMonth(month, 1))} aria-label={t('schedule.nextMonth')} className={navButton}>
+        <h2 className="flex-1 min-w-0 text-center font-semibold">{title}</h2>
+        <button type="button" onClick={() => step(1)} aria-label={t(`schedule.next.${view}`)} className={navButton}>
           <span aria-hidden="true">›</span>
         </button>
-        <button type="button" onClick={() => show(monthOf(today))} className="h-10 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-semibold">
+        <button type="button" onClick={() => setSelected(today)} className="h-10 shrink-0 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-semibold">
           {t('schedule.today')}
         </button>
       </div>
@@ -109,7 +150,7 @@ export default function SchedulePage() {
         </div>
       ) : !items ? (
         <p className="text-gray-400">{t('common.loading')}</p>
-      ) : (
+      ) : view === 'month' ? (
         <>
           <MonthCalendar
             month={month}
@@ -118,14 +159,12 @@ export default function SchedulePage() {
             today={today}
             selected={selected}
             dots={(date) => dotsFor(items, extras, date)}
-            onSelect={select}
+            onSelect={setSelected}
           />
 
           <div className="flex items-center gap-2 mt-4 mb-2">
             <h2 className="flex-1 min-w-0 font-semibold">{longDay(selected, i18n.language)}</h2>
-            <button type="button" onClick={() => setForm({ item: null })} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold">
-              ＋ {t('schedule.add')}
-            </button>
+            {addButton}
           </div>
 
           {nothing && <p className="text-gray-500 text-center py-6">{t('schedule.empty')}</p>}
@@ -133,16 +172,17 @@ export default function SchedulePage() {
           <ul aria-label={longDay(selected, i18n.language)} className="space-y-2">
             {dayItems.map((item) => {
               const done = isDone(item, selected)
+              const repeat = repeatModeOf(item)
               return (
                 <li key={item.id} className={row}>
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${DOT_COLOR[item.kind]}`} aria-hidden="true" />
-                  <button type="button" onClick={() => setForm({ item })} className="flex-1 min-w-0 text-start">
+                  <button type="button" onClick={() => setForm({ item, date: selected })} className="flex-1 min-w-0 text-start">
                     <span className="block text-xs text-gray-400" dir="ltr">{timeLabel(item) ?? t('schedule.allDay')}</span>
                     <span className={`block font-semibold break-words ${done ? 'line-through text-gray-400' : ''}`} dir="auto">{item.title}</span>
                     <span className="block text-xs text-gray-400">{t(`schedule.kinds.${item.kind}`)}</span>
                   </button>
-                  {item.repeat_days.length > 0 && (
-                    <span role="img" aria-label={t('schedule.repeats')} title={t('schedule.repeats')} className="text-gray-400">↻</span>
+                  {repeat !== 'none' && (
+                    <span role="img" aria-label={t(`schedule.repeatModes.${repeat}`)} title={t(`schedule.repeatModes.${repeat}`)} className="text-gray-400">↻</span>
                   )}
                   {item.kind === 'task' && (
                     <input
@@ -180,18 +220,35 @@ export default function SchedulePage() {
             ))}
           </ul>
         </>
+      ) : (
+        <>
+          <TimeGrid
+            days={view === 'week' ? week : [selected]}
+            language={i18n.language}
+            today={today}
+            items={items}
+            extras={extras}
+            onOpen={(item, date) => setForm({ item, date })}
+            onAddAt={(date, start) => setForm({ item: null, date, start })}
+            // A day's heading in the week opens that day by the hour
+            onPickDay={view === 'week' ? (date) => { setSelected(date); choose('day') } : undefined}
+            sessionPath={(id) => adminPath(`/sessions/${id}`)}
+            planPath={(id) => adminPath(`/trainings/${id}`)}
+          />
+          <div className="flex justify-end mt-3">{addButton}</div>
+        </>
       )}
 
       {form && (
         <ScheduleItemDialog
-          key={form.item?.id ?? 'new'}
-          initial={form.item ? toDraft(form.item) : emptyDraft(selected)}
+          key={form.item?.id ?? `new-${form.date}-${form.start ?? ''}`}
+          initial={form.item ? toDraft(form.item) : emptyDraft(form.date, form.start)}
           editing={!!form.item}
           weekStartsOn={weekStartsOn}
           busy={busy}
           onSave={save}
           onDeleteAll={form.item ? () => remove(() => deleteScheduleItem(form.item!.id)) : undefined}
-          onDeleteDay={form.item && form.item.repeat_days.length > 0 ? () => remove(() => skipDay(form.item!, selected)) : undefined}
+          onDeleteDay={form.item && repeatModeOf(form.item) !== 'none' ? () => remove(() => skipDay(form.item!, form.date)) : undefined}
           onClose={() => setForm(null)}
         />
       )}

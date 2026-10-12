@@ -105,7 +105,7 @@ export default function AdminLayout() {
               }`}
             >
               {ICONS[key]}
-              <span className="truncate max-w-full px-1">{label}</span>
+              <span className="max-w-full px-1 text-center leading-tight line-clamp-2">{label}</span>
             </Link>
           ))}
         </nav>
