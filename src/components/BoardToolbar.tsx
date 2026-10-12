@@ -6,6 +6,7 @@ const TOOLS: { tool: DrawTool; icon: string }[] = [
   { tool: 'pass', icon: '↗' },
   { tool: 'run', icon: '⤳' },
   { tool: 'zone', icon: '◯' },
+  { tool: 'text', icon: 'Aa' },
   { tool: 'erase', icon: '🧽' },
 ]
 
@@ -23,7 +24,7 @@ export function BoardToolbar({ tool, onTool, color, onColor, canUndo, onUndo, on
   const { t } = useTranslation()
   return (
     <div className="mt-3 bg-gray-800 rounded-xl p-2" role="toolbar" aria-label={t('board.tools')}>
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-6 gap-1">
         {TOOLS.map(({ tool: value, icon }) => (
           <button
             key={value}

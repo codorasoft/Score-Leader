@@ -6,7 +6,8 @@ import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContex
 import { PitchBoard } from '../../components/PitchBoard'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { BoardToolbar } from '../../components/BoardToolbar'
-import { clearDrawn, hasDrawn, parseDrawings, undoDrawn, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
+import BoardTextDialog from '../../components/BoardTextDialog'
+import { clearDrawn, hasDrawn, makeText, moveText, parseDrawings, undoDrawn, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
 import { drawBoardImage, shareCanvas } from '../../lib/shareImage'
 import { GUEST_NAME_MAX, lineupChanges, makeGuest, parseGuests, spotForNewPlayer, type BoardPlayer, type BoardSpot, type Guest } from '../../utils/board'
 import type { Player } from '../../lib/types'
@@ -33,6 +34,8 @@ export default function LineupEditorPage() {
   const [color, setColor] = useState<DrawColor>('yellow')
   const [confirmClear, setConfirmClear] = useState(false)
   const [guests, setGuests] = useState<Guest[]>([])
+  // Where the pitch was tapped with the text tool, while the coach types what goes there
+  const [textAt, setTextAt] = useState<BoardSpot | null>(null)
 
   // Latest league, so a slow response for a league we have left is dropped
   const currentLeague = useRef(league.id)
@@ -75,6 +78,11 @@ export default function LineupEditorPage() {
   }
   const remove = (playerId: string) => change(board.filter((b) => b.playerId !== playerId))
   const draw = (next: Shape[]) => { setDrawings(next); setDirty(true) }
+  const addText = (text: string) => {
+    const shape = textAt && makeText(text, textAt, color, crypto.randomUUID())
+    if (shape) draw([...drawings, shape])
+    setTextAt(null)
+  }
 
   const add = (ids: string[]) => {
     change([...board, ...ids.map((playerId, i) => ({ playerId, ...spotForNewPlayer(board.length + guests.length + i) }))])
@@ -160,6 +168,8 @@ export default function LineupEditorPage() {
         drawings={drawings}
         onAddShape={(shape) => draw([...drawings, shape])}
         onEraseShape={(shapeId) => draw(drawings.filter((d) => d.id !== shapeId))}
+        onPlaceText={setTextAt}
+        onMoveShape={(shapeId, spot) => draw(moveText(drawings, shapeId, spot))}
       />
       <BoardToolbar
         tool={tool}
@@ -218,6 +228,8 @@ export default function LineupEditorPage() {
       )}
 
       {picking && <PlayerPicker players={available} onAdd={add} onAddGuest={addGuest} onClose={() => setPicking(false)} />}
+
+      {textAt && <BoardTextDialog color={color} onAdd={addText} onClose={() => setTextAt(null)} />}
 
       {confirmClear && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmClear(false)}>
