@@ -32,6 +32,7 @@
     "signingIn": "Signing in…"
   },
   "nav": {
+    "training": "Training",
     "players": "Players",
     "history": "History",
     "signOut": "Sign out",
@@ -565,9 +566,29 @@
     "disabled": "Your account is disabled"
   },
   "super": {
+    "training": {
+      "typesTitle": "Training types",
+      "typesEmpty": "No training types yet",
+      "typeName": "Type name",
+      "add": "Add",
+      "rename": "Rename",
+      "deleteType": "Delete type",
+      "confirmDeleteType_one": "Delete “{{name}}” and its {{count}} video?",
+      "confirmDeleteType_other": "Delete “{{name}}” and its {{count}} videos?",
+      "link": "YouTube link",
+      "videoTitle": "Video title",
+      "badLink": "This is not a YouTube video link",
+      "duplicate": "This video is already in this type",
+      "noVideos": "No videos in this type yet",
+      "deleteVideo": "Delete video",
+      "confirmDeleteVideo": "Delete “{{title}}”?",
+      "usedIn_one": "Used in {{count}} training; it will be removed from it.",
+      "usedIn_other": "Used in {{count}} trainings; it will be removed from them."
+    },
     "title": "Superadmin",
     "brand": "ScoreLeader · Superadmin",
     "tabs": {
+      "training": "Training",
       "admins": "Admins",
       "leagues": "Leagues"
     },
@@ -723,5 +744,27 @@
     },
     "drawStayShort": "Goes off",
     "drawDrawShort": "Draw stands"
+  },
+  "training": {
+    "title": "Training",
+    "new": "New training",
+    "empty": "No trainings yet",
+    "today": "Today",
+    "upcoming": "Upcoming",
+    "past": "Past",
+    "videoCount_one": "{{count}} video",
+    "videoCount_other": "{{count}} videos",
+    "date": "Date",
+    "titleLabel": "Title (optional)",
+    "picked": "Picked videos",
+    "catalog": "Catalog",
+    "catalogEmpty": "No videos in the catalog yet",
+    "noVideos": "No videos in this training",
+    "delete": "Delete training",
+    "confirmDelete": "Delete this training?",
+    "play": "Play {{title}}",
+    "openOnYouTube": "Open on YouTube",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
   }
 }
