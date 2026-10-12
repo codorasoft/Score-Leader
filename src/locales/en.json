@@ -663,6 +663,7 @@
     "notAllowed": "You are not allowed to change this.",
     "duplicate": "This already exists. Use a different name or address.",
     "otherLeague": "That player belongs to another league.",
+    "trainingNotFound": "This training no longer exists.",
     "generic": "Something went wrong. Please try again."
   },
   "home": {
