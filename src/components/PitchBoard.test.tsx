@@ -166,6 +166,48 @@ describe('free text', () => {
     expect(onMoveShape).toHaveBeenCalledWith('n1', { x: 0.1, y: 0.9 })
   })
 
+  // A real tap is press, release and then a click, all on the same spot
+  const tap = (el: HTMLElement, clientX: number, clientY: number) => {
+    fireEvent.pointerDown(el, { pointerId: 1, clientX, clientY })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: clientX + 2, clientY: clientY + 1 })
+    fireEvent.click(el)
+  }
+
+  it('a tap on it with the move tool asks to edit it, and leaves it where it is', () => {
+    const onMoveShape = vi.fn()
+    const onEditText = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="move" drawings={[note]} onMoveShape={onMoveShape} onEditText={onEditText} />)
+    tap(screen.getByRole('button', { name: 'Press high' }), 104, 62)
+    expect(onEditText).toHaveBeenCalledWith('n1')
+    expect(onMoveShape).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Press high' }).style).toMatchObject({ left: '50%', top: '20%' })
+  })
+
+  it('a drag is not a tap: the click that follows a drag does not open the editor', () => {
+    const onMoveShape = vi.fn()
+    const onEditText = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="move" drawings={[note]} onMoveShape={onMoveShape} onEditText={onEditText} />)
+    const text = screen.getByRole('button', { name: 'Press high' })
+    fireEvent.pointerDown(text, { pointerId: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerMove(text, { pointerId: 1, clientX: 150, clientY: 30 })
+    fireEvent.pointerUp(text, { pointerId: 1, clientX: 150, clientY: 30 })
+    fireEvent.click(text)
+    expect(onMoveShape).toHaveBeenCalledWith('n1', { x: 0.75, y: 0.1 })
+    expect(onEditText).not.toHaveBeenCalled()
+    // The next tap is a tap again
+    tap(text, 150, 30)
+    expect(onEditText).toHaveBeenCalledTimes(1)
+  })
+
+  it('with the text tool, a tap on a text asks to edit it instead of adding a new one', () => {
+    const onPlaceText = vi.fn()
+    const onEditText = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="text" drawings={[note]} onPlaceText={onPlaceText} onEditText={onEditText} />)
+    tap(screen.getByRole('button', { name: 'Press high' }), 100, 60)
+    expect(onEditText).toHaveBeenCalledWith('n1')
+    expect(onPlaceText).not.toHaveBeenCalled()
+  })
+
   it('is removed when tapped with the eraser', () => {
     const onEraseShape = vi.fn()
     render(<PitchBoard players={[]} onMove={vi.fn()} tool="erase" drawings={[note]} onAddShape={vi.fn()} onEraseShape={onEraseShape} />)

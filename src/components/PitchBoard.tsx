@@ -74,12 +74,18 @@ interface Props {
   onPlaceText?: (spot: BoardSpot) => void
   // The move tool also drags free text
   onMoveShape?: (id: string, spot: BoardSpot) => void
+  // A tap on a free text (with the move tool or the text tool) asks to change it
+  onEditText?: (id: string) => void
 }
+
+// A press that ends this close (in screen pixels) to where it began is a tap, not a drag.
+// A finger is never perfectly still, so anything tighter turns taps into tiny drags.
+const TAP_SLOP = 10
 
 // Free board: drag players anywhere with the Move tool; with a drawing tool, drag on the pitch
 // to draw an arrow or zone; with the text tool, tap where a text should go; with the eraser, tap a
 // drawing to remove it.
-export function PitchBoard({ players, onMove, tool = 'move', color = 'white', drawings = [], onAddShape, onEraseShape, onPlaceText, onMoveShape }: Props) {
+export function PitchBoard({ players, onMove, tool = 'move', color = 'white', drawings = [], onAddShape, onEraseShape, onPlaceText, onMoveShape, onEditText }: Props) {
   const { t } = useTranslation()
   const pitchRef = useRef<HTMLDivElement>(null)
   // The gesture in progress lives in refs so a fast press-move-release (before React re-renders)
@@ -95,6 +101,10 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
   const textDragRef = useRef<{ id: string; spot: BoardSpot } | null>(null)
   const [textDragging, setTextDragging] = useState<{ id: string; spot: BoardSpot } | null>(null)
   const setTextDrag = (d: typeof textDragging) => { textDragRef.current = d; setTextDragging(d) }
+  // Where the press on a text began, and whether it ended as a drag: the browser sends a click
+  // after a drag too, and that click must not open the editor
+  const pressRef = useRef<{ x: number; y: number } | null>(null)
+  const draggedRef = useRef(false)
 
   const pointToSpot = (e: React.PointerEvent): BoardSpot => {
     const rect = pitchRef.current!.getBoundingClientRect()
@@ -105,7 +115,7 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
   const labels = drawings.filter((d): d is Label => d.kind === 'label')
   const texts = drawings.filter((d): d is BoardText => d.kind === 'text')
   // A dark plate keeps every colour readable on the grass
-  const textLook = 'absolute z-[6] -translate-x-1/2 -translate-y-1/2 max-w-[70%] rounded-md bg-black/60 px-2 py-0.5 text-[13px] font-bold leading-tight text-center break-words'
+  const textLook = 'absolute -translate-x-1/2 -translate-y-1/2 max-w-[70%] rounded-md bg-black/60 px-2 py-0.5 text-[13px] font-bold leading-tight text-center break-words'
   const labelLook = 'absolute z-[6] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 whitespace-nowrap rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-bold text-white'
 
   return (
@@ -129,13 +139,18 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
           : <div key={l.id} dir="auto" className={`${labelLook} pointer-events-none`} style={place}>{content}</div>
       })}
 
-      {/* Free text: dragged with the move tool, pressed only by the eraser, otherwise just shown */}
+      {/* Free text: dragged or tapped with the move tool, tapped with the text tool, pressed by the
+          eraser, otherwise just shown */}
       {texts.map((s) => {
         const isDragged = textDragging?.id === s.id
         const spot = isDragged ? textDragging.spot : { x: s.x, y: s.y }
         const style = { left: `${spot.x * 100}%`, top: `${spot.y * 100}%`, color: DRAW_COLORS[s.color] }
         if (tool === 'erase' && onEraseShape) {
-          return <button key={s.id} type="button" dir="auto" aria-label={t('board.removeLabel', { name: s.text })} onClick={() => onEraseShape(s.id)} className={`${textLook} cursor-pointer`} style={style}>{s.text}</button>
+          return <button key={s.id} type="button" dir="auto" aria-label={t('board.removeLabel', { name: s.text })} onClick={() => onEraseShape(s.id)} className={`${textLook} z-[6] cursor-pointer`} style={style}>{s.text}</button>
+        }
+        if (tool === 'text' && onEditText) {
+          // Above the layer that places new text, so a tap here changes this text instead
+          return <button key={s.id} type="button" dir="auto" onClick={() => onEditText(s.id)} className={`${textLook} z-[31] cursor-pointer`} style={style}>{s.text}</button>
         }
         if (tool === 'move' && onMoveShape) {
           return (
@@ -143,25 +158,35 @@ export function PitchBoard({ players, onMove, tool = 'move', color = 'white', dr
               key={s.id}
               type="button"
               dir="auto"
-              className={`${textLook} select-none touch-none cursor-grab ${isDragged ? 'z-20 scale-110' : ''}`}
+              className={`${textLook} select-none touch-none cursor-grab ${isDragged ? 'z-20 scale-110' : 'z-[6]'}`}
               style={style}
               onPointerDown={(e) => {
                 e.currentTarget.setPointerCapture(e.pointerId)
+                pressRef.current = { x: e.clientX, y: e.clientY }
+                draggedRef.current = false
                 setTextDrag({ id: s.id, spot: { x: s.x, y: s.y } })
               }}
               onPointerMove={(e) => { if (textDragRef.current?.id === s.id) setTextDrag({ id: s.id, spot: pointToSpot(e) }) }}
               onPointerUp={(e) => {
                 if (textDragRef.current?.id !== s.id) return
                 setTextDrag(null)
+                const from = pressRef.current
+                // A tap leaves the text where it is; the click that follows opens it
+                if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) <= TAP_SLOP) return
+                draggedRef.current = true
                 onMoveShape(s.id, pointToSpot(e))
               }}
               onPointerCancel={() => setTextDrag(null)}
+              onClick={() => {
+                if (draggedRef.current) { draggedRef.current = false; return }
+                onEditText?.(s.id)
+              }}
             >
               {s.text}
             </button>
           )
         }
-        return <div key={s.id} dir="auto" className={`${textLook} pointer-events-none`} style={style}>{s.text}</div>
+        return <div key={s.id} dir="auto" className={`${textLook} z-[6] pointer-events-none`} style={style}>{s.text}</div>
       })}
 
       {players.map(({ player, x, y, guest }) => {

@@ -1,4 +1,4 @@
-import { shapeFromDrag, parseDrawings, undoDrawn, clearDrawn, hasDrawn, DRAW_COLORS, type Shape, BOARD_TEXT_MAX, makeText, moveText } from './boardDrawings'
+import { shapeFromDrag, parseDrawings, undoDrawn, clearDrawn, hasDrawn, DRAW_COLORS, type Shape, BOARD_TEXT_MAX, makeText, moveText, editText } from './boardDrawings'
 
 const id = 'd1'
 
@@ -118,6 +118,18 @@ describe('free text', () => {
     expect(moveText([arrow, note, other], 'n1', { x: 0.7, y: 0.9 })).toEqual([arrow, { ...note, x: 0.7, y: 0.9 }, other])
     // An id that is not a text changes nothing
     expect(moveText([arrow, note], 'a1', { x: 0.7, y: 0.9 })).toEqual([arrow, note])
+  })
+
+  it('is changed in place: new words and a new colour, same spot and same place among the drawings', () => {
+    const arrow = { id: 'a1', kind: 'arrow' as const, dashed: false, color: 'white' as const, x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.5 }
+    expect(editText([note, arrow], 'n1', '  Hold   the line ', 'blue'))
+      .toEqual([{ ...note, text: 'Hold the line', color: 'blue' }, arrow])
+  })
+
+  it('is left as it was when the new words are empty, or the id is not a text', () => {
+    const arrow = { id: 'a1', kind: 'arrow' as const, dashed: false, color: 'white' as const, x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.5 }
+    expect(editText([note, arrow], 'n1', '   ', 'blue')).toEqual([note, arrow])
+    expect(editText([note, arrow], 'a1', 'Words', 'blue')).toEqual([note, arrow])
   })
 
   it('counts as drawn by hand: Undo and Clear take it away', () => {

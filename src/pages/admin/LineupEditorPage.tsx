@@ -7,7 +7,7 @@ import { PitchBoard } from '../../components/PitchBoard'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { BoardToolbar } from '../../components/BoardToolbar'
 import BoardTextDialog from '../../components/BoardTextDialog'
-import { clearDrawn, hasDrawn, makeText, moveText, parseDrawings, undoDrawn, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
+import { clearDrawn, editText, hasDrawn, makeText, moveText, parseDrawings, undoDrawn, type BoardText, type DrawColor, type DrawTool, type Shape } from '../../utils/boardDrawings'
 import { drawBoardImage, shareCanvas } from '../../lib/shareImage'
 import { GUEST_NAME_MAX, lineupChanges, makeGuest, parseGuests, spotForNewPlayer, type BoardPlayer, type BoardSpot, type Guest } from '../../utils/board'
 import type { Player } from '../../lib/types'
@@ -34,8 +34,8 @@ export default function LineupEditorPage() {
   const [color, setColor] = useState<DrawColor>('yellow')
   const [confirmClear, setConfirmClear] = useState(false)
   const [guests, setGuests] = useState<Guest[]>([])
-  // Where the pitch was tapped with the text tool, while the coach types what goes there
-  const [textAt, setTextAt] = useState<BoardSpot | null>(null)
+  // The text dialog: a new text for the spot that was tapped, or the text that was tapped to change it
+  const [textDialog, setTextDialog] = useState<{ at: BoardSpot } | { id: string } | null>(null)
 
   // Latest league, so a slow response for a league we have left is dropped
   const currentLeague = useRef(league.id)
@@ -78,10 +78,15 @@ export default function LineupEditorPage() {
   }
   const remove = (playerId: string) => change(board.filter((b) => b.playerId !== playerId))
   const draw = (next: Shape[]) => { setDrawings(next); setDirty(true) }
-  const addText = (text: string) => {
-    const shape = textAt && makeText(text, textAt, color, crypto.randomUUID())
+  const newTextAt = textDialog && 'at' in textDialog ? textDialog.at : null
+  const editedText = textDialog && 'id' in textDialog
+    ? drawings.find((d): d is BoardText => d.kind === 'text' && d.id === textDialog.id) ?? null
+    : null
+  const closeText = () => setTextDialog(null)
+  const addText = (text: string, chosen: DrawColor) => {
+    const shape = newTextAt && makeText(text, newTextAt, chosen, crypto.randomUUID())
     if (shape) draw([...drawings, shape])
-    setTextAt(null)
+    closeText()
   }
 
   const add = (ids: string[]) => {
@@ -168,7 +173,8 @@ export default function LineupEditorPage() {
         drawings={drawings}
         onAddShape={(shape) => draw([...drawings, shape])}
         onEraseShape={(shapeId) => draw(drawings.filter((d) => d.id !== shapeId))}
-        onPlaceText={setTextAt}
+        onPlaceText={(at) => setTextDialog({ at })}
+        onEditText={(id) => setTextDialog({ id })}
         onMoveShape={(shapeId, spot) => draw(moveText(drawings, shapeId, spot))}
       />
       <BoardToolbar
@@ -229,7 +235,16 @@ export default function LineupEditorPage() {
 
       {picking && <PlayerPicker players={available} onAdd={add} onAddGuest={addGuest} onClose={() => setPicking(false)} />}
 
-      {textAt && <BoardTextDialog color={color} onAdd={addText} onClose={() => setTextAt(null)} />}
+      {newTextAt && <BoardTextDialog color={color} onSubmit={addText} onClose={closeText} />}
+      {editedText && (
+        <BoardTextDialog
+          color={editedText.color}
+          initialText={editedText.text}
+          onSubmit={(text, chosen) => { draw(editText(drawings, editedText.id, text, chosen)); closeText() }}
+          onRemove={() => { draw(drawings.filter((d) => d.id !== editedText.id)); closeText() }}
+          onClose={closeText}
+        />
+      )}
 
       {confirmClear && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmClear(false)}>
