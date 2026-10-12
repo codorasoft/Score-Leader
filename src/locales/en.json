@@ -759,6 +759,8 @@
     "picked": "Picked videos",
     "catalog": "Catalog",
     "catalogEmpty": "No videos in the catalog yet",
+    "filter": "Filter by type",
+    "all": "All",
     "noVideos": "No videos in this training",
     "delete": "Delete training",
     "confirmDelete": "Delete this training?",

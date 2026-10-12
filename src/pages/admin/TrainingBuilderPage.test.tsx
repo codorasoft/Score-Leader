@@ -67,6 +67,9 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 const catalogButton = (title: string) => screen.getByRole('button', { name: title })
+const filter = () => within(screen.getByRole('group', { name: 'Filter by type' }))
+// The catalog's video rows: every toggle button outside the filter
+const catalogButtons = () => screen.getAllByRole('button').filter((b) => b.hasAttribute('aria-pressed') && !b.closest('[role="group"]'))
 const picked = () => within(screen.getByRole('list', { name: 'Picked videos' })).queryAllByRole('listitem')
 const pickedTitles = () => picked().map((li) => li.textContent)
 const ready = () => screen.findByRole('button', { name: 'Rondo' })
@@ -80,13 +83,77 @@ describe('TrainingBuilderPage, new training', () => {
     expect(screen.getByLabelText('Date')).toHaveValue('2026-10-12')
     expect(screen.getByLabelText('Title (optional)')).toHaveValue('')
     expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Passing', 'Shooting'])
-    expect(screen.getAllByRole('button', { pressed: false }).map((b) => b.textContent)).toEqual(['Rondo', 'Wall pass', 'Volleys', 'Finishing'])
+    expect(catalogButtons().map((b) => b.textContent)).toEqual(['Rondo', 'Wall pass', 'Volleys', 'Finishing'])
     expect(picked()).toHaveLength(0)
     expect(screen.queryByRole('button', { name: 'Delete training' })).not.toBeInTheDocument()
     // Picking is not playing
     expect(document.querySelector('iframe')).toBeNull()
     // ‹ and › turn round by themselves in Arabic; flipping them again would point them the wrong way
     expect(document.querySelector('[class*="scale-x"]')).toBeNull()
+  })
+
+  it('the title and the date share one row', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    const title = screen.getByLabelText('Title (optional)').closest('label')!
+    const date = screen.getByLabelText('Date').closest('label')!
+    expect(title.parentElement).toBe(date.parentElement)
+    expect(title.parentElement).toHaveClass('flex')
+    // Nothing that would stack them on a phone
+    expect(title.parentElement!.className).not.toMatch(/grid|flex-col|flex-wrap/)
+    expect([...title.parentElement!.children]).toEqual([title, date])
+  })
+
+  it('offers a filter with All and one badge per type that has videos', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    const badges = filter().getAllByRole('button')
+    expect(badges.map((b) => b.textContent)).toEqual(['All4', 'Passing2', 'Shooting2'])
+    expect(badges.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false'])
+  })
+
+  it('a badge shows only the videos of its type, and All shows them all again', async () => {
+    resetDb(data())
+    renderAt('new')
+    await ready()
+    fireEvent.click(filter().getByRole('button', { name: /^Shooting/ }))
+    expect(catalogButtons().map((b) => b.textContent)).toEqual(['Volleys', 'Finishing'])
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Shooting'])
+    expect(filter().getByRole('button', { name: /^Shooting/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(filter().getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(filter().getByRole('button', { name: /^Passing/ }))
+    expect(catalogButtons().map((b) => b.textContent)).toEqual(['Rondo', 'Wall pass'])
+
+    fireEvent.click(filter().getByRole('button', { name: /^All/ }))
+    expect(catalogButtons().map((b) => b.textContent)).toEqual(['Rondo', 'Wall pass', 'Volleys', 'Finishing'])
+  })
+
+  it('videos picked under one badge stay picked under another, and are all saved', async () => {
+    resetDb(data())
+    db.rpcResults.save_training = { data: 'x9', error: null }
+    renderAt('new')
+    await ready()
+    fireEvent.click(filter().getByRole('button', { name: /^Passing/ }))
+    fireEvent.click(catalogButton('Wall pass'))
+    fireEvent.click(filter().getByRole('button', { name: /^Shooting/ }))
+    fireEvent.click(catalogButton('Volleys'))
+    expect(pickedTitles()).toEqual([expect.stringMatching(/^1.*Wall pass/), expect.stringMatching(/^2.*Volleys/)])
+    fireEvent.click(filter().getByRole('button', { name: /^All/ }))
+    expect(catalogButton('Wall pass')).toHaveAttribute('aria-pressed', 'true')
+    expect(catalogButton('Volleys')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('VIEW x9')).toBeInTheDocument()
+    expect(saveArgs()[0]).toMatchObject({ p_video_ids: ['v2', 'v3'] })
+  })
+
+  it('with no videos in the catalog there is no filter', async () => {
+    resetDb({ training_types: data().training_types })
+    renderAt('new')
+    await screen.findByText('No videos in the catalog yet')
+    expect(screen.queryByRole('group', { name: 'Filter by type' })).not.toBeInTheDocument()
   })
 
   it('says so when the catalog has no videos', async () => {
