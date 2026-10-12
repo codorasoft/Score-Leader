@@ -84,8 +84,10 @@ Deleting a catalog video (or a type, which deletes its videos) removes it from e
 One database function, `save_training(p_id uuid, p_league_id uuid, p_date date, p_title text, p_video_ids uuid[])`, running with the caller's rights (so the rules in §3 apply), in one transaction:
 
 1. `p_id` NULL: insert the training into `p_league_id`. Otherwise update `training_date`, `title`, `updated_at` of that training (`p_league_id` is ignored; a training never changes league) and raise an error when no row was updated, which is the case for a training that does not exist or belongs to someone else.
-2. Delete the training's items and insert one per entry of `p_video_ids`, `position` = its place in the array.
+2. Delete the training's items and insert one per entry of `p_video_ids`, `position` = its place in the array. An id that is no longer in the catalog is skipped (the video was deleted while the coach was building), and an id given twice keeps its first place only.
 3. Return the training id.
+
+A title that is empty or only spaces is stored as no title.
 
 This way a failed save never leaves a training with half its videos.
 
