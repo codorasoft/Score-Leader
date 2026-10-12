@@ -1,4 +1,4 @@
-import { shapeFromDrag, parseDrawings, undoDrawn, clearDrawn, hasDrawn, DRAW_COLORS, type Shape } from './boardDrawings'
+import { shapeFromDrag, parseDrawings, undoDrawn, clearDrawn, hasDrawn, DRAW_COLORS, type Shape, BOARD_TEXT_MAX, makeText, moveText } from './boardDrawings'
 
 const id = 'd1'
 
@@ -78,3 +78,52 @@ describe('undo and clear', () => {
     expect(hasDrawn([label, zone])).toBe(true)
   })
 })
+
+describe('free text', () => {
+  const note = { id: 'n1', kind: 'text' as const, color: 'red' as const, text: 'Press high', x: 0.5, y: 0.2 }
+
+  it('is made from what was typed: trimmed, single spaces, in the chosen colour, where the pitch was tapped', () => {
+    expect(makeText('  Press   high \n now ', { x: 0.25, y: 0.75 }, 'blue', 'n9'))
+      .toEqual({ id: 'n9', kind: 'text', color: 'blue', text: 'Press high now', x: 0.25, y: 0.75 })
+  })
+
+  it('is not made from nothing', () => {
+    expect(makeText('', { x: 0.5, y: 0.5 }, 'white', 'n9')).toBeNull()
+    expect(makeText('   ', { x: 0.5, y: 0.5 }, 'white', 'n9')).toBeNull()
+  })
+
+  it('is cut at the longest text a board takes', () => {
+    expect(BOARD_TEXT_MAX).toBe(40)
+    expect(makeText('x'.repeat(60), { x: 0.5, y: 0.5 }, 'white', 'n9')).toMatchObject({ text: 'x'.repeat(40) })
+  })
+
+  it('is kept among the saved drawings', () => {
+    expect(parseDrawings([note])).toEqual([note])
+  })
+
+  it('is dropped when its colour is unknown, it is empty or too long, or its spot is off the pitch', () => {
+    expect(parseDrawings([
+      { ...note, id: 'a', color: 'pink' },
+      { ...note, id: 'b', text: '  ' },
+      { ...note, id: 'c', text: 'x'.repeat(41) },
+      { ...note, id: 'd', x: 1.2 },
+      { ...note, id: 'e', text: 7 },
+      { id: 'f', kind: 'text', text: 'No colour', x: 0.5, y: 0.5 },
+    ])).toEqual([])
+  })
+
+  it('moves to a new spot, and only that text moves', () => {
+    const arrow = { id: 'a1', kind: 'arrow' as const, dashed: false, color: 'white' as const, x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.5 }
+    const other = { ...note, id: 'n2', text: 'Hold' }
+    expect(moveText([arrow, note, other], 'n1', { x: 0.7, y: 0.9 })).toEqual([arrow, { ...note, x: 0.7, y: 0.9 }, other])
+    // An id that is not a text changes nothing
+    expect(moveText([arrow, note], 'a1', { x: 0.7, y: 0.9 })).toEqual([arrow, note])
+  })
+
+  it('counts as drawn by hand: Undo and Clear take it away', () => {
+    expect(hasDrawn([note])).toBe(true)
+    expect(undoDrawn([note])).toEqual([])
+    expect(clearDrawn([note])).toEqual([])
+  })
+})
+

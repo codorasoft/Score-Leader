@@ -120,3 +120,57 @@ describe('team labels', () => {
     expect(onEraseShape).toHaveBeenCalledWith('l1')
   })
 })
+
+describe('free text', () => {
+  const note = { id: 'n1', kind: 'text' as const, color: 'yellow' as const, text: 'Press high', x: 0.5, y: 0.2 }
+
+  it('shows the text at its spot in its colour', () => {
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="pass" drawings={[note]} />)
+    const shown = screen.getByText('Press high')
+    expect(shown.closest('[style]')!.getAttribute('style')).toMatch(/left: 50%; top: 20%/)
+    expect(shown.closest('[style]')).toHaveStyle({ color: '#facc15' })
+    // Not something to press while drawing
+    expect(screen.queryByRole('button', { name: /Press high/ })).not.toBeInTheDocument()
+  })
+
+  it('with the text tool, a tap on the pitch says where a new text goes', () => {
+    const onPlaceText = vi.fn()
+    const onAddShape = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="text" color="red" drawings={[]} onAddShape={onAddShape} onPlaceText={onPlaceText} />)
+    const area = screen.getByLabelText('Drawing area')
+    fireEvent.pointerDown(area, { pointerId: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerUp(area, { pointerId: 1, clientX: 100, clientY: 60 })
+    expect(onPlaceText).toHaveBeenCalledWith({ x: 0.5, y: 0.2 })
+    expect(onAddShape).not.toHaveBeenCalled()
+  })
+
+  it('is dragged to a new spot with the move tool', () => {
+    const onMoveShape = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="move" drawings={[note]} onMoveShape={onMoveShape} />)
+    const text = screen.getByRole('button', { name: 'Press high' })
+    fireEvent.pointerDown(text, { pointerId: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerMove(text, { pointerId: 1, clientX: 150, clientY: 30 })
+    expect(text.style).toMatchObject({ left: '75%', top: '10%' })
+    fireEvent.pointerUp(text, { pointerId: 1, clientX: 150, clientY: 30 })
+    expect(onMoveShape).toHaveBeenCalledWith('n1', { x: 0.75, y: 0.1 })
+  })
+
+  it('still moves on a quick flick', () => {
+    const onMoveShape = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="move" drawings={[note]} onMoveShape={onMoveShape} />)
+    const text = screen.getByRole('button', { name: 'Press high' })
+    act(() => {
+      fireEvent.pointerDown(text, { pointerId: 1, clientX: 100, clientY: 60 })
+      fireEvent.pointerUp(text, { pointerId: 1, clientX: 20, clientY: 270 })
+    })
+    expect(onMoveShape).toHaveBeenCalledWith('n1', { x: 0.1, y: 0.9 })
+  })
+
+  it('is removed when tapped with the eraser', () => {
+    const onEraseShape = vi.fn()
+    render(<PitchBoard players={[]} onMove={vi.fn()} tool="erase" drawings={[note]} onAddShape={vi.fn()} onEraseShape={onEraseShape} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Press high' }))
+    expect(onEraseShape).toHaveBeenCalledWith('n1')
+  })
+})
+

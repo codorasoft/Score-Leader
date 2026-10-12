@@ -255,7 +255,7 @@ export async function drawBoardImage(data: {
   ctx.arc(PITCH_X + 50 * u, PITCH_Y + 75 * u, 11 * u, 0, Math.PI * 2)
   ctx.stroke()
 
-  // Arrows and zones go under the players, the same as on screen (sizes in pitch units, u)
+  // Arrows, zones and text go under the players, the same as on screen (sizes in pitch units, u)
   for (const shape of data.drawings ?? []) {
     if (shape.kind === 'label') {
       // A team's name in a dark pill, led by its colour dot (on the right for right-to-left text)
@@ -276,6 +276,21 @@ export async function drawBoardImage(data: {
       continue
     }
     const color = DRAW_COLORS[shape.color]
+    if (shape.kind === 'text') {
+      // Free text on a dark plate, centred on its spot, broken into lines that stay on the pitch
+      const size = 36, lineH = 44, padX = 18, padY = 10
+      ctx.font = `700 ${size}px ${FONT}`
+      const lines = wrapLines(shape.text, PW * 0.7 - padX * 2, (s) => ctx.measureText(s).width)
+      const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2
+      const h = lines.length * lineH + padY * 2
+      const cx = PITCH_X + shape.x * PW, cy = PITCH_Y + shape.y * PH
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'
+      roundRect(ctx, cx - w / 2, cy - h / 2, w, h, 14)
+      ctx.fill()
+      ctx.fillStyle = color
+      lines.forEach((line, n) => ctx.fillText(line, cx, cy - h / 2 + padY + lineH * n + size - 4))
+      continue
+    }
     if (shape.kind === 'zone') {
       ctx.beginPath()
       ctx.arc(PITCH_X + shape.cx * PW, PITCH_Y + shape.cy * PH, shape.r * PW, 0, Math.PI * 2)
