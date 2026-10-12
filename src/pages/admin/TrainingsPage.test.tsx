@@ -70,8 +70,9 @@ describe('TrainingsPage', () => {
   it('links to a new training, and says so when there is none yet', async () => {
     resetDb()
     renderPage()
-    expect(await screen.findByText('No trainings yet')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /New training/ })).toHaveAttribute('href', '/admin/eagles/trainings/new')
+    expect(await screen.findByText('No plans yet')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Training plan' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /New plan/ })).toHaveAttribute('href', '/admin/eagles/trainings/new')
   })
 
   it('offers a retry when the trainings cannot be loaded', async () => {
@@ -79,7 +80,7 @@ describe('TrainingsPage', () => {
     db.errors.trainings = { message: 'offline' }
     renderPage()
     expect(await screen.findByText('Could not load. Check your connection.')).toBeInTheDocument()
-    expect(screen.queryByText('No trainings yet')).not.toBeInTheDocument()
+    expect(screen.queryByText('No plans yet')).not.toBeInTheDocument()
     db.errors = {}
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument()

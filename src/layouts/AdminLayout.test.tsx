@@ -26,7 +26,7 @@ it('Home is the first tab and is marked current on the home page', () => {
   const nav = renderAt('/admin/eagles/home')
   const links = nav.getAllByRole('link')
   // No New Session tab: sessions start from Home
-  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training', 'Coach Board', 'Schedule'])
+  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training plan', 'Coach Board', 'Schedule'])
   expect(links[0]).toHaveAttribute('href', '/admin/eagles/home')
   expect(links[0]).toHaveAttribute('aria-current', 'page')
 })
@@ -57,9 +57,9 @@ it('the phone tab bar has three equal columns without the coach board', () => {
 it('with training only there are four tabs, and Training is current inside a training', () => {
   const nav = renderAt('/admin/eagles/trainings/t1', ['training'])
   const links = nav.getAllByRole('link')
-  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training'])
-  expect(nav.getByRole('link', { name: 'Training' })).toHaveAttribute('href', '/admin/eagles/trainings')
-  expect(nav.getByRole('link', { name: 'Training' })).toHaveAttribute('aria-current', 'page')
+  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training plan'])
+  expect(nav.getByRole('link', { name: 'Training plan' })).toHaveAttribute('href', '/admin/eagles/trainings')
+  expect(nav.getByRole('link', { name: 'Training plan' })).toHaveAttribute('aria-current', 'page')
   expect(nav.getByRole('link', { name: 'History' })).not.toHaveAttribute('aria-current')
 })
 

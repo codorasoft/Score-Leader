@@ -130,7 +130,7 @@ describe('TrainingTypePage', () => {
     fireEvent.click(within(await videoRow('Rondo')).getByRole('button', { name: 'Delete video' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Delete “Rondo”?')).toBeInTheDocument()
-    expect(await within(dialog).findByText('Used in 2 trainings; it will be removed from them.')).toBeInTheDocument()
+    expect(await within(dialog).findByText('Used in 2 plans; it will be removed from them.')).toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete video' }))
     await waitFor(() => expect(screen.queryByText('Rondo')).not.toBeInTheDocument())
     expect(rows('training_videos').map((v) => v.id)).toEqual(['v2', 'v3'])
@@ -148,7 +148,7 @@ describe('TrainingTypePage', () => {
     expect(within(dialog).getByRole('button', { name: 'Delete video' })).toBeDisabled()
     delete db.holds.training_items
     release()
-    expect(await within(dialog).findByText('Used in 2 trainings; it will be removed from them.')).toBeInTheDocument()
+    expect(await within(dialog).findByText('Used in 2 plans; it will be removed from them.')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Delete video' })).toBeEnabled()
   })
 
