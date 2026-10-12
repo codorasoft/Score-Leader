@@ -34,6 +34,8 @@ const TrainingTypePage = lazyPage(() => import('./pages/super/TrainingTypePage')
 const NewLeaguePage = lazyPage(() => import('./pages/admin/NewLeaguePage'))
 const LeagueSettingsPage = lazyPage(() => import('./pages/admin/LeagueSettingsPage'))
 const HomePage = lazyPage(() => import('./pages/admin/HomePage'))
+const TrainingsPage = lazyPage(() => import('./pages/admin/TrainingsPage'))
+const TrainingViewPage = lazyPage(() => import('./pages/admin/TrainingViewPage'))
 
 const LiveSessionPage = lazyPage(() => import('./pages/public/LiveSessionPage'))
 const VotePage = lazyPage(() => import('./pages/public/VotePage'))
@@ -54,6 +56,7 @@ const page = (node: ReactNode) => <Suspense fallback={<PageLoading />}>{node}</S
 const legacyPublic = { element: <LegacyPublicRedirect /> }
 const legacyAdmin = { element: <LegacyAdminRedirect /> }
 const coachBoard = (page: ReactNode) => <FeatureRoute name="coach_board" fallback="history">{page}</FeatureRoute>
+const training = (page: ReactNode) => <FeatureRoute name="training" fallback="history">{page}</FeatureRoute>
 
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
@@ -107,6 +110,8 @@ export const routes: RouteObject[] = [
                 path: 'sessions/:sessionId/awards',
                 element: <FeatureRoute name="awards" fallback="history">{page(<AwardsPage />)}</FeatureRoute>,
               },
+              { path: 'trainings', element: training(page(<TrainingsPage />)) },
+              { path: 'trainings/:trainingId', element: training(page(<TrainingViewPage />)) },
               { path: 'lineups', element: coachBoard(page(<LineupsPage />)) },
               { path: 'lineups/new', element: coachBoard(page(<LineupEditorPage />)) },
               { path: 'lineups/:lineupId', element: coachBoard(page(<LineupEditorPage />)) },
