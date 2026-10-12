@@ -26,6 +26,8 @@ export default function TrainingBuilderPage() {
   const [picked, setPicked] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // The one training type whose videos the catalog shows; null shows every type
+  const [typeFilter, setTypeFilter] = useState<string | null>(null)
 
   // Latest request, so a slow response for a training or league we have left is dropped
   const current = useRef('')
@@ -64,6 +66,11 @@ export default function TrainingBuilderPage() {
   const groups = catalog.types
     .map((type) => ({ type, videos: catalog.videos.filter((v) => v.type_id === type.id) }))
     .filter((g) => g.videos.length > 0)
+  // A type that is no longer in the catalog filters nothing
+  const filtered = groups.filter((g) => g.type.id === typeFilter)
+  const shown = filtered.length > 0 ? filtered : groups
+  const badge = (on: boolean) =>
+    `shrink-0 px-3 py-1.5 rounded-full text-sm border ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:text-white'}`
 
   const toggle = (id: string) => setPicked((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
   const move = (index: number, by: -1 | 1) => setPicked((ids) => {
@@ -99,14 +106,15 @@ export default function TrainingBuilderPage() {
 
       {/* Not a form: Enter in the title (the phone keyboard's Go key) must not save a half-built training */}
       <div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-          <label className="block text-sm text-gray-400">
-            {t('training.date')}
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1 text-white`} />
-          </label>
-          <label className="block text-sm text-gray-400">
+        {/* One row on every screen: the title takes the room the date leaves */}
+        <div className="flex gap-3 mb-6">
+          <label className="block flex-1 min-w-0 text-sm text-gray-400">
             {t('training.titleLabel')}
             <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={`${field} mt-1 text-white`} />
+          </label>
+          <label className="block w-40 shrink-0 text-sm text-gray-400">
+            {t('training.date')}
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1 text-white`} />
           </label>
         </div>
 
@@ -126,7 +134,25 @@ export default function TrainingBuilderPage() {
 
         <h2 className="text-sm font-semibold text-gray-400 mb-2">{t('training.catalog')}</h2>
         {groups.length === 0 && <p className="text-gray-500 text-center py-6">{t('training.catalogEmpty')}</p>}
-        {groups.map(({ type, videos }) => (
+        {groups.length > 0 && (
+          // One badge per type, in one line that scrolls sideways on a phone. Picks are kept when the badge changes.
+          <div role="group" aria-label={t('training.filter')} className="flex gap-2 overflow-x-auto pb-2 mb-3">
+            <button type="button" aria-pressed={shown === groups} onClick={() => setTypeFilter(null)} className={badge(shown === groups)}>
+              {t('training.all')}
+              <span className="ms-1.5 text-xs opacity-70">{catalog.videos.length}</span>
+            </button>
+            {groups.map(({ type, videos }) => {
+              const on = shown !== groups && type.id === typeFilter
+              return (
+                <button key={type.id} type="button" aria-pressed={on} onClick={() => setTypeFilter(type.id)} className={badge(on)}>
+                  {type.name}
+                  <span className="ms-1.5 text-xs opacity-70">{videos.length}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {shown.map(({ type, videos }) => (
           <section key={type.id} className="mb-4">
             <h3 className="font-semibold mb-2">{type.name}</h3>
             <ul className="space-y-2">
