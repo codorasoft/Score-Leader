@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { forgetPush } from '../lib/push'
+
+// How long signing out waits for this browser's morning notification to be turned off
+const FORGET_MS = 2000
 
 interface AuthState {
   user: User | null
@@ -33,6 +37,13 @@ export function useAuth(): AuthState {
   }
 
   const signOut = async () => {
+    // First, while still signed in, this browser stops getting the coach's morning
+    // notification. Signing out never waits long for it: with no connection the address is
+    // given back locally all the same.
+    await Promise.race([
+      forgetPush().catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, FORGET_MS)),
+    ])
     await supabase.auth.signOut()
   }
 
