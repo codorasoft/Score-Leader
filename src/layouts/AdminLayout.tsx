@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { LanguageToggle } from '../components/LanguageToggle'
 import { LeagueSwitcher } from '../components/LeagueSwitcher'
+import TodayReminder from '../components/TodayReminder'
 import { useAdminPath, useFeature, useLeague } from '../contexts/LeagueContext'
 import { useMyLeagues } from '../contexts/MyLeaguesContext'
 
@@ -114,6 +115,8 @@ export default function AdminLayout() {
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
         <Outlet />
       </main>
+
+      <TodayReminder />
     </div>
   )
 }
