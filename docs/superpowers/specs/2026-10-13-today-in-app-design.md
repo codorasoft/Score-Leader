@@ -66,8 +66,8 @@ works out the rows.
 - **No rows:** nothing is shown, and the day is remembered as handled all the same. An item
   the coach adds for today afterwards does not bring up a popup about what he has just typed.
 - **The read fails:** nothing is shown and nothing is remembered. It is tried again the next
-  time the app is opened or comes back to the front. With no connection there is no "no
-  signal" toast: he did not ask for anything.
+  time the app is opened or comes back to the front. No toast of any kind, with no
+  connection or with a refused request: he did not ask for anything.
 
 **Not during a match.** On the match tracker (`…/sessions/:sessionId/match/:matchId`) the
 check does not run, so the popup never covers the goal and card buttons. It runs when he
@@ -100,7 +100,8 @@ Home asks for today's items and extras together with its other requests, when th
 - Heading **Today** with the number of rows; the heading links to the schedule page.
 - The same rows as the popup, each a link.
 - Home reads again every time it is opened, so the card follows what was added, deleted or
-  ticked since the popup.
+  ticked since the popup. A Home left open past midnight reads again when the app comes back
+  to the front on the new day, so the card never shows yesterday as today.
 - If the schedule cannot be read, the card is left out and the rest of Home shows as usual.
 - Without `schedule` nothing is asked and nothing is shown.
 
@@ -111,6 +112,8 @@ Home asks for today's items and extras together with its other requests, when th
 | `src/utils/schedule.ts` | `todayRows(items, extras, date)`: the ordered rows of section 2, a pure function |
 | `src/lib/scheduleApi.ts` | `fetchToday(leagueId, date, withPlans)`: reads one day and returns its rows |
 | `src/lib/todaySeen.ts` | reads and writes the handled day per league, with the in-memory fallback |
+| `src/hooks/useLocalToday.ts` | the device's date, read again each time the app comes back to the front; shared by the check and Home |
+| `src/lib/reportingFetch.ts` | `quietSignal()`: a request made with this signal is never reported |
 | `src/components/TodayList.tsx` | the rows as links; shared by the popup and the card |
 | `src/components/TodayDialog.tsx` | the popup |
 | `src/components/TodayReminder.tsx` | the once-a-day check; shows `TodayDialog` |
@@ -118,7 +121,10 @@ Home asks for today's items and extras together with its other requests, when th
 | `src/pages/admin/HomePage.tsx` | the Today card |
 | `src/locales/en.json`, `src/locales/ar.json` | Today, Open schedule, Got it, the count |
 
-`TodayReminder` reads with network toasts muted (`withNetworkToastsMuted`).
+`TodayReminder` reads quietly: it gives `fetchToday` a `quietSignal()`, and the app's request
+reporting says nothing about a request made with one. Muting toasts for a while
+(`withNetworkToastsMuted`) does not fit here: the client tries a failed read again for several
+seconds, and other screens' failed saves would be hidden meanwhile.
 
 ## 6. Testing
 
@@ -130,11 +136,12 @@ Home asks for today's items and extras together with its other requests, when th
 - **`TodayReminder`:** opens with rows; stays closed with none and remembers the day; does
   not open twice on one day; opens again for another league; does nothing without
   `schedule`; does not run on the match tracker and runs on leaving it; a failed read shows
-  nothing, is read with network toasts muted and is not remembered; a new day on coming back to the front runs
+  nothing, is read quietly and is not remembered; a new day on coming back to the front runs
   it again.
 - **`TodayDialog`:** the rows and their links; Got it, Escape and a tap outside close it;
   focus starts on Got it.
-- **Home:** the card with rows and its links; no card with nothing today, without
+- **Home:** the card with rows and its links; the new day's rows after midnight on coming
+  back to the front; no card with nothing today, without
   `schedule`, or when the read fails; plans only with `training`.
 - **Arabic:** the popup and the card show their Arabic wording when the app is in Arabic
   (`inArabic`).

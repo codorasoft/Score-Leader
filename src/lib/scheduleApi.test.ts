@@ -162,4 +162,14 @@ describe('fetchToday', () => {
     db.errors.schedule_items = { message: 'down' }
     await expect(fetchToday('L1', '2026-10-12', true)).rejects.toThrow()
   })
+
+  it('makes every one of its reads with the signal it is given, and with none otherwise', async () => {
+    seed()
+    const signal = new AbortController().signal
+    await fetchToday('L1', '2026-10-12', true, signal)
+    expect(db.signals).toEqual([signal, signal, signal, signal])
+    seed()
+    await fetchToday('L1', '2026-10-12', true)
+    expect(db.signals).toEqual([undefined, undefined, undefined, undefined])
+  })
 })

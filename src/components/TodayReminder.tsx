@@ -3,8 +3,8 @@ import { useLocation } from 'react-router-dom'
 import { useFeature, useLeague } from '../contexts/LeagueContext'
 import { fetchToday } from '../lib/scheduleApi'
 import { isHandled, markHandled } from '../lib/todaySeen'
-import { withNetworkToastsMuted } from '../lib/toast'
-import { localToday } from '../utils/trainingDays'
+import { quietSignal } from '../lib/reportingFetch'
+import { useLocalToday } from '../hooks/useLocalToday'
 import type { TodayRow } from '../utils/schedule'
 import TodayDialog from './TodayDialog'
 
@@ -19,33 +19,23 @@ export default function TodayReminder() {
   const schedule = useFeature('schedule')
   const withPlans = useFeature('training')
   const onMatch = MATCH_PAGE.test(useLocation().pathname)
-  const [today, setToday] = useState(() => localToday())
-  // Goes up each time the app comes back to the front, so a read that failed is tried again
-  const [wakes, setWakes] = useState(0)
+  // An app left open past midnight is on a new day when it comes back to the front; `wakes`
+  // goes up on every such return, so a read that failed is tried again
+  const { today, wakes } = useLocalToday()
   const [shown, setShown] = useState<{ leagueId: string; date: string; rows: TodayRow[] } | null>(null)
-
-  // An app left open past midnight is on a new day when it comes back to the front
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.visibilityState !== 'visible') return
-      setToday(localToday())
-      setWakes((n) => n + 1)
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [])
 
   useEffect(() => {
     if (!schedule || onMatch || isHandled(league.id, today)) return
     // An answer for a league or a day we have left is dropped, and its day is not remembered
     let dropped = false
-    withNetworkToastsMuted(() => fetchToday(league.id, today, withPlans)).then(
+    // Quiet: nobody asked for this read, so no toast says it failed
+    fetchToday(league.id, today, withPlans, quietSignal()).then(
       (rows) => {
         if (dropped) return
         markHandled(league.id, today)
         if (rows.length > 0) setShown({ leagueId: league.id, date: today, rows })
       },
-      () => { /* nothing was asked for, so nothing is said: tried again on the next open */ },
+      () => { /* tried again the next time the app is opened or comes back to the front */ },
     )
     return () => { dropped = true }
   }, [league.id, schedule, withPlans, today, onMatch, wakes])

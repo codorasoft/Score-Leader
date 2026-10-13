@@ -16,7 +16,7 @@ import type { AwardVote, Match, Session, Team, TeamColor } from '../../lib/types
 import { styleMap } from '../../lib/teamColors'
 import { serverNow } from '../../lib/serverClock'
 import { fetchToday } from '../../lib/scheduleApi'
-import { localToday } from '../../utils/trainingDays'
+import { useLocalToday } from '../../hooks/useLocalToday'
 import type { TodayRow } from '../../utils/schedule'
 
 const colorDot = styleMap('dot')
@@ -40,6 +40,8 @@ export default function HomePage() {
   const coachBoard = useFeature('coach_board')
   const schedule = useFeature('schedule')
   const training = useFeature('training')
+  // Today for the Today card; a Home left open past midnight reads again on the new day
+  const { today: day } = useLocalToday()
   const [data, setData] = useState<{ leagueId: string; value: HomeData } | null>(null)
 
   // Latest league, so a slow response for a league we have left is dropped
@@ -64,7 +66,7 @@ export default function HomePage() {
           ? supabase.from('lineups').select('id, name, updated_at').eq('league_id', forLeague).order('updated_at', { ascending: false }).limit(1)
           : Promise.resolve({ data: [] }),
         // What the coach's schedule has on today; Home shows without the card when it cannot be read
-        schedule ? fetchToday(forLeague, localToday(), training).catch((): TodayRow[] => []) : Promise.resolve<TodayRow[]>([]),
+        schedule ? fetchToday(forLeague, day, training).catch((): TodayRow[] => []) : Promise.resolve<TodayRow[]>([]),
       ])
       if (forLeague !== currentLeague.current) return
 
@@ -88,7 +90,7 @@ export default function HomePage() {
       })
     }
     load()
-  }, [league.id, voting, photos, coachBoard, schedule, training])
+  }, [league.id, voting, photos, coachBoard, schedule, training, day])
 
   if (!data || data.leagueId !== league.id) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
   const { live, teams, todo, board, today } = data.value

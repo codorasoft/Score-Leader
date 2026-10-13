@@ -7,7 +7,7 @@ import { testLeague } from '../test/league'
 import { db, resetDb } from '../test/fakeSupabase'
 import { FEATURES, type FeatureKey } from '../lib/features'
 import { isHandled, resetTodaySeen } from '../lib/todaySeen'
-import * as toast from '../lib/toast'
+import { createReportingFetch } from '../lib/reportingFetch'
 
 vi.mock('../lib/supabase', async () => (await import('../test/fakeSupabase')).supabaseModule)
 
@@ -112,10 +112,8 @@ it('waits while a match is being tracked, and runs on leaving it', async () => {
 it('a failed read shows nothing and is tried again when the app comes back to the front', async () => {
   resetDb(monday())
   db.errors.schedule_items = { message: 'down' }
-  const muted = vi.spyOn(toast, 'withNetworkToastsMuted')
   render(tree('/admin/eagles/home'))
   await settle()
-  expect(muted).toHaveBeenCalled()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(isHandled('L1', '2026-10-12')).toBe(false)
   db.errors = {}
@@ -141,4 +139,20 @@ it('opens once under StrictMode', async () => {
   render(<StrictMode>{tree('/admin/eagles/home')}</StrictMode>)
   expect(await screen.findAllByRole('dialog')).toHaveLength(1)
   expect(isHandled('L1', '2026-10-12')).toBe(true)
+})
+
+it('makes its reads quietly: with no connection, or refused, they raise no toast', async () => {
+  resetDb(monday())
+  render(tree('/admin/eagles/home'))
+  await screen.findByRole('dialog', { name: 'Today' })
+  // Two reads of the schedule items, one of the sessions, one of the training plans
+  expect(db.signals).toHaveLength(4)
+  const report = vi.fn()
+  const offline = createReportingFetch(() => Promise.reject(new TypeError('Failed to fetch')), report)
+  const refused = createReportingFetch(async () => new Response(JSON.stringify({ message: 'no' }), { status: 403 }), report)
+  for (const signal of db.signals) {
+    await expect(offline('https://x.supabase.co/rest/v1/schedule_items', { signal })).rejects.toThrow()
+    await refused('https://x.supabase.co/rest/v1/schedule_items', { signal })
+  }
+  expect(report).not.toHaveBeenCalled()
 })

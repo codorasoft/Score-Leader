@@ -7,31 +7,36 @@ import { todayRows, type ScheduleExtras, type ScheduleItem, type ScheduleRow, ty
 
 const COLUMNS = 'id, kind, title, item_date, start_time, end_time, note, repeat_days, repeat_every, repeat_monthly, repeat_until, skipped_dates, done_dates'
 
+// A read can be given a signal (see quietSignal in reportingFetch.ts); without one it is an
+// ordinary read
+const withSignal = <Q extends { abortSignal: (signal: AbortSignal) => Q }>(query: Q, signal?: AbortSignal): Q =>
+  signal ? query.abortSignal(signal) : query
+
 // Throws when a request fails. Every item that can be on a day between `from` and `to`:
 // plain items dated inside the range, and repeating ones that have started and not yet ended.
-export async function fetchScheduleItems(leagueId: string, from: string, to: string): Promise<ScheduleItem[]> {
+export async function fetchScheduleItems(leagueId: string, from: string, to: string, signal?: AbortSignal): Promise<ScheduleItem[]> {
   const [plain, repeating] = await Promise.all([
-    allRows<ScheduleItem>((a, b) =>
+    allRows<ScheduleItem>((a, b) => withSignal(
       supabase.from('schedule_items').select(COLUMNS).eq('league_id', leagueId).eq('repeats', false)
-        .gte('item_date', from).lte('item_date', to).order('item_date').order('id').range(a, b)),
-    allRows<ScheduleItem>((a, b) =>
+        .gte('item_date', from).lte('item_date', to).order('item_date').order('id').range(a, b), signal)),
+    allRows<ScheduleItem>((a, b) => withSignal(
       supabase.from('schedule_items').select(COLUMNS).eq('league_id', leagueId).eq('repeats', true)
-        .lte('item_date', to).order('item_date').order('id').range(a, b)),
+        .lte('item_date', to).order('item_date').order('id').range(a, b), signal)),
   ])
   return [...plain, ...repeating.filter((i) => !i.repeat_until || i.repeat_until >= from)]
 }
 
 // Throws when a request fails. The league's match sessions and, when it has training, its
 // training plans dated inside the range.
-export async function fetchScheduleExtras(leagueId: string, from: string, to: string, withPlans: boolean): Promise<ScheduleExtras> {
+export async function fetchScheduleExtras(leagueId: string, from: string, to: string, withPlans: boolean, signal?: AbortSignal): Promise<ScheduleExtras> {
   const [sessions, plans] = await Promise.all([
-    allRows<{ id: string; date: string }>((a, b) =>
+    allRows<{ id: string; date: string }>((a, b) => withSignal(
       supabase.from('sessions').select('id, date').eq('league_id', leagueId)
-        .gte('date', from).lte('date', to).order('date').order('id').range(a, b)),
+        .gte('date', from).lte('date', to).order('date').order('id').range(a, b), signal)),
     withPlans
-      ? allRows<{ id: string; training_date: string; title: string | null }>((a, b) =>
+      ? allRows<{ id: string; training_date: string; title: string | null }>((a, b) => withSignal(
         supabase.from('trainings').select('id, training_date, title').eq('league_id', leagueId)
-          .gte('training_date', from).lte('training_date', to).order('training_date').order('id').range(a, b))
+          .gte('training_date', from).lte('training_date', to).order('training_date').order('id').range(a, b), signal))
       : [],
   ])
   return {
@@ -40,11 +45,12 @@ export async function fetchScheduleExtras(leagueId: string, from: string, to: st
   }
 }
 
-// Throws when a request fails. What is on one day, as the rows shown for "today".
-export async function fetchToday(leagueId: string, date: string, withPlans: boolean): Promise<TodayRow[]> {
+// Throws when a request fails. What is on one day, as the rows shown for "today". Every read
+// is made with the signal given, so a check in the background can be a quiet one.
+export async function fetchToday(leagueId: string, date: string, withPlans: boolean, signal?: AbortSignal): Promise<TodayRow[]> {
   const [items, extras] = await Promise.all([
-    fetchScheduleItems(leagueId, date, date),
-    fetchScheduleExtras(leagueId, date, date, withPlans),
+    fetchScheduleItems(leagueId, date, date, signal),
+    fetchScheduleExtras(leagueId, date, date, withPlans, signal),
   ])
   return todayRows(items, extras, date)
 }

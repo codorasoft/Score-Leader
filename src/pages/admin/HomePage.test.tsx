@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
@@ -248,6 +248,29 @@ describe('the Today card', () => {
     db.errors.schedule_items = { message: 'down' }
     expect(await screen.findByRole('heading', { name: 'To do' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument()
+  })
+
+  it('a Home left open past midnight shows the new day when the app comes back to the front', async () => {
+    // Only the date is faked, so waiting for the card still works
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 9, 12, 23, 30))
+      h.rows.schedule_items = [
+        item({ id: 'mon', title: 'Gym', item_date: '2026-10-12' }),
+        item({ id: 'tue', title: 'Call the referee', item_date: '2026-10-13' }),
+      ]
+      renderHome()
+      expect(await card()).toHaveTextContent('Gym')
+      vi.setSystemTime(new Date(2026, 9, 13, 0, 30))
+      act(() => {
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+      await waitFor(() => expect(screen.getByRole('region', { name: 'Today' })).toHaveTextContent('Call the referee'))
+      expect(screen.getByRole('region', { name: 'Today' })).not.toHaveTextContent('Gym')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('speaks Arabic', async () => {
