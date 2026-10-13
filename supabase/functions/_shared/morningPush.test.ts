@@ -1,6 +1,9 @@
 import en from '../../../src/locales/en.json'
 import ar from '../../../src/locales/ar.json'
-import { buildMessage, dueDate, localClock, sampleMessage, WORDS, type LeagueDay } from './morningPush.ts'
+import {
+  buildMessage, callerKind, dueDate, localClock, runRound, runTest, sampleMessage, WORDS,
+  type CoachSub, type LeagueDay, type PushMessage, type RoundDeps, type SendResult,
+} from './morningPush.ts'
 import type { TodayRow } from './scheduleDay.ts'
 
 const at = (iso: string) => new Date(iso)
@@ -138,4 +141,194 @@ it("uses the app's own words", () => {
     const counts = Object.fromEntries(Object.entries(locale.today).filter(([k]) => k.startsWith('count_')).map(([k, v]) => [k.slice(6), v]))
     expect(WORDS[language].count).toEqual(counts)
   }
+})
+
+// ===== The round
+
+// 07:10 in Riyadh on Tuesday 13 October 2026
+const NOW = new Date('2026-10-13T04:10:00Z')
+const device = (over: Partial<CoachSub> = {}): CoachSub => ({
+  id: 'd1', user_id: 'u1', endpoint: 'https://push.test/d1', p256dh: 'k', auth: 'a', time_zone: 'Asia/Riyadh',
+  notify_hour: 7, language: 'en', last_sent_on: null, coach: { enabled: true, features: ['schedule', 'training'] }, ...over,
+})
+// The outside world of a round, kept in memory, with everything that was asked of it
+function world(devices: CoachSub[], days: Record<string, LeagueDay[]> = {}, answers: Record<string, SendResult | Error> = {}) {
+  const log = { day: [] as string[], sent: [] as [string, PushMessage][], marked: [] as [string, string][], removed: [] as string[] }
+  const deps: RoundDeps = {
+    subscriptions: async () => devices,
+    day: async (userId, date, withPlans) => {
+      log.day.push(`${userId}|${date}|${withPlans}`)
+      const found = days[userId]
+      if (!found) throw new Error('down')
+      return found
+    },
+    send: async (sub, message) => {
+      log.sent.push([sub.id, message])
+      const answer = answers[sub.id] ?? 'sent'
+      if (answer instanceof Error) throw answer
+      return answer
+    },
+    markSent: async (id, date) => { log.marked.push([id, date]) },
+    remove: async (id) => { log.removed.push(id) },
+  }
+  return { deps, log }
+}
+const gym: LeagueDay[] = [{ name: 'Eagles', slug: 'eagles', rows: [row({ title: 'Gym' })] }]
+const nothing: LeagueDay[] = [{ name: 'Eagles', slug: 'eagles', rows: [] }]
+
+describe('runRound', () => {
+  it('sends to a due device and marks its day', async () => {
+    const { deps, log } = world([device()], { u1: gym })
+    expect(await runRound(deps, NOW)).toEqual({ due: 1, sent: 1, nothing: 0, gone: 0, failed: 0 })
+    expect(log.sent.map(([id, message]) => [id, message.body])).toEqual([['d1', 'Gym']])
+    expect(log.marked).toEqual([['d1', '2026-10-13']])
+  })
+
+  it('leaves a device that is not due alone', async () => {
+    const { deps, log } = world([device({ notify_hour: 9 }), device({ id: 'd2', last_sent_on: '2026-10-13' })], { u1: gym })
+    expect(await runRound(deps, NOW)).toEqual({ due: 0, sent: 0, nothing: 0, gone: 0, failed: 0 })
+    expect(log.day).toEqual([])
+    expect(log.sent).toEqual([])
+  })
+
+  it("reads a coach's day once for two devices", async () => {
+    const { deps, log } = world([device(), device({ id: 'd2', endpoint: 'https://push.test/d2', language: 'ar' })], { u1: gym })
+    expect(await runRound(deps, NOW)).toMatchObject({ due: 2, sent: 2 })
+    expect(log.day).toEqual(['u1|2026-10-13|true'])
+    expect(log.sent.map(([id, message]) => [id, message.lang])).toEqual([['d1', 'en'], ['d2', 'ar']])
+    expect(log.marked).toEqual([['d1', '2026-10-13'], ['d2', '2026-10-13']])
+  })
+
+  it('reads two days for one coach whose devices are on different dates', async () => {
+    const { deps, log } = world([
+      device({ id: 'east', time_zone: 'Pacific/Kiritimati', notify_hour: 18 }), // 18:10 on the 13th
+      device({ id: 'west', time_zone: 'Pacific/Pago_Pago', notify_hour: 17 }),  // 17:10 on the 12th
+    ], { u1: gym })
+    expect(await runRound(deps, NOW)).toMatchObject({ due: 2, sent: 2 })
+    expect([...log.day].sort()).toEqual(['u1|2026-10-12|true', 'u1|2026-10-13|true'])
+    expect([...log.marked].sort()).toEqual([['east', '2026-10-13'], ['west', '2026-10-12']])
+  })
+
+  it('marks the day and sends nothing when nothing is on', async () => {
+    const { deps, log } = world([device()], { u1: nothing })
+    expect(await runRound(deps, NOW)).toEqual({ due: 1, sent: 0, nothing: 1, gone: 0, failed: 0 })
+    expect(log.sent).toEqual([])
+    expect(log.marked).toEqual([['d1', '2026-10-13']])
+  })
+
+  it('removes a device whose address is gone', async () => {
+    const { deps, log } = world([device()], { u1: gym }, { d1: 'gone' })
+    expect(await runRound(deps, NOW)).toEqual({ due: 1, sent: 0, nothing: 0, gone: 1, failed: 0 })
+    expect(log.removed).toEqual(['d1'])
+    expect(log.marked).toEqual([])
+  })
+
+  it('leaves a failed send for the next run, and goes on', async () => {
+    const { deps, log } = world([device(), device({ id: 'd2', user_id: 'u2' })], { u1: gym, u2: gym }, { d1: 'failed' })
+    expect(await runRound(deps, NOW)).toEqual({ due: 2, sent: 1, nothing: 0, gone: 0, failed: 1 })
+    expect(log.marked).toEqual([['d2', '2026-10-13']])
+    expect(log.removed).toEqual([])
+  })
+
+  it('a send that throws, and a day that cannot be read, count as failed and stop nobody', async () => {
+    const { deps, log } = world(
+      [device(), device({ id: 'd2', user_id: 'u2' }), device({ id: 'd3', user_id: 'u3' })],
+      { u1: gym, u3: gym }, // u2's day cannot be read
+      { d1: new Error('boom') },
+    )
+    expect(await runRound(deps, NOW)).toEqual({ due: 3, sent: 1, nothing: 0, gone: 0, failed: 2 })
+    expect(log.marked).toEqual([['d3', '2026-10-13']])
+  })
+
+  it('a write that fails after a send stops nobody either', async () => {
+    const { deps, log } = world([device(), device({ id: 'd2', user_id: 'u2' })], { u1: gym, u2: gym })
+    const mark = deps.markSent
+    deps.markSent = async (id, date) => { if (id === 'd1') throw new Error('down'); return mark(id, date) }
+    expect(await runRound(deps, NOW)).toEqual({ due: 2, sent: 1, nothing: 0, gone: 0, failed: 1 })
+    expect(log.marked).toEqual([['d2', '2026-10-13']])
+  })
+
+  it('skips a coach who is disabled or lost the schedule', async () => {
+    const { deps, log } = world([
+      device({ coach: { enabled: false, features: ['schedule'] } }),
+      device({ id: 'd2', user_id: 'u2', coach: { enabled: true, features: ['training'] } }),
+    ], { u1: gym, u2: gym })
+    expect(await runRound(deps, NOW)).toEqual({ due: 0, sent: 0, nothing: 0, gone: 0, failed: 0 })
+    expect(log.day).toEqual([])
+  })
+
+  it('does not read training plans for a coach without training', async () => {
+    const { deps, log } = world([device({ coach: { enabled: true, features: ['schedule'] } })], { u1: gym })
+    await runRound(deps, NOW)
+    expect(log.day).toEqual(['u1|2026-10-13|false'])
+  })
+
+  it('skips a device whose time zone cannot be read, and goes on', async () => {
+    const { deps, log } = world([device({ time_zone: 'Not a zone!' }), device({ id: 'd2' })], { u1: gym })
+    expect(await runRound(deps, NOW)).toEqual({ due: 1, sent: 1, nothing: 0, gone: 0, failed: 0 })
+    expect(log.sent.map(([id]) => id)).toEqual(['d2'])
+  })
+})
+
+describe('runTest', () => {
+  it("sends today's items to the caller's own device whatever the hour, and marks nothing", async () => {
+    const { deps, log } = world([device({ notify_hour: 20, last_sent_on: '2026-10-13' })], { u1: gym })
+    expect(await runTest(deps, 'u1', 'https://push.test/d1', NOW)).toBe('sent')
+    expect(log.sent.map(([id, message]) => [id, message.body])).toEqual([['d1', 'Gym']])
+    expect(log.day).toEqual(['u1|2026-10-13|true'])
+    expect(log.marked).toEqual([])
+  })
+
+  it('sends the sample on an empty day', async () => {
+    const { deps, log } = world([device()], { u1: nothing })
+    expect(await runTest(deps, 'u1', 'https://push.test/d1', NOW)).toBe('sent')
+    expect(log.sent[0][1].body).toBe('Nothing on your schedule today. Your morning notification will appear here.')
+  })
+
+  it("finds nothing for another coach's device, or an unknown one", async () => {
+    const { deps, log } = world([device()], { u1: gym, u2: gym })
+    expect(await runTest(deps, 'u2', 'https://push.test/d1', NOW)).toBe('notFound')
+    expect(await runTest(deps, 'u1', 'https://push.test/unknown', NOW)).toBe('notFound')
+    expect(log.sent).toEqual([])
+  })
+
+  it('removes a device whose address is gone', async () => {
+    const { deps, log } = world([device()], { u1: gym }, { d1: 'gone' })
+    expect(await runTest(deps, 'u1', 'https://push.test/d1', NOW)).toBe('gone')
+    expect(log.removed).toEqual(['d1'])
+  })
+
+  it('reports a failed send, and one that throws, as failed', async () => {
+    expect(await runTest(world([device()], { u1: gym }, { d1: 'failed' }).deps, 'u1', 'https://push.test/d1', NOW)).toBe('failed')
+    expect(await runTest(world([device()], { u1: gym }, { d1: new Error('boom') }).deps, 'u1', 'https://push.test/d1', NOW)).toBe('failed')
+    expect(await runTest(world([device()], {}).deps, 'u1', 'https://push.test/d1', NOW)).toBe('failed') // the day cannot be read
+  })
+
+  it("uses today's date in UTC for a device whose time zone cannot be read", async () => {
+    const { deps, log } = world([device({ time_zone: 'Not a zone!' })], { u1: gym })
+    expect(await runTest(deps, 'u1', 'https://push.test/d1', NOW)).toBe('sent')
+    expect(log.day).toEqual(['u1|2026-10-13|true'])
+  })
+})
+
+describe('callerKind', () => {
+  const SECRET = 'a-long-job-secret-0123456789'
+  it('knows the job by its secret, and anyone else with a token as a user', () => {
+    expect(callerKind(`Bearer ${SECRET}`, SECRET)).toBe('job')
+    expect(callerKind('Bearer some.user.session', SECRET)).toBe('user')
+    expect(callerKind(`Bearer ${SECRET}x`, SECRET)).toBe('user')
+    expect(callerKind(`Bearer ${SECRET.slice(0, -1)}`, SECRET)).toBe('user')
+  })
+  it('lets nobody in without a bearer token', () => {
+    expect(callerKind(null, SECRET)).toBe('none')
+    expect(callerKind('', SECRET)).toBe('none')
+    expect(callerKind('Bearer ', SECRET)).toBe('none')
+    expect(callerKind('Basic abc', SECRET)).toBe('none')
+  })
+  it('a function deployed without its secret, or with a short one, has no job', () => {
+    expect(callerKind('Bearer ', '')).toBe('none')
+    expect(callerKind('Bearer ', undefined)).toBe('none')
+    expect(callerKind('Bearer short', 'short')).toBe('user')
+    expect(callerKind('Bearer undefined', undefined)).toBe('user')
+  })
 })

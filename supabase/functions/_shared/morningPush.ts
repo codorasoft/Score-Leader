@@ -133,3 +133,98 @@ export function buildMessage(language: PushLanguage, date: string, leagues: Leag
 export function sampleMessage(language: PushLanguage, date: string): PushMessage {
   return { title: WORDS[language].today, body: WORDS[language].sample, url: '/admin', ...frame(language, date) }
 }
+
+// ===== The round: everything the function decides, with its outside calls handed in
+
+export type SendResult = 'sent' | 'gone' | 'failed'
+
+export interface RoundDeps {
+  // Every device, with its coach's state
+  subscriptions(): Promise<CoachSub[]>
+  // What is on a day in each of a coach's leagues
+  day(userId: string, date: string, withPlans: boolean): Promise<LeagueDay[]>
+  // 'gone' when the push service says the address no longer exists
+  send(sub: PushSub, message: PushMessage): Promise<SendResult>
+  markSent(id: string, date: string): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+export interface RoundResult { due: number; sent: number; nothing: number; gone: number; failed: number }
+
+const allowed = (sub: CoachSub) => sub.coach.enabled && sub.coach.features.includes('schedule')
+const withPlans = (sub: CoachSub) => sub.coach.features.includes('training')
+
+// One run of the job: every device that is due gets its coach's day. A day with nothing on it
+// is marked and nothing is sent; a device whose address is gone is removed; anything that
+// fails is left for the next run and stops nobody else.
+export async function runRound(deps: RoundDeps, now: Date): Promise<RoundResult> {
+  const result: RoundResult = { due: 0, sent: 0, nothing: 0, gone: 0, failed: 0 }
+  // A coach's day is read once, however many of his devices are due for it
+  const days = new Map<string, Promise<LeagueDay[]>>()
+  for (const sub of await deps.subscriptions()) {
+    const date = allowed(sub) ? dueDate(sub, now) : null
+    if (!date) continue
+    result.due++
+    try {
+      const key = `${sub.user_id}|${date}`
+      const day = days.get(key) ?? deps.day(sub.user_id, date, withPlans(sub))
+      days.set(key, day)
+      const message = buildMessage(sub.language, date, await day)
+      if (!message) {
+        await deps.markSent(sub.id, date)
+        result.nothing++
+        continue
+      }
+      const answer = await deps.send(sub, message)
+      if (answer === 'sent') {
+        await deps.markSent(sub.id, date)
+        result.sent++
+      } else if (answer === 'gone') {
+        await deps.remove(sub.id)
+        result.gone++
+      } else {
+        result.failed++
+      }
+    } catch {
+      result.failed++
+    }
+  }
+  return result
+}
+
+// "Send a test now": today's items to one device of the caller, whatever its hour, without
+// touching the day it was last handled; a sample when nothing is on
+export async function runTest(deps: RoundDeps, userId: string, endpoint: string, now: Date): Promise<SendResult | 'notFound'> {
+  const sub = (await deps.subscriptions()).find((s) => s.user_id === userId && s.endpoint === endpoint)
+  if (!sub) return 'notFound'
+  try {
+    const date = localClock(sub.time_zone, now)?.date ?? now.toISOString().slice(0, 10)
+    const leagues = await deps.day(userId, date, withPlans(sub))
+    const answer = await deps.send(sub, buildMessage(sub.language, date, leagues) ?? sampleMessage(sub.language, date))
+    if (answer === 'gone') await deps.remove(sub.id)
+    return answer
+  } catch {
+    return 'failed'
+  }
+}
+
+// ===== Who is calling the function
+
+// A job secret shorter than this is no secret: a function deployed without one has no job
+const SECRET_LENGTH = 16
+
+// Compared without stopping at the first difference
+function sameText(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let difference = 0
+  for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return difference === 0
+}
+
+// From the Authorization header: the job (it sends the function's own secret), someone with
+// a session (checked by the function), or nobody
+export function callerKind(authorization: string | null, secret: string | undefined): 'job' | 'user' | 'none' {
+  const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : ''
+  if (!token) return 'none'
+  return secret && secret.length >= SECRET_LENGTH && sameText(token, secret) ? 'job' : 'user'
+}
