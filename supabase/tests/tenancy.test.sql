@@ -15,6 +15,8 @@
 --          ...0013 training type, ...0014 / ...0015 its videos. ...0016 training (league Z only;
 --          A's training gets a generated id, kept in the setting test.a_training).
 --          ...0017 schedule item (repeating), ...0018 schedule item (a task).
+--          Push devices have no fixed ids; they are told apart by their address
+--          (https://push.test/a1, a2, ...).
 -- Acting as a user: SELECT pg_temp.act_as('<user id>'); ... RESET role;
 -- Acting as a visitor: SELECT pg_temp.act_as(NULL); ... RESET role;
 
@@ -870,6 +872,168 @@ SELECT pg_temp.expect_error(
 SELECT pg_temp.expect_count($sql$DELETE FROM public.schedule_items$sql$, 0);
 RESET role;
 UPDATE public.admin_profiles SET features = array_append(features, 'schedule') WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
+
+-- ===== Morning push: a coach's devices (push_subscriptions) are written only by
+-- save_push_subscription, read and deleted only by their own coach; the job that calls the
+-- server function stays quiet until there is a device and its two Vault values
+
+-- What the live database holds after the rollout is put aside here (and comes back with the
+-- ROLLBACK), so these checks give the same answer before and after it
+DELETE FROM public.push_subscriptions;
+DELETE FROM vault.secrets WHERE name IN ('morning_push_url', 'morning_push_secret');
+
+SELECT pg_temp.expect(
+  (SELECT count(*) = 2 FROM public.admin_profiles
+   WHERE user_id IN ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000001')
+     AND 'schedule' = ANY (features) AND NOT is_disabled),
+  'A and B are enabled and have schedule before the push tests');
+
+-- The job: nobody has a device yet, so nothing is asked even with both values set
+SELECT vault.create_secret('https://example.test/fn', 'morning_push_url');
+SELECT vault.create_secret('s3cret', 'morning_push_secret');
+SELECT public.kick_morning_push();
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM net.http_request_queue WHERE url = 'https://example.test/fn'),
+  'the job asks nothing while there is no device');
+
+-- A coach saves a device, and saving it again changes that one row
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a1', 'key', 'auth', 'Asia/Riyadh', 7, 'ar');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 AND bool_and(user_id = 'aaaaaaaa-0000-4000-8000-000000000001' AND p256dh = 'key' AND auth = 'auth'
+     AND time_zone = 'Asia/Riyadh' AND notify_hour = 7 AND language = 'ar' AND last_sent_on IS NULL)
+   FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'A saves a device and reads it back');
+SELECT public.save_push_subscription('https://push.test/a1', 'key2', 'auth2', 'Europe/Berlin', 9, 'en');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 AND bool_and(p256dh = 'key2' AND auth = 'auth2' AND time_zone = 'Europe/Berlin' AND notify_hour = 9 AND language = 'en')
+   FROM public.push_subscriptions),
+  'saving the same address again changes that row, and adds none');
+
+-- No way round the function
+SELECT pg_temp.expect_error(
+  $sql$INSERT INTO public.push_subscriptions (user_id, endpoint, p256dh, auth, time_zone, notify_hour, language)
+       VALUES ('aaaaaaaa-0000-4000-8000-000000000001', 'https://push.test/direct', 'k', 'a', 'UTC', 7, 'en')$sql$,
+  'permission denied');
+SELECT pg_temp.expect_error($sql$UPDATE public.push_subscriptions SET notify_hour = 3$sql$, 'permission denied');
+RESET role;
+
+-- Nobody else sees it or can remove it
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect((SELECT count(*) = 0 FROM public.push_subscriptions), 'B reads none of A''s devices');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.push_subscriptions$sql$, 0);
+RESET role;
+SELECT pg_temp.act_as('cccccccc-0000-4000-8000-000000000001');
+SELECT pg_temp.expect((SELECT count(*) = 0 FROM public.push_subscriptions), 'the superadmin reads no devices');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.push_subscriptions$sql$, 0);
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/s1', 'k', 'a', 'UTC', 7, 'en')$sql$,
+  'schedule feature needed');
+RESET role;
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect_error($sql$SELECT count(*) FROM public.push_subscriptions$sql$, 'permission denied');
+SELECT pg_temp.expect_error($sql$DELETE FROM public.push_subscriptions$sql$, 'permission denied');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/v1', 'k', 'a', 'UTC', 7, 'en')$sql$,
+  'permission denied');
+RESET role;
+SELECT pg_temp.expect((SELECT count(*) = 1 FROM public.push_subscriptions), 'A''s device is untouched after the others'' attempts');
+
+-- The day already handled is kept for the same coach
+UPDATE public.push_subscriptions SET last_sent_on = '2026-10-13' WHERE endpoint = 'https://push.test/a1';
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a1', 'key2', 'auth2', 'Asia/Riyadh', 8, 'ar');
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT last_sent_on = '2026-10-13' AND notify_hour = 8 FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'the same coach saving again keeps the day already handled');
+
+-- Whoever holds the address holds the device: another coach on the same browser takes it over
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a1', 'key3', 'auth3', 'Asia/Riyadh', 6, 'en');
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 AND bool_and(user_id = 'bbbbbbbb-0000-4000-8000-000000000001' AND last_sent_on IS NULL AND notify_hour = 6)
+   FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'B saving A''s address becomes its owner, and the day handled is forgotten');
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect((SELECT count(*) = 0 FROM public.push_subscriptions), 'A no longer reads the device B took over');
+
+-- What the function refuses
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a2', 'k', 'a', 'UTC', 24, 'en')$sql$,
+  'push_subscriptions_hour_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a2', 'k', 'a', 'UTC', -1, 'en')$sql$,
+  'push_subscriptions_hour_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a2', 'k', 'a', 'UTC', 7, 'fr')$sql$,
+  'push_subscriptions_language_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('http://push.test/a2', 'k', 'a', 'UTC', 7, 'en')$sql$,
+  'push_subscriptions_endpoint_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/' || repeat('x', 2000), 'k', 'a', 'UTC', 7, 'en')$sql$,
+  'push_subscriptions_endpoint_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a2', 'k', 'a', 'Not a zone!', 7, 'en')$sql$,
+  'push_subscriptions_time_zone_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a2', '', 'a', 'UTC', 7, 'en')$sql$,
+  'push_subscriptions_keys_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a2', 'k', repeat('a', 201), 'UTC', 7, 'en')$sql$,
+  'push_subscriptions_keys_check');
+
+-- A coach removes his own device
+SELECT public.save_push_subscription('https://push.test/a2', 'k', 'a', 'America/Argentina/Buenos_Aires', 0, 'en');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a2'$sql$, 1);
+RESET role;
+
+-- Without schedule, and for a disabled admin: no device
+UPDATE public.admin_profiles SET features = array_remove(features, 'schedule') WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a3', 'k', 'a', 'UTC', 7, 'en')$sql$,
+  'schedule feature needed');
+RESET role;
+UPDATE public.admin_profiles SET features = array_append(features, 'schedule') WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
+SELECT pg_temp.act_as('dddddddd-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/d1', 'k', 'a', 'UTC', 7, 'en')$sql$,
+  'schedule feature needed');
+RESET role;
+
+-- Deleting a coach removes his devices
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 AND bool_and(confdeltype = 'c' AND confrelid = 'public.admin_profiles'::regclass)
+   FROM pg_constraint WHERE conrelid = 'public.push_subscriptions'::regclass AND contype = 'f'),
+  'push_subscriptions has one foreign key, to the coach, deleted with him');
+
+-- The job: not for the app's users; with a device and both values it asks once, with the
+-- secret as its bearer token; with a value missing it asks nothing more
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error($sql$SELECT public.kick_morning_push()$sql$, 'permission denied');
+RESET role;
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect_error($sql$SELECT public.kick_morning_push()$sql$, 'permission denied');
+RESET role;
+SELECT pg_temp.expect((SELECT count(*) = 1 FROM public.push_subscriptions), 'one device is left for the job tests');
+SELECT public.kick_morning_push();
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 AND bool_and(headers ->> 'Authorization' = 'Bearer s3cret' AND method = 'POST')
+   FROM net.http_request_queue WHERE url = 'https://example.test/fn'),
+  'with a device and both values the job asks the function once, with its secret');
+DELETE FROM vault.secrets WHERE name = 'morning_push_secret';
+SELECT public.kick_morning_push();
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM net.http_request_queue WHERE url = 'https://example.test/fn'),
+  'without its secret the job asks nothing');
+
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM cron.job WHERE jobname = 'morning-push' AND schedule = '*/15 * * * *' AND command = 'SELECT public.kick_morning_push()' AND active)
+  AND (SELECT count(*) = 1 FROM cron.job WHERE jobname = 'purge-cron-history' AND schedule = '0 3 * * *' AND active),
+  'the two jobs are scheduled: every 15 minutes, and the daily clean-up of their history');
 
 -- ===== Storage: the first folder is a league the caller owns (and has photos, for player photos)
 
