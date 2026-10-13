@@ -208,18 +208,28 @@ export function wrapLines(text: string, maxWidth: number, measure: (s: string) =
 // Widest a player's name gets on the board image: five players across leave 192 each
 const NAME_WIDTH = 172
 
-// Full pitch from above with every player where the admin placed them.
+// The substitutes of a board image: a column of this width for every eight, right of the pitch
+const BENCH_WIDTH = 220
+const BENCH_ROWS = 8
+
+// Full pitch from above with every player where the admin placed them, and the substitutes in
+// a column beside it. Without substitutes the image is as it always was.
 export async function drawBoardImage(data: {
   title: string
   subtitle: string
   players: { name: string; photo_url: string | null; x: number; y: number; guest?: boolean }[]
+  // Those beside the pitch, in their order, and the heading over them
+  substitutes?: { name: string; photo_url: string | null; guest?: boolean }[]
+  substitutesTitle?: string
   drawings?: Shape[]
   footer: string
 }): Promise<HTMLCanvasElement> {
-  const W = 1080
+  const BOARD_W = 1080
+  const substitutes = data.substitutes ?? []
+  const W = BOARD_W + Math.ceil(substitutes.length / BENCH_ROWS) * BENCH_WIDTH
   const PITCH_X = 60
   const PITCH_Y = 170
-  const PW = W - PITCH_X * 2
+  const PW = BOARD_W - PITCH_X * 2
   const PH = PW * 1.5
   const H = PITCH_Y + PH + 90
   const canvas = document.createElement('canvas')
@@ -326,28 +336,28 @@ export async function drawBoardImage(data: {
     ctx.fill()
   }
 
-  const photos = await Promise.all(data.players.map((p) => loadPhoto(p.photo_url)))
-  data.players.forEach((p, i) => {
-    const cx = PITCH_X + p.x * PW
-    const cy = PITCH_Y + p.y * PH
-    const r = 46
+  // A player's circle (photo or initial) centred on cx, cy, with the name under it. Sizes are
+  // those of a player on the pitch (r 46), smaller in step for a smaller circle.
+  type Token = { name: string; photo_url: string | null; guest?: boolean }
+  const drawToken = (p: Token, photo: HTMLImageElement | null, cx: number, cy: number, r: number) => {
+    const k = r / 46
     ctx.beginPath()
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
     ctx.fillStyle = p.guest ? '#4b5563' : '#1f2937'
     ctx.fill()
-    if (photos[i]) {
+    if (photo) {
       ctx.save()
       ctx.clip()
-      ctx.drawImage(photos[i]!, cx - r, cy - r, r * 2, r * 2)
+      ctx.drawImage(photo, cx - r, cy - r, r * 2, r * 2)
       ctx.restore()
     } else {
       ctx.fillStyle = '#ffffff'
-      ctx.font = `800 44px ${FONT}`
-      ctx.fillText(p.name.charAt(0).toUpperCase(), cx, cy + 16)
+      ctx.font = `800 ${Math.round(44 * k)}px ${FONT}`
+      ctx.fillText(p.name.charAt(0).toUpperCase(), cx, cy + Math.round(16 * k))
     }
     ctx.beginPath()
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
-    ctx.lineWidth = 7
+    ctx.lineWidth = Math.round(7 * k)
     ctx.strokeStyle = p.guest ? '#d1d5db' : '#ffffff'
     ctx.setLineDash(p.guest ? [14, 9] : [])
     ctx.stroke()
@@ -355,7 +365,7 @@ export async function drawBoardImage(data: {
 
     // The whole name, on as many lines as it needs, so neighbours never cover each other's
     // letters; only a single word wider than the line is made smaller
-    let size = 28
+    let size = Math.round(28 * k)
     ctx.font = `800 ${size}px ${FONT}`
     const width = (text: string) => ctx.measureText(text).width
     const lines = wrapLines(p.name, NAME_WIDTH, width)
@@ -372,6 +382,20 @@ export async function drawBoardImage(data: {
     ctx.fill()
     ctx.fillStyle = '#ffffff'
     lines.forEach((line, n) => ctx.fillText(line, cx, top + lineH * n + size + 1))
+  }
+
+  const photos = await Promise.all([...data.players, ...substitutes].map((p) => loadPhoto(p.photo_url)))
+  data.players.forEach((p, i) => drawToken(p, photos[i], PITCH_X + p.x * PW, PITCH_Y + p.y * PH, 46))
+
+  // The substitutes, from the top down; the ninth starts a second column
+  const benchX = (column: number) => BOARD_W - PITCH_X + 20 + BENCH_WIDTH / 2 + column * BENCH_WIDTH
+  if (substitutes.length > 0 && data.substitutesTitle) {
+    ctx.fillStyle = '#94a3b8'
+    ctx.font = `700 30px ${FONT}`
+    ctx.fillText(data.substitutesTitle, benchX(0), PITCH_Y + 40)
+  }
+  substitutes.forEach((p, i) => {
+    drawToken(p, photos[data.players.length + i], benchX(Math.floor(i / BENCH_ROWS)), PITCH_Y + 130 + (i % BENCH_ROWS) * 160, 38)
   })
 
   ctx.fillStyle = '#64748b'

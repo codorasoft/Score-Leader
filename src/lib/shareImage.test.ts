@@ -67,5 +67,54 @@ describe('drawBoardImage', () => {
     expect(lines.length).toBeGreaterThan(1)
     expect(lines.map((l) => l.text).join(' ')).toBe('Full backs stay wide and very high today')
   })
-})
+  const sub = (name: string) => ({ name, photo_url: null })
 
+  it('is as wide as ever without substitutes', async () => {
+    const { written, restore } = fakeCanvas()
+    const canvas = await drawBoardImage({ title: 'Friday', subtitle: 's', players: [], substitutes: [], substitutesTitle: 'Substitutes', footer: 'ScoreLeader' })
+    restore()
+    expect(canvas.width).toBe(1080)
+    expect(written.find((w) => w.text === 'Substitutes')).toBeUndefined()
+    expect(written.find((w) => w.text === 'Friday')!.x).toBe(540)
+  })
+
+  it('draws the substitutes in a column to the right of the pitch', async () => {
+    const { written, restore } = fakeCanvas()
+    const canvas = await drawBoardImage({
+      title: 'Friday', subtitle: 's', players: [], footer: 'ScoreLeader',
+      substitutes: [sub('Hadi'), sub('Zaid')], substitutesTitle: 'Substitutes',
+    })
+    restore()
+    expect(canvas.width).toBe(1300)
+    expect(written.find((w) => w.text === 'Substitutes')).toMatchObject({ x: 1150, y: 210 })
+    const hadi = written.find((w) => w.text === 'Hadi')!, zaid = written.find((w) => w.text === 'Zaid')!
+    expect(hadi.x).toBe(1150)
+    expect(zaid.y - hadi.y).toBe(160)
+    // The title and the footer are centred on the wider image
+    expect(written.find((w) => w.text === 'Friday')!.x).toBe(650)
+    expect(written.find((w) => w.text === 'ScoreLeader')!.x).toBe(650)
+  })
+
+  it('starts a second column after eight substitutes', async () => {
+    const { written, restore } = fakeCanvas()
+    const canvas = await drawBoardImage({
+      title: 'T', subtitle: 's', players: [], footer: 'ScoreLeader',
+      substitutes: Array.from({ length: 9 }, (_, i) => sub(`Sub${i + 1}`)), substitutesTitle: 'Substitutes',
+    })
+    restore()
+    expect(canvas.width).toBe(1520)
+    expect(written.find((w) => w.text === 'Sub9')).toMatchObject({ x: 1370, y: written.find((w) => w.text === 'Sub1')!.y })
+    expect(written.filter((w) => w.text === 'Substitutes')).toHaveLength(1)
+  })
+
+  it('keeps the players on the pitch where they were, with substitutes beside it', async () => {
+    const { written, restore } = fakeCanvas()
+    await drawBoardImage({
+      title: 'T', subtitle: 's', footer: 'ScoreLeader',
+      players: [{ name: 'Omar', photo_url: null, x: 0.5, y: 0.5 }],
+      substitutes: [sub('Hadi')], substitutesTitle: 'Substitutes',
+    })
+    restore()
+    expect(written.find((w) => w.text === 'Omar')!.x).toBe(540)
+  })
+})
