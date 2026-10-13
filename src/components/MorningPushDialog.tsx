@@ -41,7 +41,9 @@ export default function MorningPushDialog({ state, onChange, onClose }: Props) {
     const result = await turnOnPush(hour, i18n.language)
     // 'dismissed': the browser's question was closed without an answer; nothing changed
     if (result === 'failed') failed(t('push.saveFailed'))
-    else if (result !== 'dismissed') onChange(await readPushState())
+    // Some browsers refuse and still report "never asked": the answer given here is what counts
+    else if (result === 'blocked') onChange({ ...(await readPushState()), permission: 'denied', on: false })
+    else if (result === 'on') onChange(await readPushState())
   })
   const changeHour = (next: number) => {
     setHour(next)

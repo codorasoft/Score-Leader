@@ -9,7 +9,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3'
 import { corsHeaders, json, readJson } from '../_shared/superadmin.ts'
 import { internalError } from '../_shared/errors.ts'
-import { callerKind, runRound, runTest, type PushMessage, type PushSub, type SendResult } from '../_shared/morningPush.ts'
+import { callerKind, runRound, runTest, SEND_LIMIT_MS, type PushMessage, type PushSub, type SendResult } from '../_shared/morningPush.ts'
 import { coachIsAllowed, roundDeps } from '../_shared/morningPushData.ts'
 
 // A phone that is off at the hour still gets the notification when it is back that day
@@ -23,6 +23,8 @@ async function send(sub: PushSub, message: PushMessage): Promise<SendResult> {
       JSON.stringify(message),
       {
         TTL: KEEP_SECONDS,
+        // The round gives a send up at this limit too; this closes the connection itself
+        timeout: SEND_LIMIT_MS,
         vapidDetails: {
           subject: Deno.env.get('VAPID_SUBJECT')!,
           publicKey: Deno.env.get('VAPID_PUBLIC_KEY')!,
@@ -32,11 +34,14 @@ async function send(sub: PushSub, message: PushMessage): Promise<SendResult> {
     )
     return 'sent'
   } catch (e) {
-    const status = (e as { statusCode?: number } | null)?.statusCode
+    const refusal = e as { statusCode?: number; body?: unknown } | null
+    const status = refusal?.statusCode
     // The push service no longer knows the address: the browser gave it back, or renewed it
     if (status === 404 || status === 410) return 'gone'
-    // The address is a secret of the device and stays out of the logs
-    console.error('push failed:', status ?? (e instanceof Error ? e.message : e))
+    // What the push service said (a short reason such as a wrong key), to tell a set-up fault
+    // from a passing one. The address is a secret of the device and stays out of the logs.
+    const reason = typeof refusal?.body === 'string' ? refusal.body.slice(0, 200) : ''
+    console.error('push failed:', status ?? (e instanceof Error ? e.message : e), reason)
     return 'failed'
   }
 }

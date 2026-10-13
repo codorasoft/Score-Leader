@@ -87,3 +87,18 @@ it.each([
   await fire('notificationclick', { notification: { close: vi.fn(), data: { url: '/admin' } } })
   expect(self.clients.openWindow).toHaveBeenCalledWith('/admin')
 })
+
+it('brings the window to the front before taking it there, and opens no second one', async () => {
+  // As browsers do: after navigate() the handle used for it is stale, and focusing it is refused
+  let moved = false
+  const calls: string[] = []
+  const open = {
+    url: 'https://app.test/admin/eagles/home',
+    focus: vi.fn(async () => { calls.push('focus'); if (moved) throw new Error('stale client') }),
+    navigate: vi.fn(async () => { calls.push('navigate'); moved = true }),
+  }
+  const { self, fire } = worker([open])
+  await fire('notificationclick', { notification: { close: vi.fn(), data: { url: '/admin/eagles/schedule' } } })
+  expect(calls).toEqual(['focus', 'navigate'])
+  expect(self.clients.openWindow).not.toHaveBeenCalled()
+})

@@ -151,6 +151,16 @@ export interface RoundDeps {
 
 export interface RoundResult { due: number; sent: number; nothing: number; gone: number; failed: number }
 
+// How long one send may take. Any https address can be saved as a device, and one that takes
+// the connection and never answers must not hold up every device after it.
+export const SEND_LIMIT_MS = 10_000
+
+function limited(send: Promise<SendResult>): Promise<SendResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<SendResult>((resolve) => { timer = setTimeout(() => resolve('failed'), SEND_LIMIT_MS) })
+  return Promise.race([send, late]).finally(() => clearTimeout(timer))
+}
+
 const allowed = (sub: CoachSub) => sub.coach.enabled && sub.coach.features.includes('schedule')
 const withPlans = (sub: CoachSub) => sub.coach.features.includes('training')
 
@@ -175,7 +185,7 @@ export async function runRound(deps: RoundDeps, now: Date): Promise<RoundResult>
         result.nothing++
         continue
       }
-      const answer = await deps.send(sub, message)
+      const answer = await limited(deps.send(sub, message))
       if (answer === 'sent') {
         await deps.markSent(sub.id, date)
         result.sent++
@@ -200,7 +210,7 @@ export async function runTest(deps: RoundDeps, userId: string, endpoint: string,
   try {
     const date = localClock(sub.time_zone, now)?.date ?? now.toISOString().slice(0, 10)
     const leagues = await deps.day(userId, date, withPlans(sub))
-    const answer = await deps.send(sub, buildMessage(sub.language, date, leagues) ?? sampleMessage(sub.language, date))
+    const answer = await limited(deps.send(sub, buildMessage(sub.language, date, leagues) ?? sampleMessage(sub.language, date)))
     if (answer === 'gone') await deps.remove(sub.id)
     return answer
   } catch {

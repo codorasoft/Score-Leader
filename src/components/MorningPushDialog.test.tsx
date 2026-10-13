@@ -91,6 +91,14 @@ describe('off', () => {
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(BLOCKED))
   })
 
+  it('a blocked answer is shown as blocked even when the browser still says it was never asked', async () => {
+    api.turnOnPush.mockResolvedValue('blocked')
+    api.readPushState.mockResolvedValue(OFF)
+    open(OFF)
+    fireEvent.click(button('Turn on'))
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(BLOCKED))
+  })
+
   it('a failed save says so', async () => {
     api.turnOnPush.mockResolvedValue('failed')
     open(OFF)

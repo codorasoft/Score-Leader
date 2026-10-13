@@ -332,3 +332,40 @@ describe('callerKind', () => {
     expect(callerKind('Bearer undefined', undefined)).toBe('user')
   })
 })
+
+// A push address that takes the connection and never answers (any https address can be saved)
+describe('a send that never answers', () => {
+  const stuck = (deps: RoundDeps, id: string) => {
+    const send = deps.send
+    deps.send = (sub, message) => (sub.id === id ? new Promise<SendResult>(() => {}) : send(sub, message))
+  }
+  afterEach(() => vi.useRealTimers())
+
+  it('is given up after ten seconds and counted as failed, and the next device is served', async () => {
+    vi.useFakeTimers()
+    const { deps, log } = world([device(), device({ id: 'd2', user_id: 'u2' })], { u1: gym, u2: gym })
+    stuck(deps, 'd1')
+    const round = runRound(deps, NOW)
+    await vi.advanceTimersByTimeAsync(9_999)
+    expect(log.marked).toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await round).toEqual({ due: 2, sent: 1, nothing: 0, gone: 0, failed: 1 })
+    expect(log.marked).toEqual([['d2', '2026-10-13']])
+  })
+
+  it('a test send gives up too', async () => {
+    vi.useFakeTimers()
+    const { deps } = world([device()], { u1: gym })
+    stuck(deps, 'd1')
+    const test = runTest(deps, 'u1', 'https://push.test/d1', NOW)
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(await test).toBe('failed')
+  })
+
+  it('a send that answers in time leaves no timer behind', async () => {
+    vi.useFakeTimers()
+    const { deps } = world([device()], { u1: gym })
+    expect(await runRound(deps, NOW)).toMatchObject({ sent: 1 })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})

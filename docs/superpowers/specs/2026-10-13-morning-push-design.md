@@ -131,6 +131,8 @@ For each due coach, once for all his due devices:
   - accepted: `last_sent_on` is set to the local date;
   - the address no longer exists (404 or 410): the row is deleted;
   - any other failure: nothing is changed, and the next run tries again.
+- A send is given 10 seconds. Any https address can be saved as a device, and one that never
+  answers must not hold up the devices after it.
 
 ### The notification
 
@@ -168,7 +170,7 @@ The generated service worker loads one more file, `push-sw.js`:
   shows a plain notification under the app's name that opens `/admin`: an iPhone can
   withdraw the permission from an app whose pushes show nothing.
 - **On a tap:** closes the notification, brings an open window of the app to the front and
-  takes it to the address, or opens a new one.
+  then takes it to the address, or opens a new one.
 
 ### The Morning notification dialog
 
@@ -184,8 +186,9 @@ notification: off", "…: on, 07:00"), opens the dialog. What it shows depends o
 | Asked, and the question closed without an answer | stays Off, with nothing said |
 | On | the hour picker (a change is saved at once), **Send a test now** and **Turn off** |
 
-- **Turn on** asks the browser for permission, takes the device's address and saves it. A
-  refusal lands in the blocked state. A failed save leaves it off and says so.
+- **Turn on** asks the browser for permission, straight from the tap and before anything
+  else is waited for (an iPhone shows the question only then), takes the device's address
+  and saves it. A refusal lands in the blocked state. A failed save leaves it off and says so.
 - **Turn off** deletes the row and gives the address back to the browser.
 - **Send a test now** calls the function and reports "Sent" or that it could not be sent.
 - Buttons are off while their request runs.
@@ -264,6 +267,9 @@ working at every point (the migration only adds).
 6. Deploy the function.
 7. Merge the pull request; Vercel deploys the app.
 8. The user turns the notification on on a phone and taps Send a test now.
+9. The job is proven by itself: with the device's hour set to the current hour, a
+   notification arrives at the next quarter hour without anyone asking, and the job's history
+   shows the function answering it. The test in step 8 does not show this.
 
 Until step 5 the job does nothing; until someone turns the notification on it makes no call.
 
@@ -275,7 +281,7 @@ Until step 5 the job does nothing; until someone turns the notification on it ma
   unknown time zone; a coach who lost `schedule` or was disabled.
 - **The round:** two devices of one coach read the day once; several leagues; nothing
   today marks the day and sends nothing; accepted, gone and failed answers; one device's
-  failure does not stop the others.
+  failure does not stop the others; a send that never answers is given up after 10 seconds.
 - **The test send:** only the caller's own device; a sample on an empty day; `last_sent_on`
   untouched.
 - **The text:** counts and plural forms in both languages; five lines and "+N more";

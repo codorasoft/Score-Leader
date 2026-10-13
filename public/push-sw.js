@@ -44,8 +44,10 @@ async function openApp(url) {
   for (const client of windows) {
     if (!client.url.startsWith(`${self.location.origin}/`) || typeof client.navigate !== 'function') continue
     try {
-      await client.navigate(url)
+      // To the front first, while the tap still allows it; and taking the window to the
+      // address makes this handle on it stale, so nothing is asked of it afterwards
       await client.focus()
+      await client.navigate(url)
       return
     } catch { /* this window cannot be taken there: try the next, or open a new one */ }
   }

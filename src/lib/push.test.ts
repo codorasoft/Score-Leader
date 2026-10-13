@@ -41,17 +41,22 @@ function browser(over: Browser = {}) {
     return made
   })
   const registration = { pushManager: { subscribe, getSubscription: async () => held.subscription } }
+  // What was asked of the browser, in order
+  const asked: string[] = []
   const notification = {
     permission: over.permission ?? 'default',
     requestPermission: vi.fn(async () => {
+      asked.push('permission')
       notification.permission = over.ask ?? 'granted'
       return notification.permission
     }),
   }
-  define(navigator, 'serviceWorker', over.serviceWorker === false ? undefined : { getRegistration: async () => (over.registered === false ? undefined : registration) })
+  define(navigator, 'serviceWorker', over.serviceWorker === false ? undefined : {
+    getRegistration: async () => { asked.push('registration'); return over.registered === false ? undefined : registration },
+  })
   define(window, 'PushManager', over.pushManager === false ? undefined : function PushManager() {})
   define(window, 'Notification', notification)
-  return { subscribe, made, requestPermission: notification.requestPermission }
+  return { subscribe, made, requestPermission: notification.requestPermission, asked }
 }
 const on = (over: Browser = {}) => browser({ permission: 'granted', subscription: subscription(), ...over })
 const device = (over: Record<string, unknown> = {}) => ({
@@ -162,6 +167,17 @@ describe('turnOnPush', () => {
     expect((options.applicationServerKey as Uint8Array)[0]).toBe(4)
     expect(db.rpcs).toEqual([saved(8, 'ar')])
     expect(localStorage.getItem(KEY)).toBe('{"hour":8}')
+  })
+  it('asks for permission straight from the tap, before anything else is waited for', async () => {
+    // An iPhone shows the question only when it is asked for directly by the tap
+    const { asked } = browser()
+    await turnOnPush(7, 'en')
+    expect(asked[0]).toBe('permission')
+  })
+  it('does not ask on a device that cannot push', async () => {
+    const { requestPermission } = browser({ pushManager: false })
+    expect(await turnOnPush(7, 'en')).toBe('failed')
+    expect(requestPermission).not.toHaveBeenCalled()
   })
   it('uses the address the browser already holds instead of asking for another', async () => {
     const { subscribe } = browser({ subscription: subscription() })

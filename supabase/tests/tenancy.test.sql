@@ -1010,6 +1010,22 @@ SELECT pg_temp.expect(
    FROM pg_constraint WHERE conrelid = 'public.push_subscriptions'::regclass AND contype = 'f'),
   'push_subscriptions has one foreign key, to the coach, deleted with him');
 
+-- The server function works as the service role: it reads the devices and what is on a day,
+-- marks a device's day and removes one whose address is gone. A missing right would only
+-- show on the live system, as a notification repeated every 15 minutes.
+SELECT pg_temp.expect(
+  has_table_privilege('service_role', 'public.push_subscriptions', 'SELECT')
+  AND has_table_privilege('service_role', 'public.push_subscriptions', 'UPDATE')
+  AND has_table_privilege('service_role', 'public.push_subscriptions', 'DELETE'),
+  'the service role can read, mark and remove devices');
+SELECT pg_temp.expect(
+  (SELECT bool_and(has_table_privilege('service_role', t, 'SELECT'))
+   FROM unnest(ARRAY['public.admin_profiles', 'public.leagues', 'public.schedule_items', 'public.sessions', 'public.trainings']) AS t),
+  'the service role can read the coaches, their leagues and what is on a day');
+SELECT pg_temp.expect(
+  (SELECT rolbypassrls FROM pg_roles WHERE rolname = 'service_role'),
+  'the service role is not held back by the row rules');
+
 -- The job: not for the app's users; with a device and both values it asks once, with the
 -- secret as its bearer token; with a value missing it asks nothing more
 SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');

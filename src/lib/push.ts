@@ -116,11 +116,14 @@ export async function readPushState(): Promise<PushState> {
 // 'blocked' when the browser says no; 'dismissed' when the question was closed unanswered
 export async function turnOnPush(hour: number, language: string): Promise<'on' | 'blocked' | 'dismissed' | 'failed'> {
   try {
-    const { registration } = await device()
-    if (!registration) return 'failed'
+    if (!navigator.serviceWorker || !window.PushManager || !window.Notification || !appKey()) return 'failed'
+    // Asked first, before anything is waited for: an iPhone shows the question only when it
+    // is asked for directly by the tap
     const answer = await window.Notification.requestPermission()
     if (answer === 'denied') return 'blocked'
     if (answer !== 'granted') return 'dismissed'
+    const { registration } = await device()
+    if (!registration) return 'failed'
     const held = await registration.pushManager.getSubscription()
     const subscription = held ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(appKey()) })
     if (await save(subscription, hour, language)) {
