@@ -9,6 +9,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // The generated service worker also loads the app's push handlers (public/push-sw.js)
+      workbox: { importScripts: ['push-sw.js'] },
       // Drawn by scripts/makeIcons.ts
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons/badge-96.png'],
       manifest: {
