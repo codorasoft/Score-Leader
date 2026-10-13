@@ -836,5 +836,10 @@
       "monthly": "Every month"
     },
     "onDays": "On these days"
+  },
+  "today": {
+    "title": "Today",
+    "openSchedule": "Open schedule",
+    "gotIt": "Got it"
   }
 }
