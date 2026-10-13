@@ -15,7 +15,9 @@ vi.mock('../contexts/MyLeaguesContext', () => ({
 }))
 // The check itself has its own tests; here only that the layout carries it
 vi.mock('../components/TodayReminder', () => ({ default: () => <div data-testid="today-reminder" /> }))
+vi.mock('../lib/push', () => ({ keepPushRight: vi.fn(async () => {}) }))
 
+import { keepPushRight } from '../lib/push'
 import AdminLayout from './AdminLayout'
 
 function renderAt(path: string, features: readonly FeatureKey[] = FEATURES) {
@@ -80,4 +82,19 @@ it('with the schedule only there are four tabs, and Schedule is current on its p
 it("carries the once-a-day check for today's items", () => {
   renderAt('/admin/eagles/players')
   expect(screen.getByTestId('today-reminder')).toBeInTheDocument()
+})
+
+describe('the morning notification', () => {
+  beforeEach(() => { vi.mocked(keepPushRight).mockClear() })
+
+  it("is kept right, in the app's language, when the admin area opens", () => {
+    renderAt('/admin/eagles/players')
+    expect(keepPushRight).toHaveBeenCalledTimes(1)
+    expect(keepPushRight).toHaveBeenCalledWith('en')
+  })
+
+  it('is left alone without the schedule', () => {
+    renderAt('/admin/eagles/players', FEATURES.filter((f) => f !== 'schedule'))
+    expect(keepPushRight).not.toHaveBeenCalled()
+  })
 })

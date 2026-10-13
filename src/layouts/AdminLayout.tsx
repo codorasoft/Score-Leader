@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
@@ -6,6 +7,7 @@ import { LeagueSwitcher } from '../components/LeagueSwitcher'
 import TodayReminder from '../components/TodayReminder'
 import { useAdminPath, useFeature, useLeague } from '../contexts/LeagueContext'
 import { useMyLeagues } from '../contexts/MyLeaguesContext'
+import { keepPushRight } from '../lib/push'
 
 const icon = (d: string) => (
   <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -41,7 +43,7 @@ function activeTab(pathname: string): 'home' | 'players' | 'history' | 'training
 export default function AdminLayout() {
   const { signOut } = useAuth()
   const location = useLocation()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const league = useLeague()
   const { leagues, profile } = useMyLeagues()
   const adminPath = useAdminPath()
@@ -49,6 +51,12 @@ export default function AdminLayout() {
   const training = useFeature('training')
   const schedule = useFeature('schedule')
   const current = activeTab(location.pathname)
+
+  // A device with the morning notification on follows its coach: a new time zone, another
+  // language, or an address the browser renewed is saved again without his doing anything
+  useEffect(() => {
+    if (schedule) keepPushRight(i18n.language)
+  }, [schedule, i18n.language])
   const owned = leagues.find(l => l.id === league.id)
 
   type Tab = ReturnType<typeof activeTab>

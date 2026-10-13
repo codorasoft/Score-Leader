@@ -10,6 +10,8 @@ import {
 import { localToday } from '../../utils/trainingDays'
 import MonthCalendar, { DOT_COLOR, longDay, monthTitle } from '../../components/MonthCalendar'
 import ScheduleItemDialog from '../../components/ScheduleItemDialog'
+import MorningPushDialog, { hourLabel } from '../../components/MorningPushDialog'
+import { readPushState, type PushState } from '../../lib/push'
 import TimeGrid from '../../components/TimeGrid'
 
 type View = 'month' | 'week' | 'day'
@@ -51,6 +53,15 @@ export default function SchedulePage() {
   const [busy, setBusy] = useState(false)
   // The form: a new item for a day (and maybe a start time), or an item opened from one of its days
   const [form, setForm] = useState<{ item: ScheduleItem | null; date: string; start?: string } | null>(null)
+  // The morning notification on this device; null until it is known, and then the bell shows
+  const [push, setPush] = useState<PushState | null>(null)
+  const [pushOpen, setPushOpen] = useState(false)
+
+  useEffect(() => {
+    let left = false
+    readPushState().then((state) => { if (!left) setPush(state) })
+    return () => { left = true }
+  }, [])
 
   const month: Month = monthOf(selected)
   const week = weekOf(selected, weekStartsOn)
@@ -128,6 +139,21 @@ export default function SchedulePage() {
             </button>
           ))}
         </div>
+        {push && (
+          <button
+            type="button"
+            onClick={() => setPushOpen(true)}
+            aria-pressed={push.on}
+            aria-label={push.on ? t('push.bellOn', { time: hourLabel(push.hour) }) : t('push.bellOff')}
+            title={t('push.title')}
+            className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${push.on ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:text-white'}`}
+          >
+            {/* A bell */}
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2.2 2.2 0 0 0 4 0" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 mb-3">
@@ -252,6 +278,8 @@ export default function SchedulePage() {
           onClose={() => setForm(null)}
         />
       )}
+
+      {push && pushOpen && <MorningPushDialog state={push} onChange={setPush} onClose={() => setPushOpen(false)} />}
     </div>
   )
 }

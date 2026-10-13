@@ -29,6 +29,9 @@ export const db = {
   // Every database function call, and the result to answer one with (default: no data, no error)
   rpcs: [] as { fn: string; args: unknown }[],
   rpcResults: {} as Record<string, { data: unknown; error: ApiError | null }>,
+  // Every server function call, and the result to answer one with (default: no data, no error)
+  invokes: [] as { name: string; body: unknown }[],
+  functionResults: {} as Record<string, { data: unknown; error: ApiError | null }>,
 }
 
 // Columns the database fills in itself, by table: generated columns and column defaults.
@@ -56,6 +59,8 @@ export function resetDb(tables: Record<string, Row[]> = {}) {
   db.nextId = 1
   db.rpcs = []
   db.rpcResults = {}
+  db.invokes = []
+  db.functionResults = {}
   forgetCachedLeagues()
 }
 
@@ -235,7 +240,12 @@ export const supabase = {
     await db.holds[`rpc:${fn}`]
     return db.rpcResults[fn] ?? { data: null, error: null }
   },
-  functions: { invoke: async () => ({ data: null, error: null }) },
+  functions: {
+    invoke: async (name: string, options?: { body?: unknown }) => {
+      db.invokes.push({ name, body: options?.body })
+      return db.functionResults[name] ?? { data: null, error: null }
+    },
+  },
   storage: {
     from: () => ({
       upload: async () => ({ data: null, error: null }),

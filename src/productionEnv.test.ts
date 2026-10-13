@@ -1,5 +1,5 @@
-// Production builds read the database address and public key from the committed .env.production.
-// It is in git, so it must only ever hold public values.
+// Production builds read the database address, its public key and the public half of the push
+// key from the committed .env.production. It is in git, so it must only ever hold public values.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -11,7 +11,14 @@ it('points production at the Zurich project', () => {
   expect(vars.VITE_SUPABASE_ANON_KEY).toMatch(/^sb_publishable_/)
 })
 
-it('holds nothing but the two public values', () => {
-  expect(Object.keys(vars).sort()).toEqual(['VITE_SUPABASE_ANON_KEY', 'VITE_SUPABASE_URL'])
+// The public half of the key that signs the morning notifications: a 65-byte point, which in
+// base64url is 87 characters starting with B. The private half is 43 characters and never here.
+it('carries the public push key', () => {
+  expect(vars.VITE_VAPID_PUBLIC_KEY).toMatch(/^B[A-Za-z0-9_-]{86}$/)
+})
+
+it('holds nothing but the three public values', () => {
+  expect(Object.keys(vars).sort()).toEqual(['VITE_SUPABASE_ANON_KEY', 'VITE_SUPABASE_URL', 'VITE_VAPID_PUBLIC_KEY'])
   expect(text).not.toMatch(/sb_secret_|service_role|eyJhbGciOi|postgres(ql)?:\/\/|sbp_/)
+  expect(text).not.toMatch(/PRIVATE|SECRET/i)
 })
