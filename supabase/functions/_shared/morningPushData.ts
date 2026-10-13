@@ -18,7 +18,7 @@ function rowsOf<T>(answer: Answer<T[]>, what: string): T[] {
   return answer.data
 }
 
-const DEVICE_COLUMNS = 'id, user_id, endpoint, p256dh, auth, time_zone, notify_hour, language, last_sent_on'
+export const DEVICE_COLUMNS = 'id, user_id, endpoint, p256dh, auth, time_zone, notify_hour, notify_minute, language, last_sent_on'
 const ITEM_COLUMNS = 'id, league_id, kind, title, item_date, start_time, end_time, note, repeat_days, repeat_every, repeat_monthly, repeat_until, skipped_dates, done_dates'
 
 interface Profile { user_id: string; role: string; is_disabled: boolean; features: string[] }
