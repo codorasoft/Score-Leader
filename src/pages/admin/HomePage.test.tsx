@@ -1,10 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
+import { inArabic } from '../../test/arabic'
 import { db, resetDb } from '../../test/fakeSupabase'
 import { player } from '../../test/fixtures'
 import { PRESETS } from '../../utils/matchFormat'
+import { localToday } from '../../utils/trainingDays'
 import { FEATURES, type FeatureKey } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
@@ -36,11 +38,13 @@ it('asks all its questions at once instead of waiting for the session list first
   let answerSessions = () => {}
   renderHome()
   db.holds.sessions = new Promise<void>((r) => { answerSessions = r })
-  // While the sessions are still on their way, the votes (with their counts), photos and boards are already asked
-  await waitFor(() => expect(db.reads).toBe(3))
+  // While the sessions are still on their way, the votes (with their counts), photos, boards, and
+  // today's schedule items (two reads) and training plans are already asked
+  await waitFor(() => expect(db.reads).toBe(6))
   answerSessions()
   expect(await screen.findByRole('link', { name: /MVP vote .*1 vote/ })).toBeInTheDocument()
-  expect(db.reads).toBe(5)
+  // Three reads of the sessions: the list, the unfinished ones, and today's for the Today card
+  expect(db.reads).toBe(9)
 })
 
 describe('live / start block', () => {
@@ -176,5 +180,82 @@ describe('coach board block', () => {
     await screen.findByText('To do')
     expect(screen.queryByText('Coach Board')).not.toBeInTheDocument()
     expect(screen.queryByText('Create your first board')).not.toBeInTheDocument()
+  })
+})
+
+describe('the Today card', () => {
+  const day = localToday()
+  const item = (over: Record<string, unknown>) => ({
+    league_id: 'L1', kind: 'task', title: 'Item', item_date: day, start_time: null, end_time: null, note: null,
+    repeat_days: [], repeat_until: null, skipped_dates: [], done_dates: [], ...over,
+  })
+  const seed = () => {
+    h.rows.schedule_items = [
+      item({ id: 'gym', kind: 'training', title: 'Gym', start_time: '08:00:00' }),
+      item({ id: 'done', title: 'Done already', done_dates: [day] }),
+      item({ id: 'old', title: 'Yesterday', item_date: '2020-01-01' }),
+    ]
+    h.rows.trainings = [{ id: 'p1', league_id: 'L1', training_date: day, title: 'Passing day' }]
+  }
+  const card = () => screen.findByRole('region', { name: 'Today' })
+
+  it("lists today's items above To do, each a link, with their number", async () => {
+    seed()
+    renderHome()
+    const region = await card()
+    expect(within(region).getByRole('link', { name: 'Today' })).toHaveAttribute('href', '/admin/eagles/schedule')
+    expect(within(region).getByText('2 items')).toBeInTheDocument()
+    const links = within(within(region).getByRole('list')).getAllByRole('link')
+    expect(links.map((l) => l.textContent)).toEqual(['08:00Gym', 'Training planPassing day'])
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/admin/eagles/schedule', '/admin/eagles/trainings/p1'])
+    const todo = screen.getByRole('heading', { name: 'To do' })
+    expect(region.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('says "1 item" for one', async () => {
+    h.rows.schedule_items = [item({ id: 'gym', title: 'Gym' })]
+    renderHome()
+    expect(within(await card()).getByText('1 item')).toBeInTheDocument()
+  })
+
+  it('is left out on a day with nothing', async () => {
+    h.rows.schedule_items = [item({ id: 'old', item_date: '2020-01-01' })]
+    renderHome()
+    await screen.findByRole('heading', { name: 'To do' })
+    expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument()
+  })
+
+  it('is left out, and nothing is asked, without the schedule feature', async () => {
+    seed()
+    renderHome(FEATURES.filter((f) => f !== 'schedule'))
+    // A read of the schedule would never be answered, and Home would never finish loading
+    db.holds.schedule_items = new Promise(() => {})
+    await screen.findByRole('heading', { name: 'To do' })
+    expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument()
+  })
+
+  it('shows training plans only with the training feature', async () => {
+    seed()
+    renderHome(FEATURES.filter((f) => f !== 'training'))
+    const region = await card()
+    expect(within(region).getByText('1 item')).toBeInTheDocument()
+    expect(region).not.toHaveTextContent('Passing day')
+  })
+
+  it('is left out when the schedule cannot be read, and the rest of Home still shows', async () => {
+    seed()
+    renderHome()
+    db.errors.schedule_items = { message: 'down' }
+    expect(await screen.findByRole('heading', { name: 'To do' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument()
+  })
+
+  it('speaks Arabic', async () => {
+    h.rows.schedule_items = [item({ id: 'gym', title: 'Gym' })]
+    await inArabic(async () => {
+      renderHome()
+      const region = await screen.findByRole('region', { name: 'اليوم' })
+      expect(within(region).getByText('عنصر واحد')).toBeInTheDocument()
+    })
   })
 })

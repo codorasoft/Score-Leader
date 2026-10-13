@@ -9,11 +9,15 @@ import { formatMatchClock, MATCH_DURATION_SECONDS } from '../../utils/matchClock
 import { periodLength } from '../../utils/matchFormat'
 import { NewSessionDialog } from '../../components/NewSessionDialog'
 import { NextUp } from '../../components/NextUp'
+import TodayList from '../../components/TodayList'
 import { waitingQueue } from '../../utils/matchRotation'
 import { liveState, matchElapsed, staleSessions, todoItems, type LiveState, type OpenVote, type TodoItem } from '../../utils/homeStatus'
 import type { AwardVote, Match, Session, Team, TeamColor } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 import { serverNow } from '../../lib/serverClock'
+import { fetchToday } from '../../lib/scheduleApi'
+import { localToday } from '../../utils/trainingDays'
+import type { TodayRow } from '../../utils/schedule'
 
 const colorDot = styleMap('dot')
 const AWARD_LABEL: Record<AwardVote['award_type'], string> = { mvp: 'awards.mvp', fair_play: 'awards.fairPlay', best_goalkeeper: 'awards.bestGk' }
@@ -21,7 +25,7 @@ const card = 'bg-gray-800 rounded-xl p-4'
 const bigButton = 'min-h-[52px] rounded-xl font-bold text-base flex items-center justify-center gap-2 px-4'
 
 interface Board { id: string; name: string; updated_at: string }
-interface HomeData { live: LiveState; teams: Team[]; todo: TodoItem[]; board: Board | null }
+interface HomeData { live: LiveState; teams: Team[]; todo: TodoItem[]; board: Board | null; today: TodayRow[] }
 type Count = { count: number }[]
 interface OpenSession extends Pick<Session, 'period_count' | 'period_minutes' | 'extra_time_minutes' | 'penalties' | 'goal_limit' | 'draw_rule'> { id: string; status: Session['status']; matches: Match[]; teams: Team[]; session_players: Count }
 interface VoteRow { id: string; award_type: AwardVote['award_type']; session_id: string; award_vote_entries: Count }
@@ -34,6 +38,8 @@ export default function HomePage() {
   const voting = useFeature('voting')
   const photos = useFeature('photos')
   const coachBoard = useFeature('coach_board')
+  const schedule = useFeature('schedule')
+  const training = useFeature('training')
   const [data, setData] = useState<{ leagueId: string; value: HomeData } | null>(null)
 
   // Latest league, so a slow response for a league we have left is dropped
@@ -44,7 +50,7 @@ export default function HomePage() {
     const forLeague = league.id
     const load = async () => {
       // Every question goes out at once; none waits for another's answer
-      const [sessionRes, openRes, voteRes, photoRes, boardRes] = await Promise.all([
+      const [sessionRes, openRes, voteRes, photoRes, boardRes, todayRows] = await Promise.all([
         supabase.from('sessions').select('*').eq('league_id', forLeague).order('date', { ascending: false }),
         // What the live card needs, for unfinished sessions only, so old history is not downloaded
         supabase.from('sessions').select('id, status, period_count, period_minutes, extra_time_minutes, penalties, goal_limit, draw_rule, matches(*), teams(*), session_players(count)').eq('league_id', forLeague).neq('status', 'completed'),
@@ -57,6 +63,8 @@ export default function HomePage() {
         coachBoard
           ? supabase.from('lineups').select('id, name, updated_at').eq('league_id', forLeague).order('updated_at', { ascending: false }).limit(1)
           : Promise.resolve({ data: [] }),
+        // What the coach's schedule has on today; Home shows without the card when it cannot be read
+        schedule ? fetchToday(forLeague, localToday(), training).catch((): TodayRow[] => []) : Promise.resolve<TodayRow[]>([]),
       ])
       if (forLeague !== currentLeague.current) return
 
@@ -75,18 +83,20 @@ export default function HomePage() {
           teams: open.flatMap((s) => s.teams),
           todo: todoItems({ votes, stale: staleSessions(sessions, todayString()), missingPhotos: photoRes.count ?? 0, voting, photos }),
           board: ((boardRes.data ?? []) as Board[])[0] ?? null,
+          today: todayRows,
         },
       })
     }
     load()
-  }, [league.id, voting, photos, coachBoard])
+  }, [league.id, voting, photos, coachBoard, schedule, training])
 
   if (!data || data.leagueId !== league.id) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
-  const { live, teams, todo, board } = data.value
+  const { live, teams, todo, board, today } = data.value
 
   return (
     <div className="flex flex-col gap-4">
       <LiveBlock live={live} teams={teams} />
+      {today.length > 0 && <TodayBlock rows={today} />}
       <TodoBlock items={todo} />
       {coachBoard && <BoardBlock board={board} />}
     </div>
@@ -205,6 +215,24 @@ function MatchClock({ match, limit }: { match: Match; limit: number }) {
     return () => clearInterval(id)
   }, [match.timer_status])
   return <p className="text-center text-sm text-gray-300 tabular-nums" dir="ltr">{formatMatchClock(matchElapsed(match, now), limit)}</p>
+}
+
+// What the coach's schedule has on today; the popup of the day shows the same rows once
+function TodayBlock({ rows }: { rows: TodayRow[] }) {
+  const { t } = useTranslation()
+  const adminPath = useAdminPath()
+
+  return (
+    <section className={card} aria-label={t('today.title')}>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h2 className="font-bold">
+          <Link to={adminPath('/schedule')} className="hover:underline">{t('today.title')}</Link>
+        </h2>
+        <span className="text-xs text-gray-400">{t('today.count', { count: rows.length })}</span>
+      </div>
+      <TodayList rows={rows} label={t('today.title')} />
+    </section>
+  )
 }
 
 function TodoBlock({ items }: { items: TodoItem[] }) {

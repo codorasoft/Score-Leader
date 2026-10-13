@@ -840,6 +840,8 @@
   "today": {
     "title": "Today",
     "openSchedule": "Open schedule",
-    "gotIt": "Got it"
+    "gotIt": "Got it",
+    "count_one": "1 item",
+    "count_other": "{{count}} items"
   }
 }
