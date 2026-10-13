@@ -14,8 +14,10 @@ export interface PushSub {
   auth: string
   // An IANA name such as 'Asia/Riyadh'
   time_zone: string
-  // The hour chosen, 0–23, on the device's own clock
+  // The time chosen on the device's own clock: the hour, 0–23, and the minutes, in quarters
+  // (0, 15, 30 or 45; the job runs on every quarter hour)
   notify_hour: number
+  notify_minute: number
   language: PushLanguage
   // The device's local day last handled
   last_sent_on: string | null
@@ -61,31 +63,37 @@ export const WORDS: Record<PushLanguage, { today: string; session: string; plan:
 
 // ===== Who is due
 
-// The date ('2026-10-13') and hour (0–23) on the clock of a time zone; null for a zone that
-// cannot be read (a damaged value, or a name this runtime does not know)
-export function localClock(timeZone: string, now: Date): { date: string; hour: number } | null {
+// The date ('2026-10-13'), hour (0–23) and minute on the clock of a time zone; null for a zone
+// that cannot be read (a damaged value, or a name this runtime does not know)
+export function localClock(timeZone: string, now: Date): { date: string; hour: number; minute: number } | null {
   if (!timeZone) return null
   try {
     const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
+      timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
     }).formatToParts(now)
     const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
     const date = `${part('year')}-${part('month')}-${part('day')}`
     const hour = Number(part('hour'))
-    return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isInteger(hour) && hour >= 0 && hour <= 23 ? { date, hour } : null
+    const minute = Number(part('minute'))
+    const whole = (n: number, max: number) => Number.isInteger(n) && n >= 0 && n <= max
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && whole(hour, 23) && whole(minute, 59) ? { date, hour, minute } : null
   } catch {
     return null
   }
 }
 
-// The local day a device is due for, or null when it is not due now. It is due from its hour
-// to the end of the hour after it (so a failed send is tried again), once a day. The hour
-// after 23 belongs to the next day, so for 23 the window is that one hour.
-export function dueDate(sub: Pick<PushSub, 'time_zone' | 'notify_hour' | 'last_sent_on'>, now: Date): string | null {
+// How long after its time a device stays due, so a failed send is tried again
+const DUE_MINUTES = 120
+
+// The local day a device is due for, or null when it is not due now. It is due from its time
+// for the two hours after it, once a day, and never past midnight: what is left of the window
+// then belongs to the next day, so a time of 23:45 is due for that quarter of an hour alone.
+// A device saved before minutes existed counts as on the hour.
+export function dueDate(sub: Pick<PushSub, 'time_zone' | 'notify_hour' | 'notify_minute' | 'last_sent_on'>, now: Date): string | null {
   const clock = localClock(sub.time_zone, now)
   if (!clock) return null
-  const inWindow = clock.hour === sub.notify_hour || clock.hour === sub.notify_hour + 1
-  return inWindow && sub.last_sent_on !== clock.date ? clock.date : null
+  const sinceTime = clock.hour * 60 + clock.minute - (sub.notify_hour * 60 + (sub.notify_minute ?? 0))
+  return sinceTime >= 0 && sinceTime < DUE_MINUTES && sub.last_sent_on !== clock.date ? clock.date : null
 }
 
 // ===== What it says

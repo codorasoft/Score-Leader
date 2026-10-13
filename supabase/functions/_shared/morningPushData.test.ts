@@ -8,7 +8,7 @@ const item = (over: Record<string, unknown>) => ({
   repeat_days: [], repeat_until: null, skipped_dates: [], done_dates: [], ...over,
 })
 const device = (id: string, user_id: string) => ({
-  id, user_id, endpoint: `https://push.test/${id}`, p256dh: 'k', auth: 'a', time_zone: 'Asia/Riyadh', notify_hour: 7, language: 'en', last_sent_on: null,
+  id, user_id, endpoint: `https://push.test/${id}`, p256dh: 'k', auth: 'a', time_zone: 'Asia/Riyadh', notify_hour: 7, notify_minute: 30, language: 'en', last_sent_on: null,
 })
 const seed = () => resetDb({
   admin_profiles: [
@@ -57,7 +57,10 @@ describe('subscriptions', () => {
       ['d3', false, []],                // a superadmin is not a coach
       ['d4', false, []],                // no profile
     ])
-    expect(subs[0]).toMatchObject({ user_id: 'u1', endpoint: 'https://push.test/d1', p256dh: 'k', auth: 'a', time_zone: 'Asia/Riyadh', notify_hour: 7, language: 'en', last_sent_on: null })
+    expect(subs[0]).toMatchObject({ user_id: 'u1', endpoint: 'https://push.test/d1', p256dh: 'k', auth: 'a', time_zone: 'Asia/Riyadh', notify_hour: 7, notify_minute: 30, language: 'en', last_sent_on: null })
+    // The read names its columns: the minutes must be among them
+    const { DEVICE_COLUMNS } = await import('./morningPushData.ts')
+    expect(DEVICE_COLUMNS.split(', ')).toContain('notify_minute')
   })
   it('is empty, and asks nothing more, when there is no device', async () => {
     resetDb({ admin_profiles: [{ user_id: 'u1', role: 'admin', is_disabled: false, features: ['schedule'] }] })

@@ -7,14 +7,15 @@ import {
 import type { TodayRow } from './scheduleDay.ts'
 
 const at = (iso: string) => new Date(iso)
-const sub = (over = {}) => ({ time_zone: 'Asia/Riyadh', notify_hour: 7, last_sent_on: null as string | null, ...over })
+const sub = (over = {}) => ({ time_zone: 'Asia/Riyadh', notify_hour: 7, notify_minute: 0, last_sent_on: null as string | null, ...over })
 
 describe('localClock', () => {
-  it('reads the date and hour of a time zone', () => {
-    expect(localClock('Asia/Riyadh', at('2026-10-13T04:10:00Z'))).toEqual({ date: '2026-10-13', hour: 7 })
-    expect(localClock('America/New_York', at('2026-10-13T03:59:00Z'))).toEqual({ date: '2026-10-12', hour: 23 })
-    expect(localClock('Asia/Kolkata', at('2026-10-13T18:45:00Z'))).toEqual({ date: '2026-10-14', hour: 0 })
-    expect(localClock('UTC', at('2026-10-13T00:00:00Z'))).toEqual({ date: '2026-10-13', hour: 0 })
+  it('reads the date, hour and minute of a time zone', () => {
+    expect(localClock('Asia/Riyadh', at('2026-10-13T04:10:00Z'))).toEqual({ date: '2026-10-13', hour: 7, minute: 10 })
+    expect(localClock('America/New_York', at('2026-10-13T03:59:00Z'))).toEqual({ date: '2026-10-12', hour: 23, minute: 59 })
+    expect(localClock('Asia/Kolkata', at('2026-10-13T18:45:00Z'))).toEqual({ date: '2026-10-14', hour: 0, minute: 15 })
+    expect(localClock('Asia/Kathmandu', at('2026-10-13T01:15:00Z'))).toEqual({ date: '2026-10-13', hour: 7, minute: 0 })
+    expect(localClock('UTC', at('2026-10-13T00:00:00Z'))).toEqual({ date: '2026-10-13', hour: 0, minute: 0 })
   })
   it.each(['Not a zone!', '', 'Mars/Olympus'])('gives null for a zone it cannot read (%s)', (zone) => {
     expect(localClock(zone, at('2026-10-13T04:10:00Z'))).toBeNull()
@@ -54,6 +55,36 @@ describe('dueDate', () => {
   })
   it('a device whose time zone cannot be read is never due', () => {
     expect(dueDate(sub({ time_zone: 'Not a zone!' }), at('2026-10-13T04:10:00Z'))).toBeNull()
+  })
+  it('with minutes, is due from that time for the two hours after it', () => {
+    const half = sub({ notify_minute: 30 })                                      // 07:30 in Riyadh
+    expect(dueDate(half, at('2026-10-13T04:00:00Z'))).toBeNull()                // 07:00
+    expect(dueDate(half, at('2026-10-13T04:29:00Z'))).toBeNull()                // 07:29
+    expect(dueDate(half, at('2026-10-13T04:30:00Z'))).toBe('2026-10-13')        // 07:30
+    expect(dueDate(half, at('2026-10-13T06:29:00Z'))).toBe('2026-10-13')        // 09:29
+    expect(dueDate(half, at('2026-10-13T06:30:00Z'))).toBeNull()                // 09:30
+    expect(dueDate(sub({ notify_minute: 45 }), at('2026-10-13T04:44:00Z'))).toBeNull()         // 07:44
+    expect(dueDate(sub({ notify_minute: 45 }), at('2026-10-13T04:45:00Z'))).toBe('2026-10-13') // 07:45
+    expect(dueDate(sub({ notify_minute: 15 }), at('2026-10-13T04:15:00Z'))).toBe('2026-10-13') // 07:15
+  })
+  it('a time late in the evening is due until midnight only', () => {
+    const last = sub({ notify_hour: 23, notify_minute: 45 })
+    expect(dueDate(last, at('2026-10-13T20:44:00Z'))).toBeNull()                // 23:44
+    expect(dueDate(last, at('2026-10-13T20:45:00Z'))).toBe('2026-10-13')        // 23:45
+    expect(dueDate(last, at('2026-10-13T21:00:00Z'))).toBeNull()                // 00:00 the next day
+    const evening = sub({ notify_hour: 22, notify_minute: 30 })
+    expect(dueDate(evening, at('2026-10-13T20:59:00Z'))).toBe('2026-10-13')     // 23:59
+    expect(dueDate(evening, at('2026-10-13T21:10:00Z'))).toBeNull()             // 00:10 the next day
+  })
+  it('follows the minutes in a time zone a quarter of an hour off', () => {
+    const nepal = sub({ time_zone: 'Asia/Kathmandu', notify_minute: 15 })       // UTC+5:45
+    expect(dueDate(nepal, at('2026-10-13T01:15:00Z'))).toBeNull()               // 07:00
+    expect(dueDate(nepal, at('2026-10-13T01:30:00Z'))).toBe('2026-10-13')       // 07:15
+  })
+  it('a device with no minutes counts as on the hour', () => {
+    const old = sub({ notify_minute: undefined as unknown as number })
+    expect(dueDate(old, at('2026-10-13T04:00:00Z'))).toBe('2026-10-13')         // 07:00
+    expect(dueDate({ ...old, notify_minute: null as unknown as number }, at('2026-10-13T03:59:00Z'))).toBeNull()
   })
 })
 
@@ -149,7 +180,7 @@ it("uses the app's own words", () => {
 const NOW = new Date('2026-10-13T04:10:00Z')
 const device = (over: Partial<CoachSub> = {}): CoachSub => ({
   id: 'd1', user_id: 'u1', endpoint: 'https://push.test/d1', p256dh: 'k', auth: 'a', time_zone: 'Asia/Riyadh',
-  notify_hour: 7, language: 'en', last_sent_on: null, coach: { enabled: true, features: ['schedule', 'training'] }, ...over,
+  notify_hour: 7, notify_minute: 0, language: 'en', last_sent_on: null, coach: { enabled: true, features: ['schedule', 'training'] }, ...over,
 })
 // The outside world of a round, kept in memory, with everything that was asked of it
 function world(devices: CoachSub[], days: Record<string, LeagueDay[]> = {}, answers: Record<string, SendResult | Error> = {}) {
@@ -182,6 +213,15 @@ describe('runRound', () => {
     expect(await runRound(deps, NOW)).toEqual({ due: 1, sent: 1, nothing: 0, gone: 0, failed: 0 })
     expect(log.sent.map(([id, message]) => [id, message.body])).toEqual([['d1', 'Gym']])
     expect(log.marked).toEqual([['d1', '2026-10-13']])
+  })
+
+  it("waits for a device's minutes", async () => {
+    // It is 07:10: a device set to 07:15 is not due yet, one set to 07:00 is
+    const { deps, log } = world([device({ notify_minute: 15 }), device({ id: 'd2' })], { u1: gym })
+    expect(await runRound(deps, NOW)).toMatchObject({ due: 1, sent: 1 })
+    expect(log.sent.map(([id]) => id)).toEqual(['d2'])
+    const later = world([device({ notify_minute: 15 })], { u1: gym })
+    expect(await runRound(later.deps, new Date('2026-10-13T04:15:00Z'))).toMatchObject({ due: 1, sent: 1 })
   })
 
   it('leaves a device that is not due alone', async () => {

@@ -9,9 +9,10 @@ vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase
 // The morning notification is off on this device unless a test says otherwise
 vi.mock('../../lib/push', () => ({
   DEFAULT_HOUR: 7,
-  readPushState: vi.fn(async () => ({ support: 'ok', permission: 'default', on: false, hour: 7 })),
+  QUARTERS: [0, 15, 30, 45],
+  readPushState: vi.fn(async () => ({ support: 'ok', permission: 'default', on: false, hour: 7, minute: 0 })),
   turnOnPush: vi.fn(),
-  setPushHour: vi.fn(),
+  setPushTime: vi.fn(),
   turnOffPush: vi.fn(),
   sendTestPush: vi.fn(),
 }))
@@ -510,7 +511,7 @@ describe('SchedulePage, the week and day views', () => {
 
 describe('SchedulePage, the morning notification', () => {
   const api = vi.mocked(push)
-  const ON = { support: 'ok', permission: 'granted', on: true, hour: 9 } as const
+  const ON = { support: 'ok', permission: 'granted', on: true, hour: 9, minute: 30 } as const
 
   it('shows the bell with its state, and opens the dialog', async () => {
     resetDb(data())
@@ -529,7 +530,7 @@ describe('SchedulePage, the morning notification', () => {
     resetDb(data())
     renderPage()
     await ready()
-    expect(await screen.findByRole('button', { name: 'Morning notification: on, 09:00' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: 'Morning notification: on, 09:30' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('the bell follows a change made in the dialog', async () => {
@@ -538,9 +539,9 @@ describe('SchedulePage, the morning notification', () => {
     await ready()
     fireEvent.click(await screen.findByRole('button', { name: 'Morning notification: off' }))
     api.turnOnPush.mockResolvedValueOnce('on')
-    api.readPushState.mockResolvedValueOnce({ ...ON, hour: 7 })
+    api.readPushState.mockResolvedValueOnce({ ...ON, hour: 7, minute: 15 })
     fireEvent.click(screen.getByRole('button', { name: 'Turn on' }))
-    expect(await screen.findByRole('button', { name: 'Morning notification: on, 07:00' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Morning notification: on, 07:15' })).toBeInTheDocument()
     // The dialog stays open, now showing what an on device offers
     expect(screen.getByRole('button', { name: 'Send a test now' })).toBeInTheDocument()
   })
