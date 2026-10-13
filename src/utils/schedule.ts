@@ -140,6 +140,31 @@ export function dotsFor(items: ScheduleItem[], extras: ScheduleExtras, date: str
   return DOT_ORDER.filter((k) => on.has(k)).slice(0, MAX_DOTS)
 }
 
+// One line of "what is on today": a schedule item, a match session or a training plan
+export interface TodayRow {
+  kind: 'item' | 'session' | 'plan'
+  id: string
+  dot: DotKind
+  // An item's time label; null for all day, and always null for sessions and plans
+  time: string | null
+  // An item's title, a plan's title (may be null); always null for a session
+  title: string | null
+}
+
+// What is on a day, in the order of the schedule page's day list: its items, then its match
+// sessions, then its training plans. A task already ticked as done on that day is left out.
+export function todayRows(items: ScheduleItem[], extras: ScheduleExtras, date: string): TodayRow[] {
+  return [
+    ...itemsOn(items, date)
+      .filter((i) => !(i.kind === 'task' && isDone(i, date)))
+      .map((i): TodayRow => ({ kind: 'item', id: i.id, dot: i.kind, time: timeLabel(i), title: i.title })),
+    ...extras.sessions.filter((s) => s.date === date)
+      .map((s): TodayRow => ({ kind: 'session', id: s.id, dot: 'session', time: null, title: null })),
+    ...extras.plans.filter((p) => p.training_date === date)
+      .map((p): TodayRow => ({ kind: 'plan', id: p.id, dot: 'plan', time: null, title: p.title })),
+  ]
+}
+
 // ===== The week and day views: a grid of hours
 
 const DAY_MINUTES = 24 * 60

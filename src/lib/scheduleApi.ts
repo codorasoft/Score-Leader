@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { selectAllOrThrow as allRows } from './selectAll'
-import type { ScheduleExtras, ScheduleItem, ScheduleRow } from '../utils/schedule'
+import { todayRows, type ScheduleExtras, type ScheduleItem, type ScheduleRow, type TodayRow } from '../utils/schedule'
 
 // The coach's schedule in the database. Which day an item is on is worked out in
 // src/utils/schedule.ts; here the rows are read for a range of days and written.
@@ -38,6 +38,15 @@ export async function fetchScheduleExtras(leagueId: string, from: string, to: st
     sessions: sessions.map(({ id, date }) => ({ id, date })),
     plans: plans.map(({ id, training_date, title }) => ({ id, training_date, title })),
   }
+}
+
+// Throws when a request fails. What is on one day, as the rows shown for "today".
+export async function fetchToday(leagueId: string, date: string, withPlans: boolean): Promise<TodayRow[]> {
+  const [items, extras] = await Promise.all([
+    fetchScheduleItems(leagueId, date, date),
+    fetchScheduleExtras(leagueId, date, date, withPlans),
+  ])
+  return todayRows(items, extras, date)
 }
 
 // id null adds a new item to the league; otherwise the item is changed where it is
