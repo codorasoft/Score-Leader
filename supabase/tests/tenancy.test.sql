@@ -1010,6 +1010,78 @@ SELECT pg_temp.expect(
    FROM pg_constraint WHERE conrelid = 'public.push_subscriptions'::regclass AND contype = 'f'),
   'push_subscriptions has one foreign key, to the coach, deleted with him');
 
+-- The minutes of the time, in quarters. At this point one device is left: a1, taken over by B.
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM pg_proc WHERE proname = 'save_push_subscription' AND pronamespace = 'public'::regnamespace),
+  'there is one save_push_subscription, not an old and a new one side by side');
+SELECT pg_temp.expect(
+  (SELECT notify_minute = 0 FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'a device saved without minutes is on the hour');
+
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a1', 'key3', 'auth3', 'Asia/Riyadh', 7, 'en', 30);
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT notify_hour = 7 AND notify_minute = 30 FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'the minutes are saved with the hour');
+
+-- The app from before minutes existed names none: they stay as they are
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a1', 'key3', 'auth3', 'Asia/Riyadh', 8, 'en');
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT notify_hour = 8 AND notify_minute = 30 FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'a save that names no minutes keeps them');
+
+-- As the app calls it, by name; and back to the hour
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription(
+  p_endpoint => 'https://push.test/a1', p_p256dh => 'key3', p_auth => 'auth3', p_time_zone => 'Asia/Riyadh',
+  p_notify_hour => 8, p_language => 'en', p_notify_minute => 0);
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT notify_minute = 0 FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'the minutes can be set back to the hour');
+
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a1', 'key3', 'auth3', 'Asia/Riyadh', 8, 'en', 45);
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a1', 'key3', 'auth3', 'Asia/Riyadh', 8, 'en', 10)$sql$,
+  'push_subscriptions_minute_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a1', 'key3', 'auth3', 'Asia/Riyadh', 8, 'en', 60)$sql$,
+  'push_subscriptions_minute_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/a1', 'key3', 'auth3', 'Asia/Riyadh', 8, 'en', -15)$sql$,
+  'push_subscriptions_minute_check');
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT notify_minute = 45 FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'a refused save leaves the minutes as they were');
+
+-- Another coach taking the device over without naming minutes does not inherit the first one's
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a1', 'key4', 'auth4', 'Asia/Riyadh', 9, 'en');
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 AND bool_and(user_id = 'aaaaaaaa-0000-4000-8000-000000000001' AND notify_hour = 9 AND notify_minute = 0)
+   FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a1'),
+  'a coach who takes a device over without naming minutes starts on the hour');
+
+-- A new device without minutes is on the hour, and a visitor still cannot save one
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT public.save_push_subscription('https://push.test/a5', 'k', 'a', 'UTC', 7, 'en');
+SELECT pg_temp.expect(
+  (SELECT notify_minute = 0 FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a5'),
+  'a new device saved without minutes is on the hour');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.push_subscriptions WHERE endpoint = 'https://push.test/a5'$sql$, 1);
+RESET role;
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_push_subscription('https://push.test/v2', 'k', 'a', 'UTC', 7, 'en', 15)$sql$,
+  'permission denied');
+RESET role;
+
 -- The server function works as the service role: it reads the devices and what is on a day,
 -- marks a device's day and removes one whose address is gone. A missing right would only
 -- show on the live system, as a notification repeated every 15 minutes.
