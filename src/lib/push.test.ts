@@ -3,7 +3,7 @@ import { db, resetDb, rows } from '../test/fakeSupabase'
 
 vi.mock('./supabase', async () => (await import('../test/fakeSupabase')).supabaseModule)
 
-import { forgetPush, keepPushRight, readPushState, sendTestPush, setPushHour, turnOffPush, turnOnPush } from './push'
+import { forgetPush, keepPushRight, readPushState, sendTestPush, setPushTime, turnOffPush, turnOnPush } from './push'
 
 const KEY = 'scoreleader.push'
 const ENDPOINT = 'https://push.test/d1'
@@ -60,11 +60,11 @@ function browser(over: Browser = {}) {
 }
 const on = (over: Browser = {}) => browser({ permission: 'granted', subscription: subscription(), ...over })
 const device = (over: Record<string, unknown> = {}) => ({
-  id: 'd1', user_id: 'u1', endpoint: ENDPOINT, p256dh: 'AQID', auth: 'BAUG', time_zone: 'Asia/Riyadh', notify_hour: 9, language: 'en', last_sent_on: null, ...over,
+  id: 'd1', user_id: 'u1', endpoint: ENDPOINT, p256dh: 'AQID', auth: 'BAUG', time_zone: 'Asia/Riyadh', notify_hour: 9, notify_minute: 0, language: 'en', last_sent_on: null, ...over,
 })
-const saved = (hour: number, language = 'en') => ({
+const saved = (hour: number, language = 'en', minute = 0) => ({
   fn: 'save_push_subscription',
-  args: { p_endpoint: ENDPOINT, p_p256dh: 'AQID', p_auth: 'BAUG', p_time_zone: 'Asia/Riyadh', p_notify_hour: hour, p_language: language },
+  args: { p_endpoint: ENDPOINT, p_p256dh: 'AQID', p_auth: 'BAUG', p_time_zone: 'Asia/Riyadh', p_notify_hour: hour, p_language: language, p_notify_minute: minute },
 })
 
 beforeEach(() => {
@@ -88,7 +88,7 @@ describe('what this device can do', () => {
     ['push in the browser', { pushManager: false }],
   ] as [string, Browser][])('cannot push without %s', async (_what, over) => {
     browser(over)
-    expect(await readPushState()).toEqual({ support: 'unsupported', permission: 'default', on: false, hour: 7 })
+    expect(await readPushState()).toEqual({ support: 'unsupported', permission: 'default', on: false, hour: 7, minute: 0 })
   })
 
   it("cannot push without the app's key", async () => {
@@ -122,12 +122,12 @@ describe('what this device can do', () => {
 describe('readPushState', () => {
   it('is off with the default hour on a fresh device', async () => {
     browser()
-    expect(await readPushState()).toEqual({ support: 'ok', permission: 'default', on: false, hour: 7 })
+    expect(await readPushState()).toEqual({ support: 'ok', permission: 'default', on: false, hour: 7, minute: 0 })
   })
-  it("is on with the stored hour when the browser's address is in the table", async () => {
-    resetDb({ push_subscriptions: [device({ notify_hour: 9 })] })
+  it("is on with the stored time when the browser's address is in the table", async () => {
+    resetDb({ push_subscriptions: [device({ notify_hour: 9, notify_minute: 45 })] })
     on()
-    expect(await readPushState()).toEqual({ support: 'ok', permission: 'granted', on: true, hour: 9 })
+    expect(await readPushState()).toEqual({ support: 'ok', permission: 'granted', on: true, hour: 9, minute: 45 })
   })
   it('is off when the browser has an address the table does not know', async () => {
     resetDb({ push_subscriptions: [device({ endpoint: 'https://push.test/other' })] })
@@ -139,10 +139,20 @@ describe('readPushState', () => {
     on({ permission: 'denied' })
     expect(await readPushState()).toMatchObject({ permission: 'denied', on: false })
   })
-  it('shows the hour remembered on the device while it is off', async () => {
+  it('shows the time remembered on the device while it is off', async () => {
+    localStorage.setItem(KEY, '{"hour":6,"minute":30}')
+    browser()
+    expect(await readPushState()).toMatchObject({ on: false, hour: 6, minute: 30 })
+  })
+  it('an hour remembered before minutes existed is on the hour', async () => {
     localStorage.setItem(KEY, '{"hour":6}')
     browser()
-    expect(await readPushState()).toMatchObject({ on: false, hour: 6 })
+    expect(await readPushState()).toMatchObject({ hour: 6, minute: 0 })
+  })
+  it.each(['{"hour":6,"minute":10}', '{"hour":6,"minute":"30"}', '{"hour":6,"minute":60}'])('remembered minutes that are not a quarter count as none (%s)', async (damaged) => {
+    localStorage.setItem(KEY, damaged)
+    browser()
+    expect(await readPushState()).toMatchObject({ hour: 6, minute: 0 })
   })
   it.each(['not json', '{"hour":24}', '{"hour":"7"}', 'null', '[]'])('ignores a damaged remembered hour (%s)', async (damaged) => {
     localStorage.setItem(KEY, damaged)
@@ -159,48 +169,48 @@ describe('readPushState', () => {
 describe('turnOnPush', () => {
   it("asks, subscribes with the app's key and saves the device", async () => {
     const { subscribe, requestPermission } = browser()
-    expect(await turnOnPush(8, 'ar-EG')).toBe('on')
+    expect(await turnOnPush(8, 30, 'ar-EG')).toBe('on')
     expect(requestPermission).toHaveBeenCalledTimes(1)
     const options = subscribe.mock.calls[0][0]
     expect(options.userVisibleOnly).toBe(true)
     expect((options.applicationServerKey as Uint8Array).length).toBe(65)
     expect((options.applicationServerKey as Uint8Array)[0]).toBe(4)
-    expect(db.rpcs).toEqual([saved(8, 'ar')])
-    expect(localStorage.getItem(KEY)).toBe('{"hour":8}')
+    expect(db.rpcs).toEqual([saved(8, 'ar', 30)])
+    expect(localStorage.getItem(KEY)).toBe('{"hour":8,"minute":30}')
   })
   it('asks for permission straight from the tap, before anything else is waited for', async () => {
     // An iPhone shows the question only when it is asked for directly by the tap
     const { asked } = browser()
-    await turnOnPush(7, 'en')
+    await turnOnPush(7, 0, 'en')
     expect(asked[0]).toBe('permission')
   })
   it('does not ask on a device that cannot push', async () => {
     const { requestPermission } = browser({ pushManager: false })
-    expect(await turnOnPush(7, 'en')).toBe('failed')
+    expect(await turnOnPush(7, 0, 'en')).toBe('failed')
     expect(requestPermission).not.toHaveBeenCalled()
   })
   it('uses the address the browser already holds instead of asking for another', async () => {
     const { subscribe } = browser({ subscription: subscription() })
-    expect(await turnOnPush(7, 'en')).toBe('on')
+    expect(await turnOnPush(7, 0, 'en')).toBe('on')
     expect(subscribe).not.toHaveBeenCalled()
     expect(db.rpcs).toEqual([saved(7)])
   })
   it('reports blocked when the browser says no', async () => {
     const { subscribe } = browser({ ask: 'denied' })
-    expect(await turnOnPush(7, 'en')).toBe('blocked')
+    expect(await turnOnPush(7, 0, 'en')).toBe('blocked')
     expect(subscribe).not.toHaveBeenCalled()
     expect(db.rpcs).toEqual([])
   })
   it('reports dismissed when the question is closed unanswered', async () => {
     const { subscribe } = browser({ ask: 'default' })
-    expect(await turnOnPush(7, 'en')).toBe('dismissed')
+    expect(await turnOnPush(7, 0, 'en')).toBe('dismissed')
     expect(subscribe).not.toHaveBeenCalled()
     expect(localStorage.getItem(KEY)).toBeNull()
   })
   it('gives the address back when the save is refused', async () => {
     const { made } = browser()
     db.rpcResults.save_push_subscription = { data: null, error: { message: 'schedule feature needed' } }
-    expect(await turnOnPush(7, 'en')).toBe('failed')
+    expect(await turnOnPush(7, 0, 'en')).toBe('failed')
     expect(made.unsubscribe).toHaveBeenCalled()
     expect(localStorage.getItem(KEY)).toBeNull()
   })
@@ -208,38 +218,38 @@ describe('turnOnPush', () => {
     const held = subscription()
     browser({ subscription: held })
     db.rpcResults.save_push_subscription = { data: null, error: { message: 'down' } }
-    expect(await turnOnPush(7, 'en')).toBe('failed')
+    expect(await turnOnPush(7, 0, 'en')).toBe('failed')
     expect(held.unsubscribe).not.toHaveBeenCalled()
   })
   it('fails without leaving anything when the browser cannot subscribe', async () => {
     browser({ subscribeFails: true })
-    expect(await turnOnPush(7, 'en')).toBe('failed')
+    expect(await turnOnPush(7, 0, 'en')).toBe('failed')
     expect(db.rpcs).toEqual([])
     expect(localStorage.getItem(KEY)).toBeNull()
   })
   it('fails on a device that cannot push', async () => {
     browser({ serviceWorker: false })
-    expect(await turnOnPush(7, 'en')).toBe('failed')
+    expect(await turnOnPush(7, 0, 'en')).toBe('failed')
   })
 })
 
-describe('setPushHour', () => {
-  it('saves the new hour and remembers it', async () => {
+describe('setPushTime', () => {
+  it('saves the new time and remembers it', async () => {
     on()
-    expect(await setPushHour(10, 'en')).toBe(true)
-    expect(db.rpcs).toEqual([saved(10)])
-    expect(localStorage.getItem(KEY)).toBe('{"hour":10}')
+    expect(await setPushTime(10, 15, 'en')).toBe(true)
+    expect(db.rpcs).toEqual([saved(10, 'en', 15)])
+    expect(localStorage.getItem(KEY)).toBe('{"hour":10,"minute":15}')
   })
   it('reports a refused save and keeps the old hour remembered', async () => {
     localStorage.setItem(KEY, '{"hour":9}')
     on()
     db.rpcResults.save_push_subscription = { data: null, error: { message: 'down' } }
-    expect(await setPushHour(10, 'en')).toBe(false)
+    expect(await setPushTime(10, 15, 'en')).toBe(false)
     expect(localStorage.getItem(KEY)).toBe('{"hour":9}')
   })
   it('is false on a device that is off', async () => {
     browser({ permission: 'granted' })
-    expect(await setPushHour(10, 'en')).toBe(false)
+    expect(await setPushTime(10, 15, 'en')).toBe(false)
     expect(db.rpcs).toEqual([])
   })
 })
@@ -287,14 +297,14 @@ describe('sendTestPush', () => {
 })
 
 describe('keepPushRight', () => {
-  const remembered = () => localStorage.setItem(KEY, '{"hour":9}')
+  const remembered = () => localStorage.setItem(KEY, '{"hour":9,"minute":30}')
   it('saves again when the time zone changed', async () => {
-    resetDb({ push_subscriptions: [device({ time_zone: 'Europe/Berlin', notify_hour: 6 })] })
+    resetDb({ push_subscriptions: [device({ time_zone: 'Europe/Berlin', notify_hour: 6, notify_minute: 45 })] })
     remembered()
     on()
     await keepPushRight('en')
-    // The stored hour, not the remembered one: another change may not have reached this device yet
-    expect(db.rpcs).toEqual([saved(6)])
+    // The stored time, not the remembered one: another change may not have reached this device yet
+    expect(db.rpcs).toEqual([saved(6, 'en', 45)])
   })
   it('saves again when the language changed', async () => {
     resetDb({ push_subscriptions: [device({ notify_hour: 9 })] })
@@ -308,7 +318,7 @@ describe('keepPushRight', () => {
     remembered()
     on()
     await keepPushRight('en')
-    expect(db.rpcs).toEqual([saved(9)])
+    expect(db.rpcs).toEqual([saved(9, 'en', 30)])
   })
   it.each([
     ['everything is as stored', () => { resetDb({ push_subscriptions: [device()] }); remembered(); on() }],

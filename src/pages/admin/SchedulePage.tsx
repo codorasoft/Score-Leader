@@ -10,7 +10,7 @@ import {
 import { localToday } from '../../utils/trainingDays'
 import MonthCalendar, { DOT_COLOR, longDay, monthTitle } from '../../components/MonthCalendar'
 import ScheduleItemDialog from '../../components/ScheduleItemDialog'
-import MorningPushDialog, { hourLabel } from '../../components/MorningPushDialog'
+import MorningPushDialog, { clockLabel } from '../../components/MorningPushDialog'
 import { readPushState, type PushState } from '../../lib/push'
 import TimeGrid from '../../components/TimeGrid'
 
@@ -144,7 +144,7 @@ export default function SchedulePage() {
             type="button"
             onClick={() => setPushOpen(true)}
             aria-pressed={push.on}
-            aria-label={push.on ? t('push.bellOn', { time: hourLabel(push.hour) }) : t('push.bellOff')}
+            aria-label={push.on ? t('push.bellOn', { time: clockLabel(push.hour, push.minute) }) : t('push.bellOff')}
             title={t('push.title')}
             className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${push.on ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:text-white'}`}
           >

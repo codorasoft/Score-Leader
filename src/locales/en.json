@@ -850,6 +850,8 @@
     "bellOn": "Morning notification: on, {{time}}",
     "intro": "Each morning, a notification with what is on your schedule that day. Nothing is sent on a day with nothing on it.",
     "hour": "Time",
+    "hours": "Hour",
+    "minutes": "Minutes",
     "titlesShown": "The titles of your items appear in the notification.",
     "turnOn": "Turn on",
     "turnOff": "Turn off",

@@ -12,26 +12,31 @@ export interface PushState {
   permission: NotificationPermission
   // The browser holds a push address and the server knows it
   on: boolean
-  // The hour of the notification, 0–23: the stored one when on, else the last one chosen here
+  // The time of the notification: the stored one when on, else the last one chosen here.
+  // The hour is 0–23; the minutes are in quarters, as the server's job runs every quarter hour.
   hour: number
+  minute: number
 }
 
 export const DEFAULT_HOUR = 7
+export const QUARTERS = [0, 15, 30, 45]
 
-// The hour last chosen on this device. It also marks the device as "turned on here", so the
+// The time last chosen on this device. It also marks the device as "turned on here", so the
 // app can save it again by itself when the browser renews its address.
 const KEY = 'scoreleader.push'
 
-function rememberedHour(): number | null {
+function rememberedTime(): { hour: number; minute: number } | null {
   try {
-    const hour = (JSON.parse(localStorage.getItem(KEY) ?? 'null') as { hour?: unknown } | null)?.hour
-    return typeof hour === 'number' && Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : null
+    const { hour, minute } = (JSON.parse(localStorage.getItem(KEY) ?? 'null') ?? {}) as { hour?: unknown; minute?: unknown }
+    if (typeof hour !== 'number' || !Number.isInteger(hour) || hour < 0 || hour > 23) return null
+    // Remembered before minutes existed, or damaged: on the hour
+    return { hour, minute: typeof minute === 'number' && QUARTERS.includes(minute) ? minute : 0 }
   } catch {
     return null
   }
 }
-function rememberHour(hour: number) {
-  try { localStorage.setItem(KEY, JSON.stringify({ hour })) } catch { /* storage blocked: not remembered */ }
+function rememberTime(hour: number, minute: number) {
+  try { localStorage.setItem(KEY, JSON.stringify({ hour, minute })) } catch { /* storage blocked: not remembered */ }
 }
 function forgetHour() {
   try { localStorage.removeItem(KEY) } catch { /* storage blocked */ }
@@ -73,11 +78,11 @@ function toText(bytes: ArrayBuffer | null): string {
 
 // ===== The server
 
-interface Stored { notify_hour: number; time_zone: string; language: string }
+interface Stored { notify_hour: number; notify_minute: number; time_zone: string; language: string }
 
 // The row of an address: null when the server does not know it. Throws when it cannot be read.
 async function storedDevice(endpoint: string): Promise<Stored | null> {
-  const { data, error } = await supabase.from('push_subscriptions').select('notify_hour, time_zone, language').eq('endpoint', endpoint).maybeSingle()
+  const { data, error } = await supabase.from('push_subscriptions').select('notify_hour, notify_minute, time_zone, language').eq('endpoint', endpoint).maybeSingle()
   if (error) throw new Error('the device could not be read')
   return (data as Stored | null) ?? null
 }
@@ -85,7 +90,7 @@ async function storedDevice(endpoint: string): Promise<Stored | null> {
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 const languageOf = (language: string) => (language.startsWith('ar') ? 'ar' : 'en')
 
-async function save(subscription: PushSubscription, hour: number, language: string): Promise<boolean> {
+async function save(subscription: PushSubscription, hour: number, minute: number, language: string): Promise<boolean> {
   const { error } = await supabase.rpc('save_push_subscription', {
     p_endpoint: subscription.endpoint,
     p_p256dh: toText(subscription.getKey('p256dh')),
@@ -93,6 +98,7 @@ async function save(subscription: PushSubscription, hour: number, language: stri
     p_time_zone: timeZone(),
     p_notify_hour: hour,
     p_language: languageOf(language),
+    p_notify_minute: minute,
   })
   return !error
 }
@@ -100,21 +106,21 @@ async function save(subscription: PushSubscription, hour: number, language: stri
 // ===== What the dialog and the app call
 
 export async function readPushState(): Promise<PushState> {
-  const hour = rememberedHour() ?? DEFAULT_HOUR
-  const off = (support: PushSupport): PushState => ({ support, permission: permission(), on: false, hour })
+  const { hour, minute } = rememberedTime() ?? { hour: DEFAULT_HOUR, minute: 0 }
+  const off = (support: PushSupport): PushState => ({ support, permission: permission(), on: false, hour, minute })
   try {
     const { support, registration } = await device()
     if (!registration || permission() !== 'granted') return off(support)
     const subscription = await registration.pushManager.getSubscription()
     const stored = subscription ? await storedDevice(subscription.endpoint) : null
-    return stored ? { support, permission: 'granted', on: true, hour: stored.notify_hour } : off(support)
+    return stored ? { support, permission: 'granted', on: true, hour: stored.notify_hour, minute: stored.notify_minute ?? 0 } : off(support)
   } catch {
     return off('ok')
   }
 }
 
 // 'blocked' when the browser says no; 'dismissed' when the question was closed unanswered
-export async function turnOnPush(hour: number, language: string): Promise<'on' | 'blocked' | 'dismissed' | 'failed'> {
+export async function turnOnPush(hour: number, minute: number, language: string): Promise<'on' | 'blocked' | 'dismissed' | 'failed'> {
   try {
     if (!navigator.serviceWorker || !window.PushManager || !window.Notification || !appKey()) return 'failed'
     // Asked first, before anything is waited for: an iPhone shows the question only when it
@@ -126,8 +132,8 @@ export async function turnOnPush(hour: number, language: string): Promise<'on' |
     if (!registration) return 'failed'
     const held = await registration.pushManager.getSubscription()
     const subscription = held ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(appKey()) })
-    if (await save(subscription, hour, language)) {
-      rememberHour(hour)
+    if (await save(subscription, hour, minute, language)) {
+      rememberTime(hour, minute)
       return 'on'
     }
     // An address made just now and not saved would be an address nobody sends to
@@ -138,11 +144,11 @@ export async function turnOnPush(hour: number, language: string): Promise<'on' |
   }
 }
 
-export async function setPushHour(hour: number, language: string): Promise<boolean> {
+export async function setPushTime(hour: number, minute: number, language: string): Promise<boolean> {
   try {
     const subscription = await (await device()).registration?.pushManager.getSubscription()
-    if (!subscription || !(await save(subscription, hour, language))) return false
-    rememberHour(hour)
+    if (!subscription || !(await save(subscription, hour, minute, language))) return false
+    rememberTime(hour, minute)
     return true
   } catch {
     return false
@@ -180,13 +186,15 @@ export async function sendTestPush(): Promise<boolean> {
 // (the coach travelled, or switched language). Never throws.
 export async function keepPushRight(language: string): Promise<void> {
   try {
-    const hour = rememberedHour()
-    if (hour === null || permission() !== 'granted') return
+    const remembered = rememberedTime()
+    if (!remembered || permission() !== 'granted') return
     const subscription = await (await device()).registration?.pushManager.getSubscription()
     if (!subscription) return
     const stored = await storedDevice(subscription.endpoint)
     if (stored && stored.time_zone === timeZone() && stored.language === languageOf(language)) return
-    await save(subscription, stored?.notify_hour ?? hour, language)
+    // The stored time when there is one: a change made elsewhere may not have reached this
+    // device's memory. A renewed address has no row yet, and takes the remembered time.
+    await save(subscription, stored?.notify_hour ?? remembered.hour, stored?.notify_minute ?? remembered.minute, language)
   } catch { /* tried again the next time the admin area opens */ }
 }
 

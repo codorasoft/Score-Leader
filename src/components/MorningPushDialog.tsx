@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { readPushState, sendTestPush, setPushHour, turnOffPush, turnOnPush, type PushState } from '../lib/push'
+import { QUARTERS, readPushState, sendTestPush, setPushTime, turnOffPush, turnOnPush, type PushState } from '../lib/push'
 
 interface Props {
   // What this device can do and whether the notification is on (see src/lib/push.ts)
@@ -10,18 +10,21 @@ interface Props {
   onClose: () => void
 }
 
-export const hourLabel = (hour: number) => `${String(hour).padStart(2, '0')}:00`
+const two = (n: number) => String(n).padStart(2, '0')
+// "07:30"
+export const clockLabel = (hour: number, minute: number) => `${two(hour)}:${two(minute)}`
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour)
 
-// The morning notification for this device: its hour, turning it on and off, and a test.
+// The morning notification for this device: its time, turning it on and off, and a test.
 // A device that cannot be turned on is told why. Tapping outside, Escape and Close close it.
 export default function MorningPushDialog({ state, onChange, onClose }: Props) {
   const { t, i18n } = useTranslation()
   const titleId = useId()
+  const timeId = useId()
   const boxRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
-  // The hour in the picker; while on, it is saved as soon as it is changed
-  const [hour, setHour] = useState(state.hour)
+  // The time in the pickers; while on, it is saved as soon as it is changed
+  const [time, setTime] = useState({ hour: state.hour, minute: state.minute })
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
@@ -38,20 +41,20 @@ export default function MorningPushDialog({ state, onChange, onClose }: Props) {
   const failed = (text: string) => setMessage({ text, ok: false })
 
   const turnOn = () => run(async () => {
-    const result = await turnOnPush(hour, i18n.language)
+    const result = await turnOnPush(time.hour, time.minute, i18n.language)
     // 'dismissed': the browser's question was closed without an answer; nothing changed
     if (result === 'failed') failed(t('push.saveFailed'))
     // Some browsers refuse and still report "never asked": the answer given here is what counts
     else if (result === 'blocked') onChange({ ...(await readPushState()), permission: 'denied', on: false })
     else if (result === 'on') onChange(await readPushState())
   })
-  const changeHour = (next: number) => {
-    setHour(next)
+  const changeTime = (next: { hour: number; minute: number }) => {
+    setTime(next)
     if (!state.on) return
     run(async () => {
-      if (await setPushHour(next, i18n.language)) onChange(await readPushState())
+      if (await setPushTime(next.hour, next.minute, i18n.language)) onChange(await readPushState())
       else {
-        setHour(state.hour)
+        setTime({ hour: state.hour, minute: state.minute })
         failed(t('push.saveFailed'))
       }
     })
@@ -81,6 +84,8 @@ export default function MorningPushDialog({ state, onChange, onClose }: Props) {
     : state.permission === 'denied' ? t('push.blocked')
     : null
   const wide = 'w-full py-2.5 rounded-lg font-semibold disabled:opacity-50'
+  // 16px text, so a phone does not zoom the page when a picker is tapped
+  const picker = 'flex-1 min-w-0 px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-base text-white disabled:opacity-50'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
@@ -100,19 +105,31 @@ export default function MorningPushDialog({ state, onChange, onClose }: Props) {
         ) : (
           <>
             <p className="text-sm text-gray-300 mb-3">{t('push.intro')}</p>
-            <label className="block text-sm text-gray-400 mb-3">
-              {t('push.hour')}
-              {/* 16px text, so a phone does not zoom the page when the field is tapped */}
-              <select
-                dir="ltr"
-                value={hour}
-                disabled={busy}
-                onChange={(e) => changeHour(Number(e.target.value))}
-                className="block w-full mt-1 px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-base text-white disabled:opacity-50"
-              >
-                {HOURS.map((h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-              </select>
-            </label>
+            {/* Hour, then minutes in quarters: the server's job runs on every quarter hour */}
+            <div role="group" aria-labelledby={timeId} className="mb-3">
+              <p id={timeId} className="text-sm text-gray-400">{t('push.hour')}</p>
+              <div dir="ltr" className="flex items-center gap-2 mt-1">
+                <select
+                  aria-label={t('push.hours')}
+                  value={time.hour}
+                  disabled={busy}
+                  onChange={(e) => changeTime({ ...time, hour: Number(e.target.value) })}
+                  className={picker}
+                >
+                  {HOURS.map((h) => <option key={h} value={h}>{two(h)}</option>)}
+                </select>
+                <span className="font-bold text-gray-400" aria-hidden="true">:</span>
+                <select
+                  aria-label={t('push.minutes')}
+                  value={time.minute}
+                  disabled={busy}
+                  onChange={(e) => changeTime({ ...time, minute: Number(e.target.value) })}
+                  className={picker}
+                >
+                  {QUARTERS.map((m) => <option key={m} value={m}>{two(m)}</option>)}
+                </select>
+              </div>
+            </div>
 
             {state.on ? (
               <div className="flex flex-col gap-2">

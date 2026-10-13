@@ -5,9 +5,10 @@ import type { PushState } from '../lib/push'
 
 vi.mock('../lib/push', () => ({
   DEFAULT_HOUR: 7,
+  QUARTERS: [0, 15, 30, 45],
   readPushState: vi.fn(),
   turnOnPush: vi.fn(),
-  setPushHour: vi.fn(),
+  setPushTime: vi.fn(),
   turnOffPush: vi.fn(),
   sendTestPush: vi.fn(),
 }))
@@ -16,16 +17,18 @@ import * as push from '../lib/push'
 import MorningPushDialog from './MorningPushDialog'
 
 const api = vi.mocked(push)
-const OFF: PushState = { support: 'ok', permission: 'default', on: false, hour: 7 }
-const ON: PushState = { support: 'ok', permission: 'granted', on: true, hour: 9 }
-const BLOCKED: PushState = { support: 'ok', permission: 'denied', on: false, hour: 7 }
+const OFF: PushState = { support: 'ok', permission: 'default', on: false, hour: 7, minute: 0 }
+const ON: PushState = { support: 'ok', permission: 'granted', on: true, hour: 9, minute: 30 }
+const BLOCKED: PushState = { support: 'ok', permission: 'denied', on: false, hour: 7, minute: 0 }
 const onChange = vi.fn()
 const onClose = vi.fn()
 const open = (state: PushState) => {
   render(<MorningPushDialog state={state} onChange={onChange} onClose={onClose} />)
   return screen.getByRole('dialog', { name: 'Morning notification' })
 }
-const hour = () => screen.getByRole('combobox', { name: 'Time' }) as HTMLSelectElement
+const hour = () => screen.getByRole('combobox', { name: 'Hour' }) as HTMLSelectElement
+const minutes = () => screen.getByRole('combobox', { name: 'Minutes' }) as HTMLSelectElement
+const texts = (select: HTMLSelectElement) => within(select).getAllByRole('option').map((o) => o.textContent)
 const button = (name: string) => screen.getByRole('button', { name })
 
 beforeEach(() => { vi.clearAllMocks() })
@@ -55,23 +58,29 @@ describe('off', () => {
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog).toHaveTextContent('Each morning, a notification with what is on your schedule that day. Nothing is sent on a day with nothing on it.')
     expect(dialog).toHaveTextContent('The titles of your items appear in the notification.')
+    // The time is two pickers under one name: the hour, and the minutes in quarters
+    expect(within(screen.getByRole('group', { name: 'Time' })).getAllByRole('combobox')).toEqual([hour(), minutes()])
     expect(hour().value).toBe('7')
-    const options = within(hour()).getAllByRole('option').map((o) => o.textContent)
-    expect(options).toHaveLength(24)
-    expect([options[0], options[7], options[23]]).toEqual(['00:00', '07:00', '23:00'])
+    expect(texts(hour())).toHaveLength(24)
+    expect([texts(hour())[0], texts(hour())[7], texts(hour())[23]]).toEqual(['00', '07', '23'])
+    expect(minutes().value).toBe('0')
+    expect(texts(minutes())).toEqual(['00', '15', '30', '45'])
     expect(button('Turn on')).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Turn off' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Send a test now' })).not.toBeInTheDocument()
   })
 
-  it('turns on with the hour chosen, and passes the new state on', async () => {
+  it('turns on with the time chosen, and passes the new state on', async () => {
     api.turnOnPush.mockResolvedValue('on')
     api.readPushState.mockResolvedValue({ ...ON, hour: 6 })
     open(OFF)
     fireEvent.change(hour(), { target: { value: '6' } })
+    fireEvent.change(minutes(), { target: { value: '30' } })
     fireEvent.click(button('Turn on'))
     await waitFor(() => expect(onChange).toHaveBeenCalledWith({ ...ON, hour: 6 }))
-    expect(api.turnOnPush).toHaveBeenCalledWith(6, 'en')
+    expect(api.turnOnPush).toHaveBeenCalledWith(6, 30, 'en')
+    // Choosing a time while off saves nothing by itself
+    expect(api.setPushTime).not.toHaveBeenCalled()
   })
 
   it('a permission question closed without an answer leaves it off and says nothing', async () => {
@@ -117,6 +126,7 @@ describe('off', () => {
     fireEvent.click(button('Turn on'))
     expect(button('Turn on')).toBeDisabled()
     expect(hour()).toBeDisabled()
+    expect(minutes()).toBeDisabled()
     answer('on')
     await waitFor(() => expect(onChange).toHaveBeenCalled())
     expect(api.turnOnPush).toHaveBeenCalledTimes(1)
@@ -124,29 +134,42 @@ describe('off', () => {
 })
 
 describe('on', () => {
-  it('shows the stored hour, the test and Turn off', () => {
+  it('shows the stored time, the test and Turn off', () => {
     open(ON)
     expect(hour().value).toBe('9')
+    expect(minutes().value).toBe('30')
     expect(button('Send a test now')).toBeEnabled()
     expect(button('Turn off')).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Turn on' })).not.toBeInTheDocument()
   })
 
-  it('changing the hour saves at once', async () => {
-    api.setPushHour.mockResolvedValue(true)
+  it('changing the hour saves at once, with the minutes as they are', async () => {
+    api.setPushTime.mockResolvedValue(true)
     api.readPushState.mockResolvedValue({ ...ON, hour: 10 })
     open(ON)
     fireEvent.change(hour(), { target: { value: '10' } })
     await waitFor(() => expect(onChange).toHaveBeenCalledWith({ ...ON, hour: 10 }))
-    expect(api.setPushHour).toHaveBeenCalledWith(10, 'en')
+    expect(api.setPushTime).toHaveBeenCalledWith(10, 30, 'en')
   })
 
-  it('a refused hour goes back and says so', async () => {
-    api.setPushHour.mockResolvedValue(false)
+  it('changing the minutes saves at once, with the hour as it is', async () => {
+    api.setPushTime.mockResolvedValue(true)
+    api.readPushState.mockResolvedValue({ ...ON, minute: 45 })
+    open(ON)
+    fireEvent.change(minutes(), { target: { value: '45' } })
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith({ ...ON, minute: 45 }))
+    expect(api.setPushTime).toHaveBeenCalledWith(9, 45, 'en')
+  })
+
+  it('a refused time goes back and says so', async () => {
+    api.setPushTime.mockResolvedValue(false)
     open(ON)
     fireEvent.change(hour(), { target: { value: '10' } })
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not save. Check your connection and try again.')
     expect(hour().value).toBe('9')
+    fireEvent.change(minutes(), { target: { value: '0' } })
+    await waitFor(() => expect(api.setPushTime).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(minutes().value).toBe('30'))
     expect(onChange).not.toHaveBeenCalled()
   })
 
@@ -181,6 +204,7 @@ describe('on', () => {
     expect(button('Send a test now')).toBeDisabled()
     expect(button('Turn off')).toBeDisabled()
     expect(hour()).toBeDisabled()
+    expect(minutes()).toBeDisabled()
   })
 })
 
@@ -213,7 +237,9 @@ describe('the dialog itself', () => {
       render(<MorningPushDialog state={OFF} onChange={onChange} onClose={onClose} />)
       const dialog = screen.getByRole('dialog', { name: 'إشعار الصباح' })
       expect(within(dialog).getByRole('button', { name: 'تفعيل' })).toBeInTheDocument()
-      expect(within(dialog).getByRole('combobox', { name: 'الوقت' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('group', { name: 'الوقت' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('combobox', { name: 'الساعة' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('combobox', { name: 'الدقائق' })).toBeInTheDocument()
       expect(within(dialog).getByRole('button', { name: 'إغلاق' })).toBeInTheDocument()
     })
   })

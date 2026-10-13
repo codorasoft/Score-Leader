@@ -311,3 +311,28 @@ phone. That is step 8 of the rollout.
   built into such an app has none) and will need Apple's and Google's own push; the table,
   the job and the round are built so that another way of sending can be added beside this
   one.
+
+## 12. Added on 2026-10-13: minutes
+
+The coach chooses the minutes too, in quarters: :00, :15, :30 or :45. Quarters because the
+job runs on every quarter hour; a finer choice would mean a job that runs more often, which
+was offered and not wanted.
+
+- **Data:** `push_subscriptions.notify_minute`, smallint, 0, 15, 30 or 45, default 0. Every
+  device already turned on stays on the hour.
+- **Saving:** `save_push_subscription` takes one more argument, `p_notify_minute`, which may
+  be left out. Left out, the minutes stay as they are for the same coach, and are 0 for a new
+  device or for a coach who takes a device over. The app from before minutes existed leaves
+  it out, so it keeps working and changes nobody's minutes.
+- **Who is due** (replaces the rule of section 5): from the chosen time for the two hours
+  after it, on the same local day, when `last_sent_on` is not that day. What is left of the
+  two hours after midnight is not used, so a time of 23:45 is due for that quarter of an hour
+  alone. For a time on the hour this is the rule as it was.
+- **The dialog:** Time is two pickers side by side, the hour (00–23) and the minutes (00, 15,
+  30, 45), under one name. While on, a change of either is saved at once with the other as it
+  is. The bell's label shows the whole time ("on, 07:30").
+- **On the device:** `scoreleader.push` holds `{ "hour": 7, "minute": 30 }`; a value from
+  before minutes existed counts as on the hour.
+- **Rollout order:** the migration, then the function (it reads the new column), then the
+  app. In between, the function already live ignores the minutes and the app already live
+  does not send them.
