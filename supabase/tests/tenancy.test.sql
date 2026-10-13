@@ -569,6 +569,18 @@ SELECT pg_temp.expect_count(
   $sql$INSERT INTO public.lineup_players (lineup_id, player_id, x, y)
        VALUES ('aaaaaaaa-0000-4000-8000-000000000012', 'aaaaaaaa-0000-4000-8000-000000000003', 0.5, 0.5)$sql$,
   1);
+
+-- A board's formation and its substitutes
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.lineups SET formation = '4-3-2-1' WHERE id = 'aaaaaaaa-0000-4000-8000-000000000012'$sql$, 1);
+SELECT pg_temp.expect_error(
+  $sql$UPDATE public.lineups SET formation = '4-4-7' WHERE id = 'aaaaaaaa-0000-4000-8000-000000000012'$sql$, 'lineups_formation_check');
+SELECT pg_temp.expect_error(
+  $sql$UPDATE public.lineups SET formation = '1-1-1-1-1-1' WHERE id = 'aaaaaaaa-0000-4000-8000-000000000012'$sql$, 'lineups_formation_check');
+SELECT pg_temp.expect_count(
+  $sql$UPDATE public.lineup_players SET bench_order = 0 WHERE lineup_id = 'aaaaaaaa-0000-4000-8000-000000000012'$sql$, 1);
+SELECT pg_temp.expect_error(
+  $sql$UPDATE public.lineup_players SET bench_order = -1 WHERE lineup_id = 'aaaaaaaa-0000-4000-8000-000000000012'$sql$, 'lineup_players_bench_order_check');
 RESET role;
 
 UPDATE public.admin_profiles SET features = array_remove(features, 'coach_board')
