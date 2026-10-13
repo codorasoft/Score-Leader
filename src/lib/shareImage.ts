@@ -213,6 +213,9 @@ export async function drawBoardImage(data: {
   title: string
   subtitle: string
   players: { name: string; photo_url: string | null; x: number; y: number; guest?: boolean }[]
+  // Those beside the pitch, in their order, and the heading over them
+  substitutes?: { name: string; photo_url: string | null; guest?: boolean }[]
+  substitutesTitle?: string
   drawings?: Shape[]
   footer: string
 }): Promise<HTMLCanvasElement> {
