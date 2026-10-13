@@ -1,4 +1,4 @@
-import { MAX_ON_PITCH, MIN_ON_PITCH, fitsPitch, formationName, formationSpots, parseFormation, suggestedFormations } from './formation'
+import { MAX_ON_PITCH, MIN_ON_PITCH, assignToFormation, fitsPitch, formationName, formationSpots, parseFormation, suggestedFormations, type FormationPlayer } from './formation'
 
 describe('parseFormation', () => {
   it('reads the lines from the defence forward', () => {
@@ -64,5 +64,53 @@ describe('formationSpots', () => {
   it('calls every line between the first and the last midfield', () => {
     expect(formationSpots([4, 2, 3, 1]).map((s) => s.role).join(' ')).toBe('GK DEF DEF DEF DEF MID MID MID MID MID ATT')
     expect(formationSpots([4, 2, 3, 1]).filter((s) => s.role === 'MID').map((s) => s.y)).toEqual([0.56, 0.56, 0.38, 0.38, 0.38])
+  })
+})
+
+describe('assignToFormation', () => {
+  const p = (id: string, position: FormationPlayer['position'], x = 0.5, y = 0.5): FormationPlayer => ({ id, position, x, y })
+  const where = (lines: number[], players: FormationPlayer[]) =>
+    Object.fromEntries(assignToFormation(lines, players).map((a) => [a.id, [a.x, a.y]]))
+
+  it('puts the keeper in goal and each line takes its own role', () => {
+    const at = where([2, 1, 1], [p('att', 'ATT'), p('mid', 'MID'), p('d1', 'DEF', 0.2), p('gk', 'GK'), p('d2', 'DEF', 0.8)])
+    expect(at).toEqual({ gk: [0.5, 0.92], d1: [0.29, 0.74], d2: [0.71, 0.74], mid: [0.5, 0.47], att: [0.5, 0.2] })
+  })
+
+  it('keeps the order players stand in from left to right inside a line', () => {
+    const at = where([3], [p('gk', 'GK'), p('right', 'MID', 0.9), p('left', 'MID', 0.1), p('centre', 'MID', 0.5)])
+    expect([at.left[0], at.centre[0], at.right[0]]).toEqual([0.22, 0.5, 0.78])
+  })
+
+  it('spills spare defenders into midfield before the attack', () => {
+    const at = where([1, 1, 1], [p('gk', 'GK'), p('d1', 'DEF', 0.5, 0.9), p('d2', 'DEF', 0.5, 0.8), p('att', 'ATT')])
+    expect(at.d1[1]).toBe(0.74)
+    expect(at.d2[1]).toBe(0.47)
+    expect(at.att[1]).toBe(0.2)
+  })
+
+  it('with two keepers, the one nearer the bottom goal keeps goal', () => {
+    const at = where([1], [p('high', 'GK', 0.5, 0.3), p('low', 'GK', 0.5, 0.8)])
+    expect(at).toEqual({ low: [0.5, 0.92], high: [0.5, 0.47] })
+  })
+
+  it('with no keeper, whoever is left over keeps goal', () => {
+    const at = where([2, 2], [p('d1', 'DEF', 0.1), p('d2', 'DEF', 0.9), p('mid', 'MID'), p('a1', 'ATT', 0.1), p('a2', 'ATT', 0.9)])
+    expect(at.mid).toEqual([0.5, 0.92])
+  })
+
+  it('places guests last, in what is left', () => {
+    const at = where([1, 1], [p('guest', null), p('att', 'ATT'), p('gk', 'GK')])
+    expect(at).toEqual({ gk: [0.5, 0.92], guest: [0.5, 0.74], att: [0.5, 0.2] })
+  })
+
+  it('gives the same answer for the same players', () => {
+    const players = [p('a', 'MID', 0.3, 0.4), p('b', 'MID', 0.3, 0.4), p('c', null), p('d', 'DEF'), p('e', 'ATT')]
+    expect(assignToFormation([2, 2], players)).toEqual(assignToFormation([2, 2], players))
+    expect(assignToFormation([2, 2], players)).toHaveLength(5)
+  })
+
+  it('places nobody when the formation does not fit their number', () => {
+    expect(assignToFormation([4, 4, 2], [p('a', 'GK'), p('b', 'DEF')])).toEqual([])
   })
 })

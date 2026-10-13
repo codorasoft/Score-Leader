@@ -71,3 +71,48 @@ export function formationSpots(lines: number[]): FormationSpot[] {
   })
   return spots
 }
+
+// position is null for a guest; x and y are where they stand now
+export interface FormationPlayer { id: string; position: PlayerPosition | null; x: number; y: number }
+
+const RANK: Record<PlayerPosition, number> = { GK: 0, DEF: 1, MID: 2, ATT: 3 }
+// A guest has no position: further from every role than any player
+const GUEST_DISTANCE = 10
+const distance = (player: FormationPlayer, role: PlayerPosition) =>
+  player.position ? Math.abs(RANK[player.position] - RANK[role]) : GUEST_DISTANCE
+
+// Where everyone goes: one entry for every player, in the order of formationSpots; [] when the
+// formation does not fit their number. The keeper's spot and each line take players of their
+// own role first, then whoever is nearest that role; inside a line the players keep the order
+// they already stand in from left to right, so nobody crosses the pitch for no reason.
+export function assignToFormation(lines: number[], players: FormationPlayer[]): { id: string; x: number; y: number }[] {
+  if (!fitsPitch(lines, players.length)) return []
+  const spots = formationSpots(lines)
+  // From the back of the pitch forward; "first" below means first in this order
+  const order = players.map((player, given) => ({ player, given })).sort((a, b) => b.player.y - a.player.y || a.given - b.given).map((o) => o.player)
+  const rank = new Map(order.map((player, i) => [player.id, i]))
+  const takers: (FormationPlayer | undefined)[] = spots.map(() => undefined)
+  const placed = new Set<string>()
+  const take = (spot: number, player: FormationPlayer | undefined) => {
+    if (!player) return
+    takers[spot] = player
+    placed.add(player.id)
+  }
+
+  spots.forEach((spot, i) => take(i, order.find((player) => !placed.has(player.id) && player.position === spot.role)))
+  spots.forEach((spot, i) => {
+    if (takers[i]) return
+    const free = order.filter((player) => !placed.has(player.id))
+    // The first of the nearest: `free` is already in order, and a later one must be strictly nearer
+    take(i, free.reduce<FormationPlayer | undefined>((best, player) => (best && distance(best, spot.role) <= distance(player, spot.role) ? best : player), undefined))
+  })
+
+  // Hand each line's spots out again from left to right, in the order its players stand in now
+  let first = 1
+  for (const count of lines) {
+    const inLine = takers.slice(first, first + count) as FormationPlayer[]
+    inLine.sort((a, b) => a.x - b.x || rank.get(a.id)! - rank.get(b.id)!).forEach((player, i) => { takers[first + i] = player })
+    first += count
+  }
+  return spots.map((spot, i) => ({ id: takers[i]!.id, x: spot.x, y: spot.y }))
+}
