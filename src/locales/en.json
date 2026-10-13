@@ -843,5 +843,23 @@
     "gotIt": "Got it",
     "count_one": "1 item",
     "count_other": "{{count}} items"
+  },
+  "push": {
+    "title": "Morning notification",
+    "bellOff": "Morning notification: off",
+    "bellOn": "Morning notification: on, {{time}}",
+    "intro": "Each morning, a notification with what is on your schedule that day. Nothing is sent on a day with nothing on it.",
+    "hour": "Time",
+    "titlesShown": "The titles of your items appear in the notification.",
+    "turnOn": "Turn on",
+    "turnOff": "Turn off",
+    "test": "Send a test now",
+    "testSent": "Sent. It should arrive in a moment.",
+    "testFailed": "Could not send. Try again.",
+    "saveFailed": "Could not save. Check your connection and try again.",
+    "unsupported": "This browser cannot show notifications from the app.",
+    "needsInstall": "On an iPhone or iPad, add the app to the Home Screen first: tap Share, then Add to Home Screen. Open it from there and turn the notification on.",
+    "blocked": "Notifications are blocked for this app. Allow them in your browser or phone settings, then come back here.",
+    "close": "Close"
   }
 }

@@ -6,7 +6,17 @@ import { db, resetDb, rows } from '../../test/fakeSupabase'
 import { FEATURES } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
+// The morning notification is off on this device unless a test says otherwise
+vi.mock('../../lib/push', () => ({
+  DEFAULT_HOUR: 7,
+  readPushState: vi.fn(async () => ({ support: 'ok', permission: 'default', on: false, hour: 7 })),
+  turnOnPush: vi.fn(),
+  setPushHour: vi.fn(),
+  turnOffPush: vi.fn(),
+  sendTestPush: vi.fn(),
+}))
 
+import * as push from '../../lib/push'
 import SchedulePage from './SchedulePage'
 
 const item = (over: Record<string, unknown>) => ({
@@ -495,5 +505,51 @@ describe('SchedulePage, the week and day views', () => {
     renderPage()
     await waitFor(() => expect(view().getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true'))
     expect(await screen.findByRole('heading', { level: 2, name: 'Oct 12 – Oct 18, 2026' })).toBeInTheDocument()
+  })
+})
+
+describe('SchedulePage, the morning notification', () => {
+  const api = vi.mocked(push)
+  const ON = { support: 'ok', permission: 'granted', on: true, hour: 9 } as const
+
+  it('shows the bell with its state, and opens the dialog', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    const bell = await screen.findByRole('button', { name: 'Morning notification: off' })
+    expect(bell).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(bell)
+    expect(screen.getByRole('dialog', { name: 'Morning notification' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('the bell says on with the time', async () => {
+    api.readPushState.mockResolvedValueOnce(ON)
+    resetDb(data())
+    renderPage()
+    await ready()
+    expect(await screen.findByRole('button', { name: 'Morning notification: on, 09:00' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('the bell follows a change made in the dialog', async () => {
+    resetDb(data())
+    renderPage()
+    await ready()
+    fireEvent.click(await screen.findByRole('button', { name: 'Morning notification: off' }))
+    api.turnOnPush.mockResolvedValueOnce('on')
+    api.readPushState.mockResolvedValueOnce({ ...ON, hour: 7 })
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }))
+    expect(await screen.findByRole('button', { name: 'Morning notification: on, 07:00' })).toBeInTheDocument()
+    // The dialog stays open, now showing what an on device offers
+    expect(screen.getByRole('button', { name: 'Send a test now' })).toBeInTheDocument()
+  })
+
+  it('there is no bell until the state is known', async () => {
+    api.readPushState.mockReturnValueOnce(new Promise(() => {}))
+    resetDb(data())
+    renderPage()
+    await ready()
+    expect(screen.queryByRole('button', { name: /Morning notification/ })).not.toBeInTheDocument()
   })
 })
