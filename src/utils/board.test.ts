@@ -1,4 +1,4 @@
-import { spotForNewPlayer, clampSpot, lineupChanges, makeGuest, parseGuests, spotsForTeams, labelSpotsForTeams } from './board'
+import { spotForNewPlayer, clampSpot, lineupChanges, makeGuest, parseGuests, spotsForTeams, labelSpotsForTeams, benchOrder, guestsForSaving, swapWithSubstitute } from './board'
 
 describe('spotForNewPlayer', () => {
   it('fills rows of four from the bottom of the pitch upwards', () => {
@@ -30,8 +30,8 @@ it('works out which players to remove and which spots to save', () => {
   ])
   expect(changes.remove).toEqual(['omar', 'sami'])
   expect(changes.upsert).toEqual([
-    { lineup_id: 'L1', player_id: 'ali', x: 0.5, y: 0.5 },
-    { lineup_id: 'L1', player_id: 'hadi', x: 0.2, y: 0.8 },
+    { lineup_id: 'L1', player_id: 'ali', x: 0.5, y: 0.5, bench_order: null },
+    { lineup_id: 'L1', player_id: 'hadi', x: 0.2, y: 0.8, bench_order: null },
   ])
 })
 
@@ -50,6 +50,51 @@ describe('guests', () => {
       'nonsense',
     ])).toEqual([{ id: 'a', name: 'Khalil', x: 0.3, y: 0.4 }])
     expect(parseGuests(undefined)).toEqual([])
+  })
+})
+
+describe('the bench', () => {
+  it('keeps a guest on the bench, and puts one with a damaged place back on the pitch', () => {
+    const raw = [
+      { id: 'a', name: 'A', x: 0.1, y: 0.1, bench: 2 },
+      { id: 'b', name: 'B', x: 0.1, y: 0.1, bench: -1 },
+      { id: 'c', name: 'C', x: 0.1, y: 0.1, bench: 1.5 },
+      { id: 'd', name: 'D', x: 0.1, y: 0.1, bench: '2' },
+    ]
+    expect(parseGuests(raw)).toEqual([
+      { id: 'a', name: 'A', x: 0.1, y: 0.1, bench: 2 },
+      { id: 'b', name: 'B', x: 0.1, y: 0.1 },
+      { id: 'c', name: 'C', x: 0.1, y: 0.1 },
+      { id: 'd', name: 'D', x: 0.1, y: 0.1 },
+    ])
+  })
+
+  it('orders players and guests together, a player first on the same number', () => {
+    const guests = [{ id: 'g0', name: 'G', x: 0, y: 0, bench: 0 }, { id: 'gp', name: 'P', x: 0, y: 0 }, { id: 'g1', name: 'H', x: 0, y: 0, bench: 1 }]
+    expect(benchOrder([{ id: 'p1', bench: 1 }, { id: 'on', bench: null }, { id: 'p3', bench: 3 }], guests)).toEqual(['g0', 'p1', 'g1', 'p3'])
+  })
+
+  it('saves each player with a place on the bench, or none', () => {
+    const { upsert } = lineupChanges('L1', [], [{ playerId: 'ali', x: 0.5, y: 0.5 }, { playerId: 'hadi', x: 0.2, y: 0.8 }], ['guest', 'hadi'])
+    expect(upsert).toEqual([
+      { lineup_id: 'L1', player_id: 'ali', x: 0.5, y: 0.5, bench_order: null },
+      { lineup_id: 'L1', player_id: 'hadi', x: 0.2, y: 0.8, bench_order: 1 },
+    ])
+  })
+
+  it('saves a guest with a place on the bench, and without one on the pitch', () => {
+    const guests = [{ id: 'g', name: 'G', x: 0, y: 0 }, { id: 'h', name: 'H', x: 0, y: 0, bench: 4 }]
+    expect(guestsForSaving(guests, ['g'])).toEqual([{ id: 'g', name: 'G', x: 0, y: 0, bench: 0 }, { id: 'h', name: 'H', x: 0, y: 0 }])
+  })
+
+  it('swaps a substitute with a starter, once', () => {
+    const everyone = [{ id: 'sub', x: 0.1, y: 0.1 }, { id: 'ali', x: 0.5, y: 0.74 }, { id: 'other', x: 0.3, y: 0.3 }]
+    const first = swapWithSubstitute(['other', 'sub'], everyone, 'sub', 'ali')
+    expect(first).toEqual({ bench: ['other', 'ali'], move: { id: 'sub', x: 0.5, y: 0.74 } })
+    // A second tap arrives after the first: the substitute is on the pitch now
+    expect(swapWithSubstitute(first!.bench, everyone, 'sub', 'ali')).toBeNull()
+    expect(swapWithSubstitute(['other', 'sub'], everyone, 'sub', 'other')).toBeNull()
+    expect(swapWithSubstitute(['sub'], everyone, 'sub', 'nobody')).toBeNull()
   })
 })
 

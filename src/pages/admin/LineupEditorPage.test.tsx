@@ -49,8 +49,8 @@ it('creates a lineup with the chosen players at their starting spots', async () 
   expect(insert).toHaveBeenCalledWith(expect.objectContaining({ name: 'Friday 5s', league_id: 'L1' }))
   const lineupId = insert.mock.calls[0][0].id
   expect(upsert.mock.calls[0][0]).toEqual([
-    { lineup_id: lineupId, player_id: 'ali', x: 0.2, y: 0.85 },
-    { lineup_id: lineupId, player_id: 'omar', x: 0.4, y: 0.85 },
+    { lineup_id: lineupId, player_id: 'ali', x: 0.2, y: 0.85, bench_order: null },
+    { lineup_id: lineupId, player_id: 'omar', x: 0.4, y: 0.85, bench_order: null },
   ])
   expect(await screen.findByText('saved page')).toBeInTheDocument()
 })

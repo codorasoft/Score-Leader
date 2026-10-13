@@ -57,16 +57,20 @@ export function labelSpotsForTeams(teams: string[][]): BoardSpot[] {
 }
 
 // Saving replaces the stored board: players taken off are removed, everyone else is upserted.
-export function lineupChanges(lineupId: string, savedPlayerIds: string[], current: BoardPlayer[]) {
+// `bench` is the substitutes' ids in order (players and guests together); a player's place in
+// it is saved, and a player on the pitch is saved with none.
+export function lineupChanges(lineupId: string, savedPlayerIds: string[], current: BoardPlayer[], bench: string[] = []) {
   const keep = new Set(current.map((p) => p.playerId))
+  const place = (id: string) => { const at = bench.indexOf(id); return at === -1 ? null : at }
   return {
     remove: savedPlayerIds.filter((id) => !keep.has(id)),
-    upsert: current.map((p) => ({ lineup_id: lineupId, player_id: p.playerId, x: p.x, y: p.y })),
+    upsert: current.map((p) => ({ lineup_id: lineupId, player_id: p.playerId, x: p.x, y: p.y, bench_order: place(p.playerId) })),
   }
 }
 
-// Guests are typed names (not in the Players list), stored with the board itself.
-export interface Guest { id: string; name: string; x: number; y: number }
+// Guests are typed names (not in the Players list), stored with the board itself. A guest among
+// the substitutes has a `bench` number: the place there, in one order with the players.
+export interface Guest { id: string; name: string; x: number; y: number; bench?: number }
 
 export const GUEST_NAME_MAX = 40
 
@@ -77,11 +81,48 @@ export function makeGuest(name: string, spot: BoardSpot, id: string): Guest | nu
 
 const unit = (v: unknown) => typeof v === 'number' && v >= 0 && v <= 1
 
+const benchPlace = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0
+
+// A guest whose place on the bench is damaged is read as being on the pitch
 export function parseGuests(raw: unknown): Guest[] {
   if (!Array.isArray(raw)) return []
-  return raw.filter((g): g is Guest => {
-    if (!g || typeof g !== 'object') return false
-    const o = g as Record<string, unknown>
-    return typeof o.id === 'string' && typeof o.name === 'string' && o.name.trim().length > 0 && unit(o.x) && unit(o.y)
+  return raw
+    .filter((g): g is Guest => {
+      if (!g || typeof g !== 'object') return false
+      const o = g as Record<string, unknown>
+      return typeof o.id === 'string' && typeof o.name === 'string' && o.name.trim().length > 0 && unit(o.x) && unit(o.y)
+    })
+    .map(({ id, name, x, y, bench }) => (benchPlace(bench) ? { id, name, x, y, bench } : { id, name, x, y }))
+}
+
+// The substitutes' ids in order: by their number, a player before a guest on the same number,
+// then as given
+export function benchOrder(players: { id: string; bench: number | null }[], guests: Guest[]): string[] {
+  return [...players, ...guests.map((g) => ({ id: g.id, bench: g.bench ?? null }))]
+    .filter((p): p is { id: string; bench: number } => p.bench !== null)
+    .sort((a, b) => a.bench - b.bench)
+    .map((p) => p.id)
+}
+
+// The guests as stored: `bench` is the place in `bench`, and absent for a guest on the pitch
+export function guestsForSaving(guests: Guest[], bench: string[]): Guest[] {
+  return guests.map(({ id, name, x, y }) => {
+    const at = bench.indexOf(id)
+    return at === -1 ? { id, name, x, y } : { id, name, x, y, bench: at }
   })
+}
+
+// Anyone on the board, player or guest
+export interface Placed { id: string; x: number; y: number }
+
+// The substitute takes the starter's spot, and the starter takes the substitute's place on the
+// bench. null when the substitute is not on the bench, or the starter is on it or not on the
+// board: a second tap that arrives after the swap changes nothing.
+export function swapWithSubstitute(bench: string[], everyone: Placed[], subId: string, starterId: string): { bench: string[]; move: Placed } | null {
+  const starter = everyone.find((p) => p.id === starterId)
+  if (!starter || !bench.includes(subId) || bench.includes(starterId)) return null
+  return {
+    bench: bench.map((id) => (id === subId ? starterId : id)),
+    move: { id: subId, x: starter.x, y: starter.y },
+  }
 }
