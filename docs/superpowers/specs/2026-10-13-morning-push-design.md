@@ -60,7 +60,10 @@ Index on `user_id`.
 - **No direct insert or update.** A row is written through
   `save_push_subscription(endpoint, p256dh, auth, time_zone, notify_hour, language)`:
   - refused unless the caller is an enabled admin with `schedule` (`caller_has_feature`);
-  - refused when the time zone is not one the database knows (`pg_timezone_names`);
+  - the time zone must look like a zone name (letters, digits, `_`, `+`, `-`, `/`, at most
+    64 characters). Whether the name is a real one is decided where it is used: the server
+    function skips a device whose zone it cannot read (section 5), because the function's
+    list of zones, not the database's, is the one that counts;
   - adds the row, or, when the address is already stored, updates it and makes the caller
     its owner. Knowing the address and its keys is the proof of holding the device, so a
     second coach signing in on the same browser takes the row over.
@@ -134,8 +137,11 @@ For each due coach, once for all his due devices:
 - **Title:** "Today: 3 items" ("Today: 1 item"); in Arabic with its plural forms.
 - **Body:** up to five lines, one per row: the time when it has one, then the item's title,
   "Match session", or "Training plan" with the plan's title. With rows in more than one
-  league each line starts with the league's name. Further rows become one last line,
-  "+2 more".
+  league each line starts with the league's name. Further rows become one more line,
+  "+2 more". A line longer than 80 characters is cut, so the whole message stays well under
+  the 4 KB the push services accept.
+- **Kept for 12 hours:** a phone that is off or out of reach at the hour still gets the
+  notification when it is back that day; after 12 hours the push service drops it.
 - **Language and direction** follow the row's `language`.
 - **Tap:** with rows in one league, that league's schedule; in several, `/admin`.
 - **Tag** `today-<date>`: a second message for the same day replaces the first on the
@@ -159,8 +165,8 @@ imports from it changes.
 The generated service worker loads one more file, `push-sw.js`:
 
 - **On a push:** shows the notification from the message. A message it cannot read still
-  shows a plain "Today" notification that opens `/admin`: an iPhone can withdraw the
-  permission from an app whose pushes show nothing.
+  shows a plain notification under the app's name that opens `/admin`: an iPhone can
+  withdraw the permission from an app whose pushes show nothing.
 - **On a tap:** closes the notification, brings an open window of the app to the front and
   takes it to the address, or opens a new one.
 
@@ -175,6 +181,7 @@ notification: off", "…: on, 07:00"), opens the dialog. What it shows depends o
 | iPhone or iPad, app not on the home screen | how to add it (Share, then Add to Home Screen), and that the notification is turned on from there |
 | Notifications blocked for the app | that they are blocked, and that they are allowed again in the browser's or phone's settings |
 | Off | the hour picker (00:00–23:00, 07:00 chosen), a line that item titles appear in the notification, and **Turn on** |
+| Asked, and the question closed without an answer | stays Off, with nothing said |
 | On | the hour picker (a change is saved at once), **Send a test now** and **Turn off** |
 
 - **Turn on** asks the browser for permission, takes the device's address and saves it. A
@@ -233,18 +240,24 @@ tags. A real logo later means replacing these files and dropping that test.
 | `src/pages/admin/SchedulePage.tsx` | the bell button |
 | `src/layouts/AdminLayout.tsx`, `src/hooks/useAuth.ts` | keep right on open; forget on sign-out |
 | `scripts/makeIcons.ts`, `public/…` | the icon script and its files |
+| `scripts/makePushKeys.ts` | makes the key pair and the job secret |
+| `supabase/functions/_shared/morningPushData.ts` | the round's reads and writes over a database client handed in, so they are tested |
 | `.env.production`, `.env.example` | the public key |
 | `src/locales/en.json`, `src/locales/ar.json` | the dialog's wording |
 
 ## 9. Rollout
 
-Nothing below is done without the user's go-ahead. The steps are in an order in which the
-app already live keeps working at every point (the migration only adds).
+Steps 3 to 8 are not done without the user's go-ahead. Steps 1 and 2 belong to building:
+the rehearsal runs in a transaction that is rolled back, as for earlier work, and the keys
+are made on this machine only. The steps are in an order in which the app already live keeps
+working at every point (the migration only adds).
 
 1. Rehearse the migration and the database tests on the live database in a transaction
    that is rolled back (`bash scripts/rehearse.sh`).
-2. Make the key pair and a random job secret. The public key goes into `.env.production`
-   in the pull request.
+2. Make the key pair and a random job secret. This is done while building, because the
+   pull request carries the public key in `.env.production`: a script writes the private
+   key and the job secret into the git-ignored `.env.zurich.local` on this machine, which
+   changes nothing live.
 3. Set the four function secrets (`supabase secrets set`).
 4. Apply the migration (`supabase db push --linked`, dry run first).
 5. Put the function's address and the job secret into Vault.
