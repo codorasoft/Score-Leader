@@ -13,6 +13,8 @@ vi.mock('../contexts/MyLeaguesContext', () => ({
     refresh: vi.fn(),
   }),
 }))
+// The check itself has its own tests; here only that the layout carries it
+vi.mock('../components/TodayReminder', () => ({ default: () => <div data-testid="today-reminder" /> }))
 
 import AdminLayout from './AdminLayout'
 
@@ -73,4 +75,9 @@ it('with the schedule only there are four tabs, and Schedule is current on its p
   const label = nav.getByText("Coach's schedule")
   expect(label).toHaveClass('line-clamp-2')
   expect(label).not.toHaveClass('truncate')
+})
+
+it("carries the once-a-day check for today's items", () => {
+  renderAt('/admin/eagles/players')
+  expect(screen.getByTestId('today-reminder')).toBeInTheDocument()
 })

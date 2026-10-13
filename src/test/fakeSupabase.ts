@@ -17,6 +17,8 @@ export const db = {
   tables: {} as Record<string, Row[]>,
   writes: [] as Write[],
   reads: 0,
+  // The abort signal each read was made with (undefined for none), in the order they ran
+  signals: [] as (AbortSignal | undefined)[],
   // Every request to a table listed here fails with this error (reads and writes)
   errors: {} as Record<string, ApiError>,
   // Requests to a table listed here wait for this promise, to test what happens while one is in flight
@@ -47,6 +49,7 @@ export function resetDb(tables: Record<string, Row[]> = {}) {
   for (const [table, list] of Object.entries(db.tables)) list.forEach((row) => generate(table, row))
   db.writes = []
   db.reads = 0
+  db.signals = []
   db.errors = {}
   db.holds = {}
   db.signedIn = true
@@ -127,10 +130,12 @@ function query(table: string) {
   let from = 0
   let to = Infinity
   let columns: Column[] = ['*']
+  let signal: AbortSignal | undefined
 
   const where = (desc: string, f: Filter) => { filters.push(f); described.push(desc); return b }
 
   const run = (): { data: unknown; error: ApiError | null; count: number | null; status: number } => {
+    if (op === 'select') db.signals.push(signal)
     // Like the real API, a failing linked table fails the whole request
     const error = [table, ...embeddedTables(columns)].map((name) => db.errors[name]).find(Boolean)
     if (error) return { data: null, error, count: null, status: 400 }
@@ -195,6 +200,7 @@ function query(table: string) {
     order: (col: string, opts?: { ascending?: boolean }) => { orderBy.push({ col, asc: opts?.ascending !== false }); return b },
     range: (a: number, z: number) => { from = a; to = z; return b },
     limit: (n: number) => { to = from + n - 1; return b },
+    abortSignal: (s: AbortSignal) => { signal = s; return b },
     single: async () => {
       await db.holds[table]
       const res = run()

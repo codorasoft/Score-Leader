@@ -836,5 +836,12 @@
       "monthly": "Every month"
     },
     "onDays": "On these days"
+  },
+  "today": {
+    "title": "Today",
+    "openSchedule": "Open schedule",
+    "gotIt": "Got it",
+    "count_one": "1 item",
+    "count_other": "{{count}} items"
   }
 }

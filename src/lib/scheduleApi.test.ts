@@ -3,7 +3,7 @@ import { db, resetDb, rows } from '../test/fakeSupabase'
 
 vi.mock('./supabase', async () => (await import('../test/fakeSupabase')).supabaseModule)
 
-import { deleteScheduleItem, fetchScheduleExtras, fetchScheduleItems, saveScheduleItem, setDone, skipDay } from './scheduleApi'
+import { deleteScheduleItem, fetchScheduleExtras, fetchScheduleItems, fetchToday, saveScheduleItem, setDone, skipDay } from './scheduleApi'
 import type { ScheduleItem } from '../utils/schedule'
 
 const row = (over: Record<string, unknown>) => ({
@@ -128,5 +128,48 @@ describe('writing', () => {
     expect(saved('i1').done_dates).toEqual(['2026-10-05', '2026-10-12'])
     await setDone(saved('i1'), '2026-10-05', false)
     expect(saved('i1').done_dates).toEqual(['2026-10-12'])
+  })
+})
+
+describe('fetchToday', () => {
+  const seed = () => resetDb({
+    schedule_items: [
+      row({ id: 'gym', title: 'Gym', start_time: '08:00:00' }),
+      row({ id: 'weekly', title: 'Team training', kind: 'training', item_date: '2026-10-05', repeat_days: [1] }),
+      row({ id: 'done', title: 'Done already', done_dates: ['2026-10-12'] }),
+      row({ id: 'tomorrow', item_date: '2026-10-13' }),
+      row({ id: 'theirs', league_id: 'L2' }),
+    ],
+    sessions: [{ id: 's1', league_id: 'L1', date: '2026-10-12' }, { id: 's2', league_id: 'L2', date: '2026-10-12' }],
+    trainings: [{ id: 'p1', league_id: 'L1', training_date: '2026-10-12', title: 'Passing day' }],
+  })
+
+  it("reads one league's day as rows", async () => {
+    seed()
+    const rows = await fetchToday('L1', '2026-10-12', true)
+    expect(rows.map((r) => `${r.kind}:${r.id}`)).toEqual(['item:gym', 'item:weekly', 'session:s1', 'plan:p1'])
+  })
+
+  it('does not ask for training plans without the training feature', async () => {
+    seed()
+    db.errors.trainings = { message: 'must not be read' }
+    const rows = await fetchToday('L1', '2026-10-12', false)
+    expect(rows.map((r) => r.kind)).toEqual(['item', 'item', 'session'])
+  })
+
+  it('throws when a read fails', async () => {
+    seed()
+    db.errors.schedule_items = { message: 'down' }
+    await expect(fetchToday('L1', '2026-10-12', true)).rejects.toThrow()
+  })
+
+  it('makes every one of its reads with the signal it is given, and with none otherwise', async () => {
+    seed()
+    const signal = new AbortController().signal
+    await fetchToday('L1', '2026-10-12', true, signal)
+    expect(db.signals).toEqual([signal, signal, signal, signal])
+    seed()
+    await fetchToday('L1', '2026-10-12', true)
+    expect(db.signals).toEqual([undefined, undefined, undefined, undefined])
   })
 })

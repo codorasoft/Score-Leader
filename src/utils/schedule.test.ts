@@ -1,6 +1,6 @@
 import {
   addDays, dotsFor, draftProblem, draftToRow, emptyDraft, gridHours, isDone, itemsOn, layoutDay, monthGrid, occursOn,
-  repeatModeOf, shiftMonth, timeLabel, toDraft, weekdayOf, weekdayOrder, weekOf, weekStartFor, withRepeat, type ScheduleItem,
+  repeatModeOf, shiftMonth, timeLabel, toDraft, todayRows, weekdayOf, weekdayOrder, weekOf, weekStartFor, withRepeat, type ScheduleItem,
 } from './schedule'
 
 const item = (over: Partial<ScheduleItem> = {}): ScheduleItem => ({
@@ -294,5 +294,53 @@ describe('the week and day views', () => {
 
   it('an item that runs to midnight ends at the end of the day', () => {
     expect(layoutDay([item({ start_time: '23:30:00' })])[0]).toMatchObject({ start: 1410, end: 1440 })
+  })
+})
+
+describe('todayRows', () => {
+  const extras = {
+    sessions: [{ id: 's1', date: '2026-10-12' }, { id: 's0', date: '2026-10-11' }],
+    plans: [{ id: 'p1', training_date: '2026-10-12', title: 'Passing day' }, { id: 'p0', training_date: '2026-10-13', title: 'Later' }],
+  }
+  const none = { sessions: [], plans: [] }
+
+  it('lists timed items by start, then all-day items by name, then sessions, then plans', () => {
+    const items = [
+      item({ id: 'b', title: 'Book the pitch' }),
+      item({ id: 'late', kind: 'match', title: 'Cup final', start_time: '20:00:00' }),
+      item({ id: 'early', kind: 'training', title: 'Gym', start_time: '08:00:00', end_time: '09:30:00' }),
+      item({ id: 'a', kind: 'other', title: 'Answer the league' }),
+    ]
+    expect(todayRows(items, extras, '2026-10-12')).toEqual([
+      { kind: 'item', id: 'early', dot: 'training', time: '08:00 – 09:30', title: 'Gym' },
+      { kind: 'item', id: 'late', dot: 'match', time: '20:00', title: 'Cup final' },
+      { kind: 'item', id: 'a', dot: 'other', time: null, title: 'Answer the league' },
+      { kind: 'item', id: 'b', dot: 'task', time: null, title: 'Book the pitch' },
+      { kind: 'session', id: 's1', dot: 'session', time: null, title: null },
+      { kind: 'plan', id: 'p1', dot: 'plan', time: null, title: 'Passing day' },
+    ])
+  })
+
+  it('takes a repeating item only on its days, and not on a skipped one', () => {
+    // 12 October 2026 is a Monday (weekday 1)
+    const weekly = item({ id: 'w', item_date: '2026-10-05', repeat_days: [1] })
+    expect(todayRows([weekly], none, '2026-10-12').map((r) => r.id)).toEqual(['w'])
+    expect(todayRows([weekly], none, '2026-10-13')).toEqual([])
+    expect(todayRows([{ ...weekly, skipped_dates: ['2026-10-12'] }], none, '2026-10-12')).toEqual([])
+  })
+
+  it('leaves out a task ticked as done today, and keeps the others', () => {
+    const items = [
+      item({ id: 'done', title: 'A', done_dates: ['2026-10-12'] }),
+      item({ id: 'open', title: 'B' }),
+      item({ id: 'done-before', title: 'C', item_date: '2026-10-05', repeat_days: [1], done_dates: ['2026-10-05'] }),
+      // Only tasks can be ticked; a stray date on another kind hides nothing
+      item({ id: 'training', kind: 'training', title: 'D', done_dates: ['2026-10-12'] }),
+    ]
+    expect(todayRows(items, none, '2026-10-12').map((r) => r.id)).toEqual(['open', 'done-before', 'training'])
+  })
+
+  it('is empty on a day with nothing', () => {
+    expect(todayRows([item({ item_date: '2026-10-11' })], none, '2026-10-12')).toEqual([])
   })
 })

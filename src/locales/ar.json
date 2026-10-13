@@ -953,5 +953,16 @@
       "monthly": "كل شهر"
     },
     "onDays": "في هذه الأيام"
+  },
+  "today": {
+    "title": "اليوم",
+    "openSchedule": "فتح الجدول",
+    "gotIt": "حسناً",
+    "count_zero": "{{count}} عنصر",
+    "count_one": "عنصر واحد",
+    "count_two": "عنصران",
+    "count_few": "{{count}} عناصر",
+    "count_many": "{{count}} عنصراً",
+    "count_other": "{{count}} عنصر"
   }
 }
