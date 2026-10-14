@@ -1263,5 +1263,119 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ===== Confirming teams and ending a match save everything or nothing (...0019 / ...0020 sessions,
+-- teams ...00a1 green / ...00a2 blue / ...00a3 yellow made by the app)
+INSERT INTO public.sessions (id, league_id, date, share_token) VALUES
+  ('aaaaaaaa-0000-4000-8000-000000000019', 'aaaaaaaa-0000-4000-8000-000000000002', '2026-10-14', 'tenancy-test-confirm'),
+  ('aaaaaaaa-0000-4000-8000-000000000020', 'aaaaaaaa-0000-4000-8000-000000000002', '2026-10-14', 'tenancy-test-confirm-bad');
+UPDATE public.sessions SET draft_teams = '[["aaaaaaaa-0000-4000-8000-000000000003"]]'
+ WHERE id = 'aaaaaaaa-0000-4000-8000-000000000019';
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT set_config('test.match1', public.confirm_teams('aaaaaaaa-0000-4000-8000-000000000019',
+  '[{"id": "aaaaaaaa-0000-4000-8000-0000000000a1", "color": "green", "player_ids": ["aaaaaaaa-0000-4000-8000-000000000003"]},
+    {"id": "aaaaaaaa-0000-4000-8000-0000000000a2", "color": "blue", "player_ids": ["aaaaaaaa-0000-4000-8000-000000000004"]},
+    {"id": "aaaaaaaa-0000-4000-8000-0000000000a3", "color": "yellow", "player_ids": []}]',
+  'aaaaaaaa-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-0000000000a2',
+  ARRAY['aaaaaaaa-0000-4000-8000-0000000000a3']::uuid[])::text, true);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 3 AND bool_and(league_id = 'aaaaaaaa-0000-4000-8000-000000000002')
+   FROM public.teams WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019')
+  AND (SELECT count(*) = 2 FROM public.team_players
+       WHERE team_id IN ('aaaaaaaa-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-0000000000a2'))
+  AND (SELECT status = 'active' AND draft_teams IS NULL FROM public.sessions
+       WHERE id = 'aaaaaaaa-0000-4000-8000-000000000019'),
+  'confirm_teams saves the teams, their players, and starts the session');
+SELECT pg_temp.expect(
+  (SELECT match_number = 1 AND status = 'pending' AND team1_id = 'aaaaaaaa-0000-4000-8000-0000000000a1'
+      AND team2_id = 'aaaaaaaa-0000-4000-8000-0000000000a2' AND queue = ARRAY['aaaaaaaa-0000-4000-8000-0000000000a3']::uuid[]
+      AND waiting_team_id = 'aaaaaaaa-0000-4000-8000-0000000000a3'
+   FROM public.matches WHERE id = current_setting('test.match1')::uuid),
+  'confirm_teams sets up match 1 and returns its id');
+
+-- A second tap saves nothing more and returns the same match 1
+SELECT pg_temp.expect(
+  public.confirm_teams('aaaaaaaa-0000-4000-8000-000000000019',
+    '[{"id": "aaaaaaaa-0000-4000-8000-0000000000b1", "color": "green", "player_ids": []},
+      {"id": "aaaaaaaa-0000-4000-8000-0000000000b2", "color": "blue", "player_ids": []}]',
+    'aaaaaaaa-0000-4000-8000-0000000000b1', 'aaaaaaaa-0000-4000-8000-0000000000b2', '{}')
+    = current_setting('test.match1')::uuid
+  AND (SELECT count(*) = 3 FROM public.teams WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019')
+  AND (SELECT count(*) = 1 FROM public.matches WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019'),
+  'confirming again returns the first match 1 and adds no teams or matches');
+
+-- A first match between teams that were not given is refused, and nothing is kept
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.confirm_teams('aaaaaaaa-0000-4000-8000-000000000020',
+         '[{"id": "aaaaaaaa-0000-4000-8000-0000000000c1", "color": "green", "player_ids": ["aaaaaaaa-0000-4000-8000-000000000003"]},
+           {"id": "aaaaaaaa-0000-4000-8000-0000000000c2", "color": "blue", "player_ids": []}]',
+         'aaaaaaaa-0000-4000-8000-0000000000c1', 'aaaaaaaa-0000-4000-8000-000000000006', '{}')$sql$,
+  'the first match must be between two of the teams given');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.teams WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000020')
+  AND (SELECT status = 'draft' FROM public.sessions WHERE id = 'aaaaaaaa-0000-4000-8000-000000000020'),
+  'a refused confirm leaves no teams and the session in draft');
+
+-- Ending match 1: green beat blue, so green stays on against yellow and blue waits
+SELECT set_config('test.match2', public.finish_match(current_setting('test.match1')::uuid,
+  false, 'aaaaaaaa-0000-4000-8000-0000000000a1', NULL, NULL, NULL, 400, ARRAY[400],
+  'aaaaaaaa-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-0000000000a3',
+  ARRAY['aaaaaaaa-0000-4000-8000-0000000000a2']::uuid[])::text, true);
+SELECT pg_temp.expect(
+  (SELECT status = 'completed' AND NOT is_draw AND winner_team_id = 'aaaaaaaa-0000-4000-8000-0000000000a1'
+      AND timer_status = 'stopped' AND timer_started_at IS NULL AND timer_elapsed_seconds = 400
+      AND period_seconds = ARRAY[400]::smallint[]
+   FROM public.matches WHERE id = current_setting('test.match1')::uuid),
+  'finish_match saves the result');
+SELECT pg_temp.expect(
+  (SELECT match_number = 2 AND status = 'pending' AND team1_id = 'aaaaaaaa-0000-4000-8000-0000000000a1'
+      AND team2_id = 'aaaaaaaa-0000-4000-8000-0000000000a3' AND waiting_team_id = 'aaaaaaaa-0000-4000-8000-0000000000a2'
+   FROM public.matches WHERE id = current_setting('test.match2')::uuid),
+  'finish_match sets up the next match and returns its id');
+
+-- Ending it again keeps the first result and returns the same next match
+SELECT pg_temp.expect(
+  public.finish_match(current_setting('test.match1')::uuid,
+    true, NULL, NULL, NULL, NULL, 999, ARRAY[999],
+    'aaaaaaaa-0000-4000-8000-0000000000a2', 'aaaaaaaa-0000-4000-8000-0000000000a3', '{}')
+    = current_setting('test.match2')::uuid
+  AND (SELECT NOT is_draw AND timer_elapsed_seconds = 400 FROM public.matches WHERE id = current_setting('test.match1')::uuid)
+  AND (SELECT count(*) = 2 FROM public.matches WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019'),
+  'ending a match again changes nothing and returns the next match already set up');
+
+-- A next match that cannot be saved (a team of another league) keeps the result unsaved too
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.finish_match(current_setting('test.match2')::uuid,
+         false, 'aaaaaaaa-0000-4000-8000-0000000000a1', NULL, NULL, NULL, 300, ARRAY[300],
+         'aaaaaaaa-0000-4000-8000-0000000000a1', 'bbbbbbbb-0000-4000-8000-000000000006', '{}')$sql$,
+  'team belongs to another league');
+SELECT pg_temp.expect(
+  (SELECT status = 'pending' AND winner_team_id IS NULL FROM public.matches WHERE id = current_setting('test.match2')::uuid)
+  AND (SELECT count(*) = 2 FROM public.matches WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019'),
+  'a failed next match leaves the match not ended');
+RESET role;
+
+-- Another admin can do neither in A's league
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.confirm_teams('aaaaaaaa-0000-4000-8000-000000000020', '[]', NULL, NULL, '{}')$sql$,
+  'session not found');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.finish_match(current_setting('test.match2')::uuid,
+         false, NULL, NULL, NULL, NULL, 0, '{}', NULL, NULL, '{}')$sql$,
+  'match not found');
+RESET role;
+
+-- Visitors cannot call either
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.confirm_teams('aaaaaaaa-0000-4000-8000-000000000020', '[]', NULL, NULL, '{}')$sql$,
+  'permission denied');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.finish_match(current_setting('test.match2')::uuid,
+         false, NULL, NULL, NULL, NULL, 0, '{}', NULL, NULL, '{}')$sql$,
+  'permission denied');
+RESET role;
+
 -- Later tests go above this line.
 SELECT 'TENANCY TESTS PASSED' AS result;
