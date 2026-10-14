@@ -1,7 +1,7 @@
 import en from '../../../src/locales/en.json'
 import ar from '../../../src/locales/ar.json'
 import {
-  buildMessage, callerKind, dueDate, localClock, runRound, runTest, sampleMessage, WORDS,
+  buildMessage, callerKind, dueDate, localClock, runRound, runTest, sampleMessage, SEND_AT_ONCE, WORDS,
   type CoachSub, type LeagueDay, type PushMessage, type RoundDeps, type SendResult,
 } from './morningPush.ts'
 import type { TodayRow } from './scheduleDay.ts'
@@ -187,6 +187,7 @@ function world(devices: CoachSub[], days: Record<string, LeagueDay[]> = {}, answ
   const log = { day: [] as string[], sent: [] as [string, PushMessage][], marked: [] as [string, string][], removed: [] as string[] }
   const deps: RoundDeps = {
     subscriptions: async () => devices,
+    subscription: async (userId, endpoint) => devices.find((d) => d.user_id === userId && d.endpoint === endpoint) ?? null,
     day: async (userId, date, withPlans) => {
       log.day.push(`${userId}|${date}|${withPlans}`)
       const found = days[userId]
@@ -344,6 +345,12 @@ describe('runTest', () => {
     expect(await runTest(world([device()], {}).deps, 'u1', 'https://push.test/d1', NOW)).toBe('failed') // the day cannot be read
   })
 
+  it("reads only the caller's device, not every device", async () => {
+    const { deps } = world([device()], { u1: gym })
+    deps.subscriptions = async () => { throw new Error('reads every device') }
+    expect(await runTest(deps, 'u1', 'https://push.test/d1', NOW)).toBe('sent')
+  })
+
   it("uses today's date in UTC for a device whose time zone cannot be read", async () => {
     const { deps, log } = world([device({ time_zone: 'Not a zone!' })], { u1: gym })
     expect(await runTest(deps, 'u1', 'https://push.test/d1', NOW)).toBe('sent')
@@ -381,16 +388,33 @@ describe('a send that never answers', () => {
   }
   afterEach(() => vi.useRealTimers())
 
-  it('is given up after ten seconds and counted as failed, and the next device is served', async () => {
+  it('is given up after ten seconds and counted as failed, and does not hold up the next device', async () => {
     vi.useFakeTimers()
     const { deps, log } = world([device(), device({ id: 'd2', user_id: 'u2' })], { u1: gym, u2: gym })
     stuck(deps, 'd1')
     const round = runRound(deps, NOW)
+    let over = false
+    round.then(() => { over = true })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(log.marked).toEqual([['d2', '2026-10-13']])
     await vi.advanceTimersByTimeAsync(9_999)
-    expect(log.marked).toEqual([])
+    expect(over).toBe(false)
     await vi.advanceTimersByTimeAsync(1)
     expect(await round).toEqual({ due: 2, sent: 1, nothing: 0, gone: 0, failed: 1 })
     expect(log.marked).toEqual([['d2', '2026-10-13']])
+  })
+
+  it(`serves ${SEND_AT_ONCE} devices at once, so many that never answer cannot use up the run`, async () => {
+    vi.useFakeTimers()
+    const many = Array.from({ length: SEND_AT_ONCE * 2 + 5 }, (_, i) => device({ id: `d${i}`, user_id: `u${i}` }))
+    const { deps, log } = world(many, Object.fromEntries(many.map((d) => [d.user_id, gym])))
+    deps.send = (sub, message) => { log.sent.push([sub.id, message]); return new Promise<SendResult>(() => {}) }
+    const round = runRound(deps, NOW)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(log.sent).toHaveLength(SEND_AT_ONCE)
+    // Three turns of ten seconds, not one per device
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(await round).toMatchObject({ due: many.length, failed: many.length })
   })
 
   it('a test send gives up too', async () => {

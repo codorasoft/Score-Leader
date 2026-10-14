@@ -149,6 +149,8 @@ export type SendResult = 'sent' | 'gone' | 'failed'
 export interface RoundDeps {
   // Every device, with its coach's state
   subscriptions(): Promise<CoachSub[]>
+  // One coach's device by its address, or null
+  subscription(userId: string, endpoint: string): Promise<CoachSub | null>
   // What is on a day in each of a coach's leagues
   day(userId: string, date: string, withPlans: boolean): Promise<LeagueDay[]>
   // 'gone' when the push service says the address no longer exists
@@ -169,6 +171,17 @@ function limited(send: Promise<SendResult>): Promise<SendResult> {
   return Promise.race([send, late]).finally(() => clearTimeout(timer))
 }
 
+// How many devices are served at the same time. Sends wait on the push services, so one after
+// another a few slow ones would use up the run's time and the devices after them would get nothing.
+export const SEND_AT_ONCE = 10
+
+// Runs work on every item, at most `limit` at the same time
+async function eachAtOnce<T>(list: T[], limit: number, work: (item: T) => Promise<void>): Promise<void> {
+  let next = 0
+  const worker = async () => { while (next < list.length) await work(list[next++]) }
+  await Promise.all(Array.from({ length: Math.min(limit, list.length) }, worker))
+}
+
 const allowed = (sub: CoachSub) => sub.coach.enabled && sub.coach.features.includes('schedule')
 const withPlans = (sub: CoachSub) => sub.coach.features.includes('training')
 
@@ -179,9 +192,9 @@ export async function runRound(deps: RoundDeps, now: Date): Promise<RoundResult>
   const result: RoundResult = { due: 0, sent: 0, nothing: 0, gone: 0, failed: 0 }
   // A coach's day is read once, however many of his devices are due for it
   const days = new Map<string, Promise<LeagueDay[]>>()
-  for (const sub of await deps.subscriptions()) {
+  await eachAtOnce(await deps.subscriptions(), SEND_AT_ONCE, async (sub) => {
     const date = allowed(sub) ? dueDate(sub, now) : null
-    if (!date) continue
+    if (!date) return
     result.due++
     try {
       const key = `${sub.user_id}|${date}`
@@ -191,7 +204,7 @@ export async function runRound(deps: RoundDeps, now: Date): Promise<RoundResult>
       if (!message) {
         await deps.markSent(sub.id, date)
         result.nothing++
-        continue
+        return
       }
       const answer = await limited(deps.send(sub, message))
       if (answer === 'sent') {
@@ -206,14 +219,19 @@ export async function runRound(deps: RoundDeps, now: Date): Promise<RoundResult>
     } catch {
       result.failed++
     }
-  }
+  })
   return result
 }
 
 // "Send a test now": today's items to one device of the caller, whatever its hour, without
 // touching the day it was last handled; a sample when nothing is on
 export async function runTest(deps: RoundDeps, userId: string, endpoint: string, now: Date): Promise<SendResult | 'notFound'> {
-  const sub = (await deps.subscriptions()).find((s) => s.user_id === userId && s.endpoint === endpoint)
+  let sub: CoachSub | null
+  try {
+    sub = await deps.subscription(userId, endpoint)
+  } catch {
+    return 'failed'
+  }
   if (!sub) return 'notFound'
   try {
     const date = localClock(sub.time_zone, now)?.date ?? now.toISOString().slice(0, 10)
