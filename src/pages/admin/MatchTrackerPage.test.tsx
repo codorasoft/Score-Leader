@@ -150,6 +150,33 @@ it('a draw in match 1 goes to penalties', async () => {
   expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
 })
 
+it('a result that cannot be saved says so, and leaves the match and the session as they were', async () => {
+  // The goal limit is reached, so End Match ends the match straight away, without asking
+  scored('tg', 2)
+  db.rpcResults.finish_match = { data: null, error: { message: 'Failed to fetch' } }
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'End Match' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the result')
+  expect(screen.queryByRole('heading', { name: 'Green Team wins!' })).toBeNull()
+  expect(m1().status).toBe('pending')
+  expect(rows('matches')).toHaveLength(1)
+  expect(rows('sessions')[0].status).toBe('active')
+  expect(screen.getByRole('button', { name: 'End Match' })).toBeEnabled()
+})
+
+it("shows a suspended player's name, not their id", async () => {
+  Object.assign(rows('matches')[0], { status: 'active', timer_status: 'running' })
+  rows('match_events').push(event('red1', 'm1', 'p2', 'tg', 'red_card', {
+    suspension_minutes: 2, suspension_started_at: new Date().toISOString(),
+  }))
+  renderPage()
+  const box = (await screen.findByText('Suspended')).parentElement!
+  expect(box).toHaveTextContent('Omar')
+  expect(box).not.toHaveTextContent('p2')
+})
+
 describe('a second tap while the result is being saved', () => {
   it('End Match sets up only one next match', async () => {
     // The goal limit is reached, so End Match ends the match straight away, without asking
@@ -158,7 +185,7 @@ describe('a second tap while the result is being saved', () => {
     renderPage()
     const end = await screen.findByRole('button', { name: 'End Match' })
     let answer!: () => void
-    db.holds.matches = new Promise<void>((r) => { answer = r })
+    db.holds['rpc:finish_match'] = new Promise<void>((r) => { answer = r })
     await user.click(end)
     await user.click(end)
     answer()
@@ -176,7 +203,7 @@ describe('a second tap while the result is being saved', () => {
     await waitFor(() => expect(m1()).toMatchObject({ period: 5 }))
     await user.click(screen.getAllByRole('button', { name: '+' })[0])
     let answer!: () => void
-    db.holds.matches = new Promise<void>((r) => { answer = r })
+    db.holds['rpc:finish_match'] = new Promise<void>((r) => { answer = r })
     await user.click(confirm)
     // Disabled while the result is saved
     expect(confirm).toBeDisabled()
@@ -309,7 +336,7 @@ describe('more or fewer than three teams', () => {
     expect(screen.getByText('Next up: Orange Team, then Blue Team')).toBeInTheDocument()
     const next = rows('matches').find((m) => m.match_number === 2)!
     expect(next).toMatchObject({ team1_id: 'tg', team2_id: 'ty', queue: ['to', 'tb'], waiting_team_id: 'to' })
-    expect(db.writes.find((w) => w.table === 'matches' && w.op === 'insert')?.values).toMatchObject({ period: 1 })
+    expect(next).toMatchObject({ period: 1 })
   })
 
   it('two teams: the same two play again and nobody is shown waiting', async () => {
@@ -451,8 +478,8 @@ describe('periods', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: 'Draw — end match' }))
     await waitFor(() => expect(m1()).toMatchObject({ status: 'completed', is_draw: true, winner_team_id: null, draw_resolved_by: null }))
-    expect(db.writes.find((w) => w.table === 'matches' && w.op === 'insert')?.values)
-      .toMatchObject({ team1_id: 'tg', team2_id: 'tb', match_number: 2, period: 1, queue: [] })
+    expect(rows('matches').find((m) => m.match_number === 2))
+      .toMatchObject({ team1_id: 'tg', team2_id: 'tb', period: 1, queue: [] })
     // The result dialog shows the draw and who plays next; Continue goes to that match
     expect(await screen.findByRole('dialog')).toHaveTextContent('Next: Green Team vs Blue Team')
     expect(screen.getByRole('heading', { name: "It's a draw" })).toBeInTheDocument()

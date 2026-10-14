@@ -76,6 +76,38 @@ it('saves the teams, starts the session and opens match 1 with the chosen team w
   expect(screen.getByText(`match page ${first.id}`)).toBeInTheDocument()
 })
 
+it('a confirm that cannot be saved says so, saves nothing and can be tapped again', async () => {
+  db.rpcResults.confirm_teams = { data: null, error: { message: 'Failed to fetch' } }
+  const user = userEvent.setup()
+  renderPage()
+  await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(3))
+  await user.click(screen.getByRole('button', { name: 'Confirm Teams & Start' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not start the session')
+  expect(rows('teams').filter((t) => t.session_id === 's2')).toEqual([])
+  expect(rows('sessions').find((s) => s.id === 's2')?.status).toBe('draft')
+  expect(screen.queryByText(/^match page/)).toBeNull()
+
+  // With signal back, the same tap goes through
+  delete db.rpcResults.confirm_teams
+  await user.click(screen.getByRole('button', { name: 'Confirm Teams & Start' }))
+  await waitFor(() => expect(screen.getByText(/^match page/)).toBeInTheDocument())
+  expect(rows('teams').filter((t) => t.session_id === 's2')).toHaveLength(3)
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+it('teams confirmed already (on another tap or phone) open their match 1, with nothing saved twice', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(3))
+  rows('teams').push({ id: 'done-g', session_id: 's2', color: 'green' })
+  rows('matches').push({ id: 'done-m1', session_id: 's2', match_number: 1, status: 'pending' })
+  await user.click(screen.getByRole('button', { name: 'Confirm Teams & Start' }))
+
+  expect(await screen.findByText('match page done-m1')).toBeInTheDocument()
+  expect(rows('teams').filter((t) => t.session_id === 's2')).toHaveLength(1)
+})
+
 it('offers the stars/form slider only with smart balancing', async () => {
   const { unmount } = renderPage()
   expect(await screen.findByLabelText('Balance teams by')).toBeInTheDocument()
@@ -263,7 +295,8 @@ describe('the teams are remembered until they are confirmed', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm Teams & Start' }))
     await waitFor(() => expect(screen.getByText(/^match page/)).toBeInTheDocument())
     expect(s2().status).toBe('active')
-    expect(db.writes.filter((w) => w.table === 'sessions').map((w) => w.values)).toEqual([{ status: 'active' }])
+    // The session is started by confirm_teams, not by a save from the page
+    expect(db.writes.filter((w) => w.table === 'sessions')).toEqual([])
   })
 })
 

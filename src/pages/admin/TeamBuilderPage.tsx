@@ -9,11 +9,11 @@ import { blendStrength, formRatings, DEFAULT_FORM_SESSIONS } from '../../utils/p
 import { partnerships, type Pair } from '../../utils/playerMatches'
 import { TeamSwapBoard } from '../../components/TeamSwapBoard'
 import { FirstMatchPicker } from '../../components/FirstMatchPicker'
-import { matchRowFields, setupFirstMatch } from '../../utils/matchRotation'
+import { setupFirstMatch } from '../../utils/matchRotation'
 import { labelSpotsForTeams, spotsForTeams } from '../../utils/board'
 import { TEAM_COLORS } from '../../lib/teamColors'
 import { draftOf, restoreDraft } from '../../utils/teamEdit'
-import type { Match, MatchEvent, Player, Session, Team, TeamColor, TeamPlayer } from '../../lib/types'
+import type { Match, MatchEvent, Player, Session, TeamColor, TeamPlayer } from '../../lib/types'
 
 const WEIGHT_KEY = 'balanceFormWeight'
 const SPLIT_DUOS_KEY = 'balanceSplitDuos'
@@ -53,6 +53,8 @@ export default function TeamBuilderPage() {
   const colors = TEAM_COLORS.slice(0, teamCount)
   const [teams, setTeams] = useState<Player[][]>([[], [], []])
   const [saving, setSaving] = useState(false)
+  // The last Confirm could not be saved (no signal, or the server refused it)
+  const [confirmFailed, setConfirmFailed] = useState(false)
   const [sessionDate, setSessionDate] = useState('')
   const [makingBoard, setMakingBoard] = useState(false)
   const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
@@ -164,46 +166,30 @@ export default function TeamBuilderPage() {
   }
 
   const handleConfirm = async () => {
-    if (!sessionId) return
+    if (!sessionId || saving) return
     setSaving(true)
+    setConfirmFailed(false)
+    // A save of the arrangement still on its way must not land after the session has started
+    await saves.current
 
-    const { data: teamRows } = await supabase
-      .from('teams')
-      .insert(colors.map((color) => ({ session_id: sessionId, color })))
-      .select()
-    if (!teamRows) { setSaving(false); return }
-
-    // Match rows to board columns by colour; don't rely on the insert returning rows in order
-    const teamPlayerRows = (teamRows as Team[]).flatMap((team) =>
-      teams[colors.indexOf(team.color)].map((p) => ({ team_id: team.id, player_id: p.id }))
-    )
-    await supabase.from('team_players').insert(teamPlayerRows)
-
-    await supabase.from('sessions').update({ status: 'active' }).eq('id', sessionId)
-    // The confirmed teams are in teams / team_players now. Cleared on its own, after the session
-    // has started, so that starting never depends on it.
-    saveDraft(null)
-
-    const created = teamRows as Team[]
+    // The ids are made here so match 1 can be chosen before the one call that saves everything:
+    // the teams, who is on them, the session's start and match 1, or nothing (public.confirm_teams)
+    const created = colors.map((color) => ({ id: crypto.randomUUID(), color }))
     const idOf = (c: TeamColor) => created.find((tm) => tm.color === c)!.id
     const playing = firstPlaying ? [idOf(firstPlaying[0]), idOf(firstPlaying[1])] as [string, string] : undefined
     const first = setupFirstMatch(created, playing)
-    const { data: matchData } = await supabase
-      .from('matches')
-      .insert({
-        session_id: sessionId,
-        match_number: 1,
-        period: 1,
-        ...matchRowFields(first),
-        status: 'pending',
-      })
-      .select()
-      .single()
-
+    const { data: matchId, error } = await supabase.rpc('confirm_teams', {
+      p_session_id: sessionId,
+      p_teams: created.map((tm, i) => ({ ...tm, player_ids: teams[i].map((p) => p.id) })),
+      p_team1: first.team1Id,
+      p_team2: first.team2Id,
+      p_queue: first.queue,
+    })
     setSaving(false)
-    if (matchData) {
-      navigate(adminPath(`/sessions/${sessionId}/match/${(matchData as { id: string }).id}`))
-    }
+    if (error) { setConfirmFailed(true); return }
+    canSave.current = false
+    // No match 1: teams confirmed earlier whose match was deleted; the session page sets one up
+    navigate(adminPath(matchId ? `/sessions/${sessionId}/match/${matchId as string}` : `/sessions/${sessionId}`))
   }
 
   // A new coach board with every team on it, a row each in the order shown here, with the team's
@@ -302,6 +288,7 @@ export default function TeamBuilderPage() {
         >
           {saving ? t('teamBuilder.saving') : t('teamBuilder.confirmAndStart')}
         </button>
+        {confirmFailed && <p role="alert" className="mt-2 text-sm text-orange-300">{t('teamBuilder.confirmFailed')}</p>}
       </div>
     </div>
   )

@@ -64,7 +64,7 @@ export function decideResult(
 
 // The admin may choose the two teams that play first; otherwise two are picked at random.
 // Everyone else queues in colour order.
-export function setupFirstMatch(teams: Team[], playing?: [string, string]): NextMatch {
+export function setupFirstMatch(teams: Pick<Team, 'id' | 'color'>[], playing?: [string, string]): NextMatch {
   const chosen = playing && playing[0] !== playing[1] && playing.every((id) => teams.some((tm) => tm.id === id))
     ? [...playing]
     : shuffle(teams).slice(0, 2).map((tm) => tm.id)

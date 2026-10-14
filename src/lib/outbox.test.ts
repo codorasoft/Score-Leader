@@ -168,3 +168,41 @@ describe('changes the server refuses while sending saved ones', () => {
     expect(box.rejected()).toBe(0)
   })
 })
+
+describe('a server that fails for now (an overloaded gateway, too many requests, a timeout)', () => {
+  const temporary = (status: number) => ({ error: { message: 'temporarily unavailable' }, status })
+
+  it.each([500, 502, 503, 504, 408, 429])('keeps a change answered %i and sends it on the next try', async (status) => {
+    const { client, calls } = fakeClient([temporary(status)])
+    const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
+    expect(await box.runOrQueue(goal('g1'))).toBe('queued')
+    expect(box.pending()).toHaveLength(1)
+    expect(await box.flush()).toBe(true)
+    expect(calls).toEqual(['insert match_events g1', 'insert match_events g1'])
+    expect(box.rejected()).toBe(0)
+  })
+
+  it('a flush stops there and keeps everything behind it in order', async () => {
+    const { client, calls } = fakeClient([NETWORK, temporary(503)])
+    const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
+    await box.runOrQueue(goal('g1'))
+    await box.runOrQueue(goal('g2'))
+    expect(await box.flush()).toBe(false)
+    expect(box.pending().map((o) => o.id)).toEqual(['op-g1', 'op-g2'])
+    expect(await box.flush()).toBe(true)
+    expect(calls).toEqual(['insert match_events g1', 'insert match_events g1', 'insert match_events g1', 'insert match_events g2'])
+  })
+
+  it('gives up on a change that keeps failing, so it cannot hold up the rest for ever', async () => {
+    const { client, calls } = fakeClient(Array.from({ length: 8 }, () => temporary(500)))
+    const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
+    expect(await box.runOrQueue(goal('g1'))).toBe('queued')
+    await box.runOrQueue(goal('g2'))
+    for (let i = 0; i < 6; i++) expect(await box.flush()).toBe(false)
+    // The 8th failed try counts it as refused; the change behind it goes
+    expect(await box.flush()).toBe(true)
+    expect(box.rejected()).toBe(1)
+    expect(calls.filter((c) => c.endsWith('g1'))).toHaveLength(8)
+    expect(calls.at(-1)).toBe('insert match_events g2')
+  })
+})
