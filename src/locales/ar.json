@@ -711,6 +711,10 @@
     "page": "الصفحة غير موجودة",
     "disabled": "حسابك معطّل"
   },
+  "errorPage": {
+    "message": "حدث خطأ ما.",
+    "reload": "إعادة التحميل"
+  },
   "super": {
     "training": {
       "typesTitle": "أنواع التدريب",

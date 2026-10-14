@@ -606,6 +606,10 @@
     "page": "Page not found",
     "disabled": "Your account is disabled"
   },
+  "errorPage": {
+    "message": "Something went wrong.",
+    "reload": "Reload"
+  },
   "super": {
     "training": {
       "typesTitle": "Training types",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useEffectEvent, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLeague, useFeature, useAdminPath } from '../../contexts/LeagueContext'
@@ -98,6 +98,11 @@ export default function TeamBuilderPage() {
 
   const reshuffle = (percent = formPercent, split = splitDuos) => arrange(balance(attendees, teamCount, form, pairs, percent, split))
 
+  // New teams for what just loaded, with the mix and duo rule as they are now; moving those
+  // settings reshuffles by itself and must not load the session again
+  const arrangeLoaded = useEffectEvent((list: Player[], count: number, formOf: Map<string, number>, duos: Pair[]) =>
+    arrange(balance(list, count, formOf, duos, formPercent, splitDuos)))
+
   useEffect(() => {
     let stale = false
     const load = async () => {
@@ -140,7 +145,7 @@ export default function TeamBuilderPage() {
       // The teams from the last visit when they still fit who is attending; otherwise new ones
       const kept = restoreDraft(saved, list, count)
       if (kept) setTeams(kept)
-      else arrange(balance(list, count, formOf, duos, formPercent, splitDuos))
+      else arrangeLoaded(list, count, formOf, duos)
     }
     load()
     return () => { stale = true }

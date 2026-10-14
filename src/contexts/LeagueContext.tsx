@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, type ReactNode } from 'react'
 import type { LeagueInfo } from '../lib/tenancy'
 import type { FeatureKey } from '../lib/features'
 
@@ -24,12 +24,13 @@ export function Feature({ name, children }: { name: FeatureKey; children: ReactN
   return useFeature(name) ? <>{children}</> : null
 }
 
+// The same function while the league stays the same, so effects can depend on it
 export function useAdminPath(): (rest?: string) => string {
   const { slug } = useLeague()
-  return rest => `/admin/${slug}${rest ?? ''}`
+  return useCallback(rest => `/admin/${slug}${rest ?? ''}`, [slug])
 }
 
 export function usePublicPath(): (rest?: string) => string {
   const { slug } = useLeague()
-  return rest => `/l/${slug}${rest ?? ''}`
+  return useCallback(rest => `/l/${slug}${rest ?? ''}`, [slug])
 }

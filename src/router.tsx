@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-do
 import { Suspense, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import NotAvailablePage from './pages/NotAvailablePage'
+import ErrorPage from './pages/ErrorPage'
 import PublicLeagueRoute from './routes/PublicLeagueRoute'
 import SessionLeagueRoute from './routes/SessionLeagueRoute'
 import FeatureRoute from './routes/FeatureRoute'
@@ -61,89 +62,95 @@ const coachBoard = (page: ReactNode) => <FeatureRoute name="coach_board" fallbac
 const training = (page: ReactNode) => <FeatureRoute name="training" fallback="history">{page}</FeatureRoute>
 
 export const routes: RouteObject[] = [
-  { path: '/login', element: <LoginPage /> },
-  { path: '/', element: <LoginPage /> },
   {
-    path: '/super',
-    element: <RequireRole role="superadmin" />,
+    // Catches what any page throws, so a crash never shows the router's own error screen
+    errorElement: <ErrorPage />,
     children: [
+      { path: '/login', element: <LoginPage /> },
+      { path: '/', element: <LoginPage /> },
       {
-        element: <SuperLayout />,
+        path: '/super',
+        element: <RequireRole role="superadmin" />,
         children: [
-          { index: true, element: page(<AdminsPage />) },
-          { path: 'admins/new', element: page(<NewAdminPage />) },
-          { path: 'admins/:userId', element: page(<AdminDetailPage />) },
-          { path: 'leagues', element: page(<LeaguesPage />) },
-          { path: 'training', element: page(<TrainingTypesPage />) },
-          { path: 'training/:typeId', element: page(<TrainingTypePage />) },
-        ],
-      },
-    ],
-  },
-  {
-    path: '/admin',
-    element: <RequireRole role="admin" />,
-    children: [
-      {
-        element: <MyLeaguesRoute />,
-        children: [
-          { index: true, element: <AdminHome /> },
-          { path: 'leagues/new', element: page(<NewLeaguePage />) },
-          { path: 'players', ...legacyAdmin },
-          { path: 'history', ...legacyAdmin },
-          { path: 'lineups/*', ...legacyAdmin },
-          { path: 'sessions/*', ...legacyAdmin },
           {
-            path: ':slug',
-            element: <AdminLeagueRoute />,
+            element: <SuperLayout />,
             children: [
-              { index: true, element: <Navigate to="home" replace /> },
-              { path: 'home', element: page(<HomePage />) },
-              { path: 'history', element: page(<HistoryPage />) },
-              { path: 'players', element: page(<PlayersPage />) },
-              { path: 'settings', element: page(<LeagueSettingsPage />) },
-              // Sessions start from the Home popup; old links open it there
-              { path: 'sessions/new', element: <Navigate to="../home?new=1" replace /> },
-              { path: 'sessions/:sessionId/players', element: page(<AttendancePage />) },
-              { path: 'sessions/:sessionId', element: page(<SessionDetailPage />) },
-              { path: 'sessions/:sessionId/teams', element: page(<TeamBuilderPage />) },
-              { path: 'sessions/:sessionId/match/:matchId', element: page(<MatchTrackerPage />) },
-              {
-                path: 'sessions/:sessionId/awards',
-                element: <FeatureRoute name="awards" fallback="history">{page(<AwardsPage />)}</FeatureRoute>,
-              },
-              { path: 'trainings', element: training(page(<TrainingsPage />)) },
-              { path: 'trainings/new', element: training(page(<TrainingBuilderPage />)) },
-              { path: 'trainings/:trainingId', element: training(page(<TrainingViewPage />)) },
-              { path: 'trainings/:trainingId/edit', element: training(page(<TrainingBuilderPage />)) },
-              { path: 'schedule', element: <FeatureRoute name="schedule" fallback="history">{page(<SchedulePage />)}</FeatureRoute> },
-              { path: 'lineups', element: coachBoard(page(<LineupsPage />)) },
-              { path: 'lineups/new', element: coachBoard(page(<LineupEditorPage />)) },
-              { path: 'lineups/:lineupId', element: coachBoard(page(<LineupEditorPage />)) },
+              { index: true, element: page(<AdminsPage />) },
+              { path: 'admins/new', element: page(<NewAdminPage />) },
+              { path: 'admins/:userId', element: page(<AdminDetailPage />) },
+              { path: 'leagues', element: page(<LeaguesPage />) },
+              { path: 'training', element: page(<TrainingTypesPage />) },
+              { path: 'training/:typeId', element: page(<TrainingTypePage />) },
             ],
           },
         ],
       },
+      {
+        path: '/admin',
+        element: <RequireRole role="admin" />,
+        children: [
+          {
+            element: <MyLeaguesRoute />,
+            children: [
+              { index: true, element: <AdminHome /> },
+              { path: 'leagues/new', element: page(<NewLeaguePage />) },
+              { path: 'players', ...legacyAdmin },
+              { path: 'history', ...legacyAdmin },
+              { path: 'lineups/*', ...legacyAdmin },
+              { path: 'sessions/*', ...legacyAdmin },
+              {
+                path: ':slug',
+                element: <AdminLeagueRoute />,
+                children: [
+                  { index: true, element: <Navigate to="home" replace /> },
+                  { path: 'home', element: page(<HomePage />) },
+                  { path: 'history', element: page(<HistoryPage />) },
+                  { path: 'players', element: page(<PlayersPage />) },
+                  { path: 'settings', element: page(<LeagueSettingsPage />) },
+                  // Sessions start from the Home popup; old links open it there
+                  { path: 'sessions/new', element: <Navigate to="../home?new=1" replace /> },
+                  { path: 'sessions/:sessionId/players', element: page(<AttendancePage />) },
+                  { path: 'sessions/:sessionId', element: page(<SessionDetailPage />) },
+                  { path: 'sessions/:sessionId/teams', element: page(<TeamBuilderPage />) },
+                  { path: 'sessions/:sessionId/match/:matchId', element: page(<MatchTrackerPage />) },
+                  {
+                    path: 'sessions/:sessionId/awards',
+                    element: <FeatureRoute name="awards" fallback="history">{page(<AwardsPage />)}</FeatureRoute>,
+                  },
+                  { path: 'trainings', element: training(page(<TrainingsPage />)) },
+                  { path: 'trainings/new', element: training(page(<TrainingBuilderPage />)) },
+                  { path: 'trainings/:trainingId', element: training(page(<TrainingViewPage />)) },
+                  { path: 'trainings/:trainingId/edit', element: training(page(<TrainingBuilderPage />)) },
+                  { path: 'schedule', element: <FeatureRoute name="schedule" fallback="history">{page(<SchedulePage />)}</FeatureRoute> },
+                  { path: 'lineups', element: coachBoard(page(<LineupsPage />)) },
+                  { path: 'lineups/new', element: coachBoard(page(<LineupEditorPage />)) },
+                  { path: 'lineups/:lineupId', element: coachBoard(page(<LineupEditorPage />)) },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        path: '/l/:slug',
+        element: <PublicLeagueRoute />,
+        children: [
+          { index: true, element: page(<LeagueHomePage />) },
+          { path: 'leaderboard', element: <FeatureRoute name="leaderboard" fallback="notFound">{page(<LeaderboardPage />)}</FeatureRoute> },
+          { path: 'records', element: <FeatureRoute name="records" fallback="notFound">{page(<RecordsPage />)}</FeatureRoute> },
+          { path: 'cards', element: <FeatureRoute name="player_cards" fallback="notFound">{page(<CardsPage />)}</FeatureRoute> },
+          { path: 'players/:playerId', element: <FeatureRoute name="profiles" fallback="notFound">{page(<PlayerProfilePage />)}</FeatureRoute> },
+        ],
+      },
+      { path: '/s/vote/:voteToken', element: <SessionLeagueRoute />, children: [{ index: true, element: page(<VotePage />) }] },
+      { path: '/s/:token', element: <SessionLeagueRoute />, children: [{ index: true, element: page(<LiveSessionPage />) }] },
+      { path: '/leaderboard', ...legacyPublic },
+      { path: '/records', ...legacyPublic },
+      { path: '/cards', ...legacyPublic },
+      { path: '/players/:playerId', ...legacyPublic },
+      { path: '*', element: <NotAvailablePage kind="page" /> },
     ],
   },
-  {
-    path: '/l/:slug',
-    element: <PublicLeagueRoute />,
-    children: [
-      { index: true, element: page(<LeagueHomePage />) },
-      { path: 'leaderboard', element: <FeatureRoute name="leaderboard" fallback="notFound">{page(<LeaderboardPage />)}</FeatureRoute> },
-      { path: 'records', element: <FeatureRoute name="records" fallback="notFound">{page(<RecordsPage />)}</FeatureRoute> },
-      { path: 'cards', element: <FeatureRoute name="player_cards" fallback="notFound">{page(<CardsPage />)}</FeatureRoute> },
-      { path: 'players/:playerId', element: <FeatureRoute name="profiles" fallback="notFound">{page(<PlayerProfilePage />)}</FeatureRoute> },
-    ],
-  },
-  { path: '/s/vote/:voteToken', element: <SessionLeagueRoute />, children: [{ index: true, element: page(<VotePage />) }] },
-  { path: '/s/:token', element: <SessionLeagueRoute />, children: [{ index: true, element: page(<LiveSessionPage />) }] },
-  { path: '/leaderboard', ...legacyPublic },
-  { path: '/records', ...legacyPublic },
-  { path: '/cards', ...legacyPublic },
-  { path: '/players/:playerId', ...legacyPublic },
-  { path: '*', element: <NotAvailablePage kind="page" /> },
 ]
 
 export const router = createBrowserRouter(routes)

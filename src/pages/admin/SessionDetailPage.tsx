@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
@@ -53,7 +53,7 @@ export default function SessionDetailPage() {
   const [hasPlayers, setHasPlayers] = useState(false)
 
   // The session with everything linked to it, and its awards, side by side in one round
-  const load = async () => {
+  const load = useCallback(async () => {
     const [sessRes, awardRes] = await Promise.allSettled([
       fetchSession('id', sessionId ?? '', league.id),
       supabase.from('session_awards').select('*').eq('session_id', sessionId).then(({ data, error }) => {
@@ -81,9 +81,9 @@ export default function SessionDetailPage() {
     setEvents(data.events)
     setTeamPlayers(data.teamPlayers)
     setPlayers(data.players)
-  }
+  }, [sessionId, league.id, navigate, adminPath])
 
-  useEffect(() => { load() }, [sessionId, league.id])
+  useEffect(() => { load() }, [load])
 
   const teamById = Object.fromEntries(teams.map((tm) => [tm.id, tm]))
   const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'

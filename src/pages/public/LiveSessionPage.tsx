@@ -54,18 +54,23 @@ export default function LiveSessionPage() {
     .filter((m) => m.status !== 'completed')
     .sort((a, b) => b.match_number - a.match_number)[0] ?? null
 
+  // The clock restarts only when one of these changes, not on every refresh of the match row
+  const matchId = match?.id
+  const timerStatus = match?.timer_status
+  const timerStartedAt = match?.timer_started_at
+  const timerElapsed = match?.timer_elapsed_seconds
   useEffect(() => {
-    if (!match) return
-    if (match.timer_status !== 'running' || !match.timer_started_at) {
-      setElapsed(match.timer_elapsed_seconds)
+    if (!matchId || timerElapsed === undefined) return
+    if (timerStatus !== 'running' || !timerStartedAt) {
+      setElapsed(timerElapsed)
       return
     }
-    const startedAt = new Date(match.timer_started_at).getTime()
-    const tick = () => setElapsed(match.timer_elapsed_seconds + Math.max(0, Math.floor((serverNow() - startedAt) / 1000)))
+    const startedAt = new Date(timerStartedAt).getTime()
+    const tick = () => setElapsed(timerElapsed + Math.max(0, Math.floor((serverNow() - startedAt) / 1000)))
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [match?.id, match?.timer_status, match?.timer_started_at, match?.timer_elapsed_seconds])
+  }, [matchId, timerStatus, timerStartedAt, timerElapsed])
 
   useRealtime('matches', { column: 'session_id', value: session?.id ?? '' }, load)
   useRealtime('match_events', { column: 'match_id', value: match?.id ?? '' }, load)

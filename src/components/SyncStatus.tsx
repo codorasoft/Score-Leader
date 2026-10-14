@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Outbox } from '../lib/outbox'
 
+const readStatus = (outbox: Outbox) => ({ pending: outbox.pending().length, flushing: outbox.isFlushing(), rejected: outbox.rejected() })
+
 export function useOutboxStatus(outbox: Outbox) {
-  const read = () => ({ pending: outbox.pending().length, flushing: outbox.isFlushing(), rejected: outbox.rejected() })
-  const [status, setStatus] = useState(read)
-  useEffect(() => outbox.subscribe(() => setStatus(read())), [outbox])
+  const [status, setStatus] = useState(() => readStatus(outbox))
+  useEffect(() => outbox.subscribe(() => setStatus(readStatus(outbox))), [outbox])
   return status
 }
 
