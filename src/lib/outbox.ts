@@ -24,6 +24,11 @@ const KEY = 'scoreleader.outbox'
 const REJECTED_KEY = 'scoreleader.outbox.rejected'
 const DUPLICATE_KEY = '23505'
 const UNAUTHORIZED = 401
+// Answers that usually pass: a timeout, too many requests, or the server or a gateway on the way
+// failing for now. Such a change is tried again, but not for ever: after this many failed tries in
+// a row it counts as refused, so a change that can never go cannot hold up the ones after it.
+const isTemporary = (status: number) => status === 408 || status === 429 || status >= 500
+const SERVER_TRIES = 8
 
 export function createOutbox({ client, storage, isOnline, isSignedIn = async () => true }: {
   client: Client
@@ -51,7 +56,11 @@ export function createOutbox({ client, storage, isOnline, isSignedIn = async () 
     listeners.forEach((l) => l())
   }
 
-  // 'wait' is a change that can still succeed later: no signal, or the login has expired
+  // Failed tries per change because of a temporary server error, since its last success
+  const serverTries = new Map<string, number>()
+
+  // 'wait' is a change that can still succeed later: no signal, the login has expired, or the
+  // server is failing for now
   const execute = async (op: OutboxOp): Promise<'ok' | 'wait' | 'failed'> => {
     // Sent as a visitor, an insert is refused and an update or delete changes no rows without an
     // error: either way the change would be lost. It waits for the next sign-in instead.
@@ -69,9 +78,18 @@ export function createOutbox({ client, storage, isOnline, isSignedIn = async () 
     } catch {
       return 'wait'
     }
-    if (!res.error) return 'ok'
-    if (op.kind === 'insert' && res.error.code === DUPLICATE_KEY) return 'ok'
-    return res.status === 0 || res.status === UNAUTHORIZED || !isOnline() ? 'wait' : 'failed'
+    if (!res.error || (op.kind === 'insert' && res.error.code === DUPLICATE_KEY)) {
+      serverTries.delete(op.id)
+      return 'ok'
+    }
+    if (res.status === 0 || res.status === UNAUTHORIZED || !isOnline()) return 'wait'
+    if (isTemporary(res.status)) {
+      const tries = (serverTries.get(op.id) ?? 0) + 1
+      serverTries.set(op.id, tries)
+      if (tries < SERVER_TRIES) return 'wait'
+    }
+    serverTries.delete(op.id)
+    return 'failed'
   }
 
   const runOrQueue = async (op: OutboxOp): Promise<'sent' | 'queued' | 'failed'> => {
