@@ -1377,5 +1377,61 @@ SELECT pg_temp.expect_error(
   'permission denied');
 RESET role;
 
+-- ===== Finishing a session's awards saves everything or nothing (A's ...0019 session, active
+-- after the tests above; ...0020 is still a draft)
+-- A vote left by an earlier try that failed partway
+INSERT INTO public.award_votes (session_id, award_type, status, decided_by, vote_token)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000019', 'mvp', 'open', 'vote', 'tenancy-leftover');
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect(
+  public.finish_awards('aaaaaaaa-0000-4000-8000-000000000019',
+    '[{"award_type": "mvp", "winner_player_id": "aaaaaaaa-0000-4000-8000-000000000003", "decided_by": "admin_direct", "is_tied": false}]',
+    '[{"award_type": "fair_play", "vote_token": "tenancy-fin-fp", "nominees": ["aaaaaaaa-0000-4000-8000-000000000003", "aaaaaaaa-0000-4000-8000-000000000004"]}]')
+    = '[{"award_type": "fair_play", "vote_token": "tenancy-fin-fp"}]'::jsonb,
+  'finish_awards returns the open votes');
+SELECT pg_temp.expect(
+  (SELECT array_agg(vote_token) = '{tenancy-fin-fp}' FROM public.award_votes WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019')
+  AND (SELECT count(*) = 2 FROM public.award_vote_nominations n JOIN public.award_votes v ON v.id = n.award_vote_id
+       WHERE v.vote_token = 'tenancy-fin-fp')
+  AND (SELECT count(*) = 1 AND bool_and(award_type = 'mvp' AND decided_by = 'admin_direct')
+       FROM public.session_awards WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019')
+  AND (SELECT status = 'completed' FROM public.sessions WHERE id = 'aaaaaaaa-0000-4000-8000-000000000019'),
+  'finish_awards replaces the leftover, saves the vote, its nominees and the award, and closes the session');
+
+-- A second tap saves nothing more and shows the same links
+SELECT pg_temp.expect(
+  public.finish_awards('aaaaaaaa-0000-4000-8000-000000000019',
+    '[{"award_type": "mvp", "winner_player_id": "aaaaaaaa-0000-4000-8000-000000000004", "decided_by": "admin_direct", "is_tied": false}]',
+    '[{"award_type": "mvp", "vote_token": "tenancy-fin-again", "nominees": []}]')
+    = '[{"award_type": "fair_play", "vote_token": "tenancy-fin-fp"}]'::jsonb
+  AND (SELECT count(*) = 1 FROM public.award_votes WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019')
+  AND (SELECT count(*) = 1 FROM public.session_awards WHERE session_id = 'aaaaaaaa-0000-4000-8000-000000000019'),
+  'finishing again returns the same votes and adds nothing');
+
+-- A failure partway keeps nothing: the vote is not saved when an award is refused
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.finish_awards('aaaaaaaa-0000-4000-8000-000000000020',
+         '[{"award_type": "no_such_award", "winner_player_id": "aaaaaaaa-0000-4000-8000-000000000003", "decided_by": "admin_direct"}]',
+         '[{"award_type": "fair_play", "vote_token": "tenancy-fin-half", "nominees": ["aaaaaaaa-0000-4000-8000-000000000003"]}]')$sql$,
+  'invalid input value');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.award_votes WHERE vote_token = 'tenancy-fin-half')
+  AND (SELECT status = 'draft' FROM public.sessions WHERE id = 'aaaaaaaa-0000-4000-8000-000000000020'),
+  'a refused finish leaves no vote and the session open');
+RESET role;
+
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.finish_awards('aaaaaaaa-0000-4000-8000-000000000020', '[]', '[]')$sql$,
+  'session not found');
+RESET role;
+
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.finish_awards('aaaaaaaa-0000-4000-8000-000000000020', '[]', '[]')$sql$,
+  'permission denied');
+RESET role;
+
 -- Later tests go above this line.
 SELECT 'TENANCY TESTS PASSED' AS result;

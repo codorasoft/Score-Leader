@@ -206,3 +206,48 @@ describe('a server that fails for now (an overloaded gateway, too many requests,
     expect(calls.at(-1)).toBe('insert match_events g2')
   })
 })
+
+describe('a change made while an earlier one is still being sent', () => {
+  // A client whose first request is answered only when the test says so
+  function slowFirstClient() {
+    const calls: string[] = []
+    let answerFirst!: (r: Result) => void
+    const first = new Promise<Result>((r) => { answerFirst = r })
+    let n = 0
+    const next = () => (n++ === 0 ? first : Promise.resolve({ error: null, status: 201 }))
+    const client = {
+      from: (table: string) => ({
+        insert: (row: Record<string, unknown>) => { calls.push(`insert ${table} ${row.id}`); return next() },
+        update: () => ({ match: () => next() }),
+        delete: () => ({ match: (m: Record<string, unknown>) => { calls.push(`delete ${table} ${m.id}`); return next() } }),
+      }),
+    }
+    return { client, calls, answerFirst }
+  }
+  const undo = (id: string): OutboxOp => ({ id: `op-undo-${id}`, kind: 'delete', table: 'match_events', match: { id } })
+
+  it('waits for it, so an undo can never reach the server before the goal it undoes', async () => {
+    const { client, calls, answerFirst } = slowFirstClient()
+    const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
+    const sendingGoal = box.runOrQueue(goal('g1'))
+    const sendingUndo = box.runOrQueue(undo('g1'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(calls).toEqual(['insert match_events g1'])
+    answerFirst({ error: null, status: 201 })
+    expect(await sendingGoal).toBe('sent')
+    expect(await sendingUndo).toBe('sent')
+    expect(calls).toEqual(['insert match_events g1', 'delete match_events g1'])
+  })
+
+  it('queues behind it when it ends up waiting for signal', async () => {
+    const { client, calls, answerFirst } = slowFirstClient()
+    const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
+    const sendingGoal = box.runOrQueue(goal('g1'))
+    const sendingUndo = box.runOrQueue(undo('g1'))
+    answerFirst(NETWORK)
+    expect(await sendingGoal).toBe('queued')
+    expect(await sendingUndo).toBe('queued')
+    expect(box.pending().map((o) => o.id)).toEqual(['op-g1', 'op-undo-g1'])
+    expect(calls).toEqual(['insert match_events g1'])
+  })
+})

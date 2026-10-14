@@ -270,6 +270,27 @@ const DB_FUNCTIONS: Record<string, (a: Args) => unknown> = {
     })
     return id
   },
+  finish_awards: (a) => {
+    const session = rows('sessions').find((s) => s.id === a.p_session_id)
+    if (!session) throw { message: 'session not found' }
+    if (session.status !== 'completed') {
+      const leftover = new Set(rows('award_votes').filter((v) => v.session_id === session.id).map((v) => v.id))
+      db.tables.award_votes = rows('award_votes').filter((v) => !leftover.has(v.id))
+      db.tables.award_vote_nominations = rows('award_vote_nominations').filter((n) => !leftover.has(n.award_vote_id))
+      db.tables.session_awards = rows('session_awards').filter((w) => w.session_id !== session.id)
+      for (const v of a.p_votes as { award_type: string; vote_token: string; nominees: string[] }[]) {
+        const id = `award_votes-${db.nextId++}`
+        rows('award_votes').push({ id, session_id: session.id, award_type: v.award_type, status: 'open', decided_by: 'vote', vote_token: v.vote_token })
+        for (const p of v.nominees) rows('award_vote_nominations').push({ award_vote_id: id, player_id: p })
+      }
+      for (const w of a.p_awards as Row[]) rows('session_awards').push({ id: `session_awards-${db.nextId++}`, session_id: session.id, is_tied: false, ...w })
+      session.status = 'completed'
+    }
+    return rows('award_votes')
+      .filter((v) => v.session_id === session.id && v.status === 'open')
+      .sort((x, y) => String(x.award_type).localeCompare(String(y.award_type)))
+      .map((v) => ({ award_type: v.award_type, vote_token: v.vote_token }))
+  },
 }
 
 const channel = () => {

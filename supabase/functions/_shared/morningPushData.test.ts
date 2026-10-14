@@ -47,6 +47,25 @@ const deps = () => roundDeps(supabase, send)
 const shape = (leagues: Awaited<ReturnType<ReturnType<typeof deps>['day']>>) =>
   leagues.map((l) => ({ name: l.name, slug: l.slug, rows: l.rows.map((r) => `${r.kind}:${r.id}`) }))
 
+describe('subscription', () => {
+  it("gives one coach's device by its address, reading only that device", async () => {
+    seed()
+    const sub = await deps().subscription('u1', 'https://push.test/d1')
+    expect(sub).toMatchObject({ id: 'd1', user_id: 'u1', notify_minute: 30, coach: { enabled: true, features: ['schedule', 'training'] } })
+    expect(db.reads).toBe(2) // the device, then its coach
+  })
+  it("is null for another coach's device or an unknown address", async () => {
+    seed()
+    expect(await deps().subscription('u2', 'https://push.test/d1')).toBeNull()
+    expect(await deps().subscription('u1', 'https://push.test/nope')).toBeNull()
+  })
+  it('throws when the device cannot be read', async () => {
+    seed()
+    db.errors.push_subscriptions = { message: 'down' }
+    await expect(deps().subscription('u1', 'https://push.test/d1')).rejects.toThrow()
+  })
+})
+
 describe('subscriptions', () => {
   it("gives every device with its coach's state", async () => {
     seed()

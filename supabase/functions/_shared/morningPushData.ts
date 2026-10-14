@@ -42,6 +42,17 @@ export function roundDeps(client: DataClient, send: RoundDeps['send']): RoundDep
       })
     },
 
+    async subscription(userId: string, endpoint: string): Promise<CoachSub | null> {
+      const { data: device, error } = await client.from('push_subscriptions').select(DEVICE_COLUMNS)
+        .eq('user_id', userId).eq('endpoint', endpoint).maybeSingle()
+      if (error) throw new Error('the device could not be read')
+      if (!device) return null
+      const { data: profile, error: profileError } = await client.from('admin_profiles')
+        .select('user_id, role, is_disabled, features').eq('user_id', userId).maybeSingle()
+      if (profileError) throw new Error('the coach could not be read')
+      return { ...(device as PushSub), coach: { enabled: isCoach(profile as Profile | null), features: (profile as Profile | null)?.features ?? [] } }
+    },
+
     // Every league the coach owns, in the order they were made, with what is on that day in it
     async day(userId: string, date: string, withPlans: boolean): Promise<LeagueDay[]> {
       const leagues = rowsOf<{ id: string; name: string; slug: string }>(

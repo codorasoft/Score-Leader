@@ -9,7 +9,7 @@ import type { Match, Session, Team, Player, MatchEvent, TeamPlayer } from '../li
 
 // The match screen's data: the match and its session from the server, with the changes still
 // waiting on this phone shown on top
-export function useMatchData(sessionId: string | undefined, matchId: string | undefined) {
+export function useMatchData(sessionId: string | undefined, matchId: string | undefined, leagueId: string) {
   const [match, setMatch] = useState<Match | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
@@ -19,6 +19,8 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
   const [sessionMatches, setSessionMatches] = useState<Match[]>([])
   const [sessionEvents, setSessionEvents] = useState<MatchEvent[]>([])
   const [endBlocked, setEndBlocked] = useState(false)
+  // No such match in this league's session (an old or mistyped link)
+  const [missing, setMissing] = useState(false)
 
   // A change saved on this phone was refused by the server, and the screen has not reloaded since:
   // the score shown may be wrong, so the match must not be ended from it
@@ -30,13 +32,14 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     const refusedBefore = seenRejectedRef.current
     let data: SessionData | null
     try {
-      data = await fetchSession('id', sessionId ?? '')
+      data = await fetchSession('id', sessionId ?? '', leagueId)
     } catch {
       // Offline: keep what is on screen rather than wiping it
       return
     }
     const m = data?.matches.find((x) => x.id === matchId)
-    if (!data || !m) return
+    if (!data || !m) { setMissing(true); return }
+    setMissing(false)
     if (seenRejectedRef.current === refusedBefore) staleRef.current = false
 
     // A goal and its score are saved by separate requests, so the server can accept one and refuse
@@ -67,7 +70,7 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     setMatch(shown.match)
     setEvents(shown.events)
     setTeamPlayers(shown.teamPlayers)
-  }, [sessionId, matchId])
+  }, [sessionId, matchId, leagueId])
 
   useEffect(() => { load() }, [load])
 
@@ -106,6 +109,6 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
 
   return {
     match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
-    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef,
+    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef, missing,
   }
 }
