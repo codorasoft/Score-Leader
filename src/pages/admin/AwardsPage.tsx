@@ -37,6 +37,8 @@ export default function AwardsPage() {
   const [events, setEvents] = useState<MatchEvent[]>([])
   const [teamPlayerMap, setTeamPlayerMap] = useState<Record<string, string[]>>({})
   const [saving, setSaving] = useState(false)
+  // The last Finish could not be saved (no signal, or the server refused it)
+  const [saveFailed, setSaveFailed] = useState(false)
   const [createdVotes, setCreatedVotes] = useState<CreatedVote[] | null>(null)
   const [choices, setChoices] = useState<Record<ChosenAward, Choice>>({
     mvp: { decision: 'admin_direct', winner: null, nominees: [] },
@@ -85,46 +87,41 @@ export default function AwardsPage() {
     choices[type].decision === 'vote' && choices[type].nominees.length < MIN_NOMINEES)
 
   const handleSave = async () => {
-    if (!sessionId || notEnoughNominees) return
+    if (!sessionId || notEnoughNominees || saving) return
     setSaving(true)
-    const awards: Omit<SessionAward, 'id' | 'league_id'>[] = []
-    const votes: CreatedVote[] = []
+    setSaveFailed(false)
+    const awards: Omit<SessionAward, 'id' | 'league_id' | 'session_id'>[] = []
+    const votes: { award_type: ChosenAward; vote_token: string; nominees: string[] }[] = []
 
     if (bestScorer.winner) {
-      awards.push({ session_id: sessionId, award_type: 'best_goalscorer', winner_player_id: bestScorer.winner.player.id, decided_by: 'auto_stat', is_tied: bestScorer.tied })
+      awards.push({ award_type: 'best_goalscorer', winner_player_id: bestScorer.winner.player.id, decided_by: 'auto_stat', is_tied: bestScorer.tied })
     }
     if (bestAssister.winner) {
-      awards.push({ session_id: sessionId, award_type: 'best_assister', winner_player_id: bestAssister.winner.player.id, decided_by: 'auto_stat', is_tied: bestAssister.tied })
+      awards.push({ award_type: 'best_assister', winner_player_id: bestAssister.winner.player.id, decided_by: 'auto_stat', is_tied: bestAssister.tied })
     }
 
     for (const { type } of CHOSEN_AWARDS) {
       const choice = choices[type]
       if (choice.decision === 'admin_direct') {
         if (choice.winner) {
-          awards.push({ session_id: sessionId, award_type: type, winner_player_id: choice.winner, decided_by: 'admin_direct', is_tied: false })
+          awards.push({ award_type: type, winner_player_id: choice.winner, decided_by: 'admin_direct', is_tied: false })
         }
         continue
       }
-      const voteToken = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
-      const { data: voteRow } = await supabase.from('award_votes').insert({
-        session_id: sessionId, award_type: type, status: 'open', decided_by: 'vote', vote_token: voteToken,
-      }).select().single()
-      if (!voteRow) { setSaving(false); return }
-      const { error } = await supabase.from('award_vote_nominations').insert(
-        choice.nominees.map((pid) => ({ award_vote_id: (voteRow as { id: string }).id, player_id: pid })),
-      )
-      if (error) { setSaving(false); return }
-      votes.push({ awardType: type, token: voteToken })
+      votes.push({ award_type: type, vote_token: crypto.randomUUID().replace(/-/g, '').slice(0, 12), nominees: choice.nominees })
     }
 
-    if (awards.length > 0) {
-      const { error } = await supabase.from('session_awards').insert(awards)
-      if (error) { setSaving(false); return }
-    }
-
-    await supabase.from('sessions').update({ status: 'completed' }).eq('id', sessionId)
+    // The votes, their nominees, the awards and closing the session are saved together or not at
+    // all (public.finish_awards). A session finished already returns the votes it opened, so a
+    // second tap shows the same links.
+    const { data, error } = await supabase.rpc('finish_awards', { p_session_id: sessionId, p_awards: awards, p_votes: votes })
     setSaving(false)
-    if (votes.length > 0) setCreatedVotes(votes)
+    if (error) { setSaveFailed(true); return }
+    const order = CHOSEN_AWARDS.map((a) => a.type as string)
+    const opened = ((data ?? []) as { award_type: string; vote_token: string }[])
+      .sort((a, b) => order.indexOf(a.award_type) - order.indexOf(b.award_type))
+      .map((v): CreatedVote => ({ awardType: v.award_type, token: v.vote_token }))
+    if (opened.length > 0) setCreatedVotes(opened)
     else navigate(adminPath('/history'))
   }
 
@@ -163,6 +160,7 @@ export default function AwardsPage() {
       >
         {saving ? t('awards.saving') : t('awards.finishSession')}
       </button>
+      {saveFailed && <p role="alert" className="text-sm text-orange-300">{t('awards.finishFailed')}</p>}
     </div>
   )
 }
