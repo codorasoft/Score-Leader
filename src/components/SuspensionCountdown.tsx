@@ -6,10 +6,12 @@ import type { MatchEvent } from '../lib/types'
 
 interface Props {
   event: MatchEvent
+  // The suspended player's name
+  name: string
   onReturn: () => void
 }
 
-export function SuspensionCountdown({ event, onReturn }: Props) {
+export function SuspensionCountdown({ event, name, onReturn }: Props) {
   const { t } = useTranslation()
   const totalSeconds = (event.suspension_minutes ?? 2) * 60
   const started = event.suspension_started_at ? new Date(event.suspension_started_at).getTime() : serverNow()
@@ -36,7 +38,7 @@ export function SuspensionCountdown({ event, onReturn }: Props) {
   return (
     <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${remaining === 0 ? 'bg-red-900/60 border border-red-500' : 'bg-gray-700'}`}>
       <div>
-        <span className="font-bold text-sm">{event.player_id}</span>
+        <span className="font-bold text-sm">{name}</span>
         <span className={`ml-2 font-mono text-sm ${remaining === 0 ? 'text-red-400' : 'text-yellow-400'}`}>
           {remaining === 0 ? t('common.returnNow') : `${mm}:${ss}`}
         </span>

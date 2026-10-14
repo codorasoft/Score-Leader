@@ -225,6 +225,53 @@ function query(table: string) {
   return b
 }
 
+// Database functions that do a whole step in one call, done on the tables here as the real ones do
+// (supabase/migrations/20261014000001_atomic_match_steps.sql). A result in db.rpcResults wins.
+type Args = Record<string, unknown>
+const DB_FUNCTIONS: Record<string, (a: Args) => unknown> = {
+  confirm_teams: (a) => {
+    const session = rows('sessions').find((s) => s.id === a.p_session_id)
+    if (!session) throw { message: 'session not found' }
+    if (rows('teams').some((t) => t.session_id === session.id)) {
+      return rows('matches').find((m) => m.session_id === session.id && m.match_number === 1)?.id ?? null
+    }
+    for (const t of a.p_teams as { id: string; color: string; player_ids: string[] }[]) {
+      rows('teams').push({ id: t.id, session_id: session.id, color: t.color })
+      for (const p of t.player_ids) rows('team_players').push({ id: `team_players-${db.nextId++}`, team_id: t.id, player_id: p })
+    }
+    Object.assign(session, { status: 'active', draft_teams: null })
+    const queue = a.p_queue as string[]
+    const id = `matches-${db.nextId++}`
+    rows('matches').push({
+      id, session_id: session.id, match_number: 1, period: 1, team1_id: a.p_team1, team2_id: a.p_team2,
+      queue, waiting_team_id: queue[0] ?? null, status: 'pending',
+    })
+    return id
+  },
+  finish_match: (a) => {
+    const match = rows('matches').find((m) => m.id === a.p_match_id)
+    if (!match) throw { message: 'match not found' }
+    if (match.status !== 'completed') {
+      Object.assign(match, {
+        is_draw: a.p_is_draw, winner_team_id: a.p_winner_team_id, draw_resolved_by: a.p_draw_resolved_by,
+        penalties_team1: a.p_penalties_team1, penalties_team2: a.p_penalties_team2,
+        status: 'completed', timer_status: 'stopped', timer_started_at: null,
+        timer_elapsed_seconds: a.p_elapsed_seconds, period_seconds: a.p_period_seconds,
+      })
+    }
+    const number = (match.match_number as number) + 1
+    const next = rows('matches').find((m) => m.session_id === match.session_id && m.match_number === number)
+    if (next) return next.id
+    const queue = a.p_next_queue as string[]
+    const id = `matches-${db.nextId++}`
+    rows('matches').push({
+      id, session_id: match.session_id, match_number: number, period: 1, team1_id: a.p_next_team1, team2_id: a.p_next_team2,
+      queue, waiting_team_id: queue[0] ?? null, status: 'pending',
+    })
+    return id
+  },
+}
+
 const channel = () => {
   const c = { on: () => c, subscribe: () => c }
   return c
@@ -238,7 +285,14 @@ export const supabase = {
   rpc: async (fn: string, args?: unknown) => {
     db.rpcs.push({ fn, args })
     await db.holds[`rpc:${fn}`]
-    return db.rpcResults[fn] ?? { data: null, error: null }
+    if (db.rpcResults[fn]) return db.rpcResults[fn]
+    const run = DB_FUNCTIONS[fn]
+    if (!run) return { data: null, error: null }
+    try {
+      return { data: run((args ?? {}) as Args), error: null }
+    } catch (e) {
+      return { data: null, error: e as ApiError }
+    }
   },
   functions: {
     invoke: async (name: string, options?: { body?: unknown }) => {

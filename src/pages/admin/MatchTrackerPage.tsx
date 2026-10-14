@@ -8,7 +8,7 @@ import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
 import { primeAlertAudio } from '../../utils/matchAlert'
-import { resolveMatch, decideResult, drawGoesToPenalties, matchRowFields, waitingQueue } from '../../utils/matchRotation'
+import { resolveMatch, decideResult, drawGoesToPenalties, waitingQueue } from '../../utils/matchRotation'
 import { NextUp } from '../../components/NextUp'
 import { BetweenPeriods } from '../../components/BetweenPeriods'
 import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
@@ -41,7 +41,6 @@ export default function MatchTrackerPage() {
   const adminPath = useAdminPath()
   const cards = useFeature('cards')
   const swaps = useFeature('swaps')
-  const awards = useFeature('awards')
   const { t } = useTranslation()
 
   const {
@@ -53,7 +52,7 @@ export default function MatchTrackerPage() {
   const [confirmUndo, setConfirmUndo] = useState(false)
   const [result, setResult] = useState<{
     outcome: MatchOutcome
-    nextMatchId: string | null
+    nextMatchId: string
     next: { team1Id: string; team2Id: string; queue: string[] }
   } | null>(null)
   // Clock reading captured when Goal/Card is tapped, not after the scorer is picked
@@ -63,6 +62,8 @@ export default function MatchTrackerPage() {
   // would set up the next match twice. The ref blocks it at once, the state greys the buttons out.
   const finishingRef = useRef(false)
   const [finishing, setFinishing] = useState(false)
+  // The last try to save the result failed (no signal, or the server refused it)
+  const [finishFailed, setFinishFailed] = useState(false)
 
   const timer = useMatchTimer(match ?? ({} as Match))
 
@@ -270,25 +271,33 @@ export default function MatchTrackerPage() {
       }
 
       const finished = finishedMatchFields(match, timer.elapsed)
-      const { error } = await supabase.from('matches').update({ ...update, ...finished }).eq('id', match.id)
-      // Don't start the next match if this result was not saved
-      if (error) return
-
       const completedMatch = { ...match, ...update } as Match
       const next = resolveMatch(completedMatch)
 
-      // Create next match
-      const { data: nextMatch } = await supabase.from('matches').insert({
-        session_id: match.session_id,
-        match_number: match.match_number + 1,
-        period: 1,
-        ...matchRowFields(next),
-        status: 'pending',
-      }).select().single()
+      // The result and the next match are saved together or not at all (public.finish_match);
+      // a second call returns the next match the first one set up
+      setFinishFailed(false)
+      const { data: nextMatchId, error } = await supabase.rpc('finish_match', {
+        p_match_id: match.id,
+        p_is_draw: completedMatch.is_draw,
+        p_winner_team_id: completedMatch.winner_team_id ?? null,
+        p_draw_resolved_by: completedMatch.draw_resolved_by ?? null,
+        p_penalties_team1: completedMatch.penalties_team1 ?? null,
+        p_penalties_team2: completedMatch.penalties_team2 ?? null,
+        p_elapsed_seconds: finished.timer_elapsed_seconds,
+        p_period_seconds: finished.period_seconds,
+        p_next_team1: next.team1Id,
+        p_next_team2: next.team2Id,
+        p_next_queue: next.queue,
+      })
+      if (error || !nextMatchId) {
+        setFinishFailed(true)
+        return
+      }
 
       setResult({
         outcome: describeOutcome({ ...completedMatch, format, totalSeconds: totalSeconds(finished, 0), penalties }),
-        nextMatchId: nextMatch ? (nextMatch as Match).id : null,
+        nextMatchId: nextMatchId as string,
         next,
       })
     } finally {
@@ -299,17 +308,12 @@ export default function MatchTrackerPage() {
 
   // Same component instance is reused for the next match, so per-match UI state must be reset
   // (the shoot-out's counts are keyed by the match and start again by themselves)
+  // (a session is finished from History, so there is always a next match to go on to)
   const continueAfterResult = () => {
-    const nextId = result?.nextMatchId
+    if (!result) return
     setResult(null)
     setPenaltyMode(false)
-    if (nextId) { navigate(adminPath(`/sessions/${sessionId}/match/${nextId}`)); return }
-    if (awards) { navigate(adminPath(`/sessions/${sessionId}/awards`)); return }
-    // No awards step: close the session here, as AwardsPage would
-    supabase.from('sessions').update({ status: 'completed' }).eq('id', sessionId).then(({ error }) => {
-      // On failure stay put; History offers Finish session to retry
-      if (!error) navigate(adminPath(`/sessions/${sessionId}`))
-    })
+    navigate(adminPath(`/sessions/${sessionId}/match/${result.nextMatchId}`))
   }
 
   const teamsWithPlayers = teams
@@ -366,7 +370,7 @@ export default function MatchTrackerPage() {
           <h3 className="text-xs uppercase text-gray-400 mb-2">{t('match.suspended')}</h3>
           <div className="space-y-2">
             {activeSuspensions.map((e) => (
-              <SuspensionCountdown key={e.id} event={e} onReturn={load} />
+              <SuspensionCountdown key={e.id} event={e} name={nameOf(e.player_id)} onReturn={load} />
             ))}
           </div>
         </div>
@@ -427,6 +431,7 @@ export default function MatchTrackerPage() {
         </button>
       )}
       {endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('offline.endBlocked')}</p>}
+      {finishFailed && !endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('match.finishFailed')}</p>}
 
       {sessionMatches.some((m) => m.status === 'completed') && (
         <div className="mt-8">
