@@ -71,7 +71,7 @@ export default function AttendancePage() {
       .then(({ data }) => { if (data?.length) setSelected(new Set((data as { player_id: string }[]).map((r) => r.player_id))) })
     supabase.from('players').select('*').eq('league_id', league.id).eq('is_active', true).order('name')
       .then(({ data }) => { if (data) setPlayers(data as Player[]) })
-  }, [sessionId, league.id])
+  }, [sessionId, league.id, navigate, adminPath])
 
   const limit = session ? session.team_count * session.team_size : 0
 

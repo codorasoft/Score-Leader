@@ -91,7 +91,7 @@ export default function PlayerProfilePage() {
     }
     load()
     return () => { stale = true }
-  }, [playerId, leagueInfo.id])
+  }, [playerId, leagueInfo.id, key])
 
   if (data === null) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
   if (data === 'missing') return <NotAvailablePage kind="page" embedded />

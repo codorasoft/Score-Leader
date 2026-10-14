@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
@@ -79,7 +79,7 @@ export default function MatchTrackerPage() {
   const timer = useMatchTimer(match ?? ({} as Match))
 
   // One request for the whole session; runs on open and after every goal, card or swap
-  const load = async () => {
+  const load = useCallback(async () => {
     const refusedBefore = seenRejectedRef.current
     let data: SessionData | null
     try {
@@ -120,9 +120,9 @@ export default function MatchTrackerPage() {
     setMatch(shown.match)
     setEvents(shown.events)
     setTeamPlayers(shown.teamPlayers)
-  }
+  }, [sessionId, matchId])
 
-  useEffect(() => { load() }, [matchId])
+  useEffect(() => { load() }, [load])
 
   // Once every waiting change has been sent, reload so the screen shows the server's copy
   useEffect(() => outbox.subscribe(() => {
@@ -133,7 +133,7 @@ export default function MatchTrackerPage() {
       setEndBlocked(false)
       load()
     }
-  }), [matchId])
+  }), [load])
 
   const format = session ?? DEFAULT_FORMAT
   // What the red button does now. The clock hook's state wins over the match prop, which catches up after load()
@@ -164,8 +164,6 @@ export default function MatchTrackerPage() {
       .map((tp) => players.find((p) => p.id === tp.player_id)!)
       .filter(Boolean),
   }))
-
-  const playingPlayers = playingTeams.flatMap((t) => t.players)
 
   const activeSuspensions = events.filter(
     (e) => e.event_type === 'red_card' && !e.suspension_ended_at

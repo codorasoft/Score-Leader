@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { PositionBadge } from './PlayersPage'
-import type { Player } from '../../lib/types'
 
 vi.mock('../../lib/supabase', () => ({ supabase: { from: vi.fn() } }))
 

@@ -90,7 +90,7 @@ export default function LineupEditorPage() {
       setLoaded(true)
     }
     load()
-  }, [lineupId, league.id])
+  }, [lineupId, league.id, navigate, adminPath])
 
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players])
   // Guest ids are fresh UUIDs, so they never clash with a player's id

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLeague, useAdminPath, useFeature } from '../../contexts/LeagueContext'
@@ -19,7 +19,7 @@ export default function HistoryPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data } = await supabase
       .from('sessions')
       .select('*')
@@ -43,9 +43,9 @@ export default function HistoryPage() {
       if (!map[m.session_id]) map[m.session_id] = m.id
     }
     setActiveMatchMap(map)
-  }
+  }, [league.id])
 
-  useEffect(() => { load() }, [league.id])
+  useEffect(() => { load() }, [load])
 
   const startEdit = (s: Session) => {
     setEditingId(s.id)

@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { decodePng, drawTile, encodePng, faviconSvg, ICONS } from './makeIcons.ts'
 
 const root = resolve(__dirname, '..')
-const at = (rgba: Uint8Array, size: number, x: number, y: number) => [...rgba.slice((y * size + x) * 4, (y * size + x) * 4 + 4)]
+const at = (rgba: Uint8Array, size: number, x: number, y: number) => Array.from(rgba.slice((y * size + x) * 4, (y * size + x) * 4 + 4))
 const DARK = [0x11, 0x18, 0x27, 255], WHITE = [255, 255, 255, 255], GREEN = [0x22, 0xc5, 0x5e, 255]
 
 it('draws a dark tile with a white SL and a green line under it', () => {
