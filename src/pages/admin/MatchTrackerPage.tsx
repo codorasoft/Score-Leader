@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
+import { useMatchData } from '../../hooks/useMatchData'
 import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
 import { useWakeLock } from '../../hooks/useWakeLock'
@@ -10,10 +11,11 @@ import { primeAlertAudio } from '../../utils/matchAlert'
 import { resolveMatch, decideResult, drawGoesToPenalties, matchRowFields, waitingQueue } from '../../utils/matchRotation'
 import { NextUp } from '../../components/NextUp'
 import { BetweenPeriods } from '../../components/BetweenPeriods'
-import { findLastUndoable, scoreFromGoals, undoAllowed } from '../../utils/matchEdit'
+import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
-import { totalSeconds, DEFAULT_FORMAT, nextStep, periodAfter, periodLabelKey, periodLength, periodSecondsAtStart, type Step } from '../../utils/matchFormat'
-import { canRecordEvents, formatMatchClock, finishedMatchFields } from '../../utils/matchClock'
+import { totalSeconds, DEFAULT_FORMAT, periodAfter, periodLabelKey, periodSecondsAtStart } from '../../utils/matchFormat'
+import { matchScreen } from '../../utils/matchScreen'
+import { canRecordEvents, finishedMatchFields } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
 import { SwapDialog } from '../../components/SwapDialog'
@@ -24,16 +26,14 @@ import { SessionMatchList } from '../../components/SessionMatchList'
 import { SessionStandings } from '../../components/SessionStandings'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { SyncStatus } from '../../components/SyncStatus'
+import { MatchClock } from '../../components/MatchClock'
+import { MatchScoreboard } from '../../components/MatchScoreboard'
+import { MatchConfirmDialog } from '../../components/MatchConfirmDialog'
+import { PenaltyShootout } from '../../components/PenaltyShootout'
 import { outbox, newId } from '../../lib/pitchOutbox'
-import { overlayPending } from '../../lib/outboxOverlay'
-import { fetchSession, type SessionData } from '../../lib/sessionData'
 import { serverNowIso } from '../../lib/serverClock'
-import type { OutboxOp } from '../../lib/outbox'
 import { goalOps, cardOps, swapOps, undoOps } from '../../utils/pitchOps'
-import type { Match, Session, Team, Player, MatchEvent, TeamPlayer } from '../../lib/types'
-import { styleMap } from '../../lib/teamColors'
-
-const colorBg = styleMap('card')
+import type { Match, Team } from '../../lib/types'
 
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
@@ -44,14 +44,10 @@ export default function MatchTrackerPage() {
   const awards = useFeature('awards')
   const { t } = useTranslation()
 
-  const [match, setMatch] = useState<Match | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [teams, setTeams] = useState<Team[]>([])
-  const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([])
-  const [players, setPlayers] = useState<Player[]>([])
-  const [events, setEvents] = useState<MatchEvent[]>([])
-  const [sessionMatches, setSessionMatches] = useState<Match[]>([])
-  const [sessionEvents, setSessionEvents] = useState<MatchEvent[]>([])
+  const {
+    match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
+    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef,
+  } = useMatchData(sessionId, matchId)
   const [dialog, setDialog] = useState<'goal' | 'card' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
@@ -63,86 +59,16 @@ export default function MatchTrackerPage() {
   // Clock reading captured when Goal/Card is tapped, not after the scorer is picked
   const [eventClock, setEventClock] = useState(0)
   const [penaltyMode, setPenaltyMode] = useState(false)
-  const [penaltyT1, setPenaltyT1] = useState(0)
-  const [penaltyT2, setPenaltyT2] = useState(0)
-  const [endBlocked, setEndBlocked] = useState(false)
   // Saving the result and setting up the next match takes two requests; a second tap meanwhile
   // would set up the next match twice. The ref blocks it at once, the state greys the buttons out.
   const finishingRef = useRef(false)
   const [finishing, setFinishing] = useState(false)
 
-  // A change saved on this phone was refused by the server, and the screen has not reloaded since:
-  // the score shown may be wrong, so the match must not be ended from it
-  const staleRef = useRef(false)
-  const seenRejectedRef = useRef(outbox.rejected())
-
   const timer = useMatchTimer(match ?? ({} as Match))
 
-  // One request for the whole session; runs on open and after every goal, card or swap
-  const load = useCallback(async () => {
-    const refusedBefore = seenRejectedRef.current
-    let data: SessionData | null
-    try {
-      data = await fetchSession('id', sessionId ?? '')
-    } catch {
-      // Offline: keep what is on screen rather than wiping it
-      return
-    }
-    const m = data?.matches.find((x) => x.id === matchId)
-    if (!data || !m) return
-    if (seenRejectedRef.current === refusedBefore) staleRef.current = false
-
-    // A goal and its score are saved by separate requests, so the server can accept one and refuse
-    // the other. The timeline decides: with nothing waiting on this phone, a score that disagrees
-    // with it is put right. Only if the score is still the one just read, so a goal being saved
-    // from another phone is never overwritten.
-    if (m.status !== 'completed' && outbox.pending().length === 0 && !outbox.isFlushing()) {
-      const real = scoreFromGoals(m, data.events.filter((e) => e.match_id === m.id))
-      if (real.team1_score !== m.team1_score || real.team2_score !== m.team2_score) {
-        const { error } = await supabase.from('matches').update(real)
-          .eq('id', m.id).eq('team1_score', m.team1_score).eq('team2_score', m.team2_score)
-        if (!error) Object.assign(m, real)
-      }
-    }
-    const finished = new Set(data.matches.filter((x) => x.status === 'completed').map((x) => x.id))
-    setSession(data.session)
-    setSessionMatches(data.matches)
-    setSessionEvents(data.events.filter((e) => finished.has(e.match_id)))
-    setTeams(data.teams)
-    setPlayers(data.players)
-
-    // Changes still waiting on this phone are shown on top of what the server has
-    const shown = overlayPending(outbox.pending(), {
-      match: m,
-      events: data.events.filter((e) => e.match_id === m.id),
-      teamPlayers: data.teamPlayers,
-    })
-    setMatch(shown.match)
-    setEvents(shown.events)
-    setTeamPlayers(shown.teamPlayers)
-  }, [sessionId, matchId])
-
-  useEffect(() => { load() }, [load])
-
-  // Once every waiting change has been sent, reload so the screen shows the server's copy
-  useEffect(() => outbox.subscribe(() => {
-    const refused = outbox.rejected()
-    if (refused > seenRejectedRef.current) staleRef.current = true
-    seenRejectedRef.current = refused
-    if (outbox.pending().length === 0 && !outbox.isFlushing()) {
-      setEndBlocked(false)
-      load()
-    }
-  }), [load])
-
   const format = session ?? DEFAULT_FORMAT
-  // What the red button does now. The clock hook's state wins over the match prop, which catches up after load()
-  const step: Step = match
-    ? nextStep(format, { ...match, timer_status: timer.timerStatus ?? match.timer_status }, timer.elapsed)
-    : { kind: 'play' }
-  // Sounds at the end of each period as well as at the end of the match
-  const reachedEnd = (step.kind === 'endPeriod' && step.timeUp) || step.kind === 'endMatch'
-  useEndAlert(match?.id, reachedEnd)
+  const screen = match ? matchScreen(format, match, timer, penaltyMode) : null
+  useEndAlert(match?.id, screen?.reachedEnd ?? false)
   useWakeLock(timer.timerStatus === 'running')
 
   const handleStart = () => {
@@ -150,12 +76,14 @@ export default function MatchTrackerPage() {
     timer.start()
   }
 
-  if (!match) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!match || !screen) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
   const team1 = teams.find((tm) => tm.id === match.team1_id)
   const team2 = teams.find((tm) => tm.id === match.team2_id)
 
   if (!team1 || !team2) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+
+  const { step, reachedEnd, matchOver, showPenalties, between, endsMatch, endsPeriodOnly, periodSeconds } = screen
 
   const playingTeams = [team1, team2].map((team) => ({
     team,
@@ -177,21 +105,6 @@ export default function MatchTrackerPage() {
     setDialog(kind)
   }
   const clockFields = { elapsed_seconds: eventClock, minute: Math.floor(eventClock / 60) }
-
-  // Show the change immediately, then send it (or keep it on the phone until there is signal)
-  const apply = async (ops: OutboxOp[]) => {
-    const shown = overlayPending(ops, { match, events, teamPlayers })
-    setMatch(shown.match)
-    setEvents(shown.events)
-    setTeamPlayers(shown.teamPlayers)
-    let allSent = true
-    for (const op of ops) {
-      const outcome = await outbox.runOrQueue(op)
-      if (outcome === 'failed') { load(); return }
-      if (outcome === 'queued') allSent = false
-    }
-    if (allSent) load()
-  }
 
   const handleGoalConfirm = async ({ scorerId, assisterId }: { scorerId: string; assisterId: string | null }) => {
     setDialog(null)
@@ -246,20 +159,6 @@ export default function MatchTrackerPage() {
 
   const level = match.team1_score === match.team2_score
   const periodName = (period: number) => t(periodLabelKey(period, format))
-  const matchOver = match.status === 'completed'
-  // Penalties are period 5, so a reload during the shoot-out comes back to it (not once the match is over)
-  const showPenalties = (penaltyMode || match.period === 5) && !matchOver
-  // The clock stopped on a period that is already recorded: the break before the next step
-  const between = !showPenalties && step.kind !== 'play' && step.kind !== 'endPeriod'
-    && (timer.timerStatus ?? match.timer_status) === 'stopped' && match.period_seconds.length >= match.period
-  // Ending this period ends the match itself when the step after it would be End Match (a draw that
-  // stands, extra time or penalties are reached through the break instead)
-  const endsMatch = step.kind === 'endPeriod' && nextStep(format, {
-    ...match, timer_status: 'stopped', period_seconds: [...match.period_seconds, timer.elapsed],
-  }, timer.elapsed).kind === 'endMatch'
-  const len = periodLength(match.period, format) ?? 0
-  // The pending step ends a period (a half or extra-time period), not the match
-  const endsPeriodOnly = step.kind === 'endPeriod' && !endsMatch
 
   const stepLabel = (() => {
     switch (step.kind) {
@@ -275,12 +174,6 @@ export default function MatchTrackerPage() {
     : step.kind === 'endPeriod' && step.timeUp
       ? periodAfter(format, step.period, level) === null ? t('match.timeUp') : t('match.periodTimeUp', { period: periodName(step.period) })
       : step.kind === 'endMatch' && step.reason === 'goalLimit' ? t('match.goalLimitReached') : null
-
-  // Show the clock change at once (also when it waits offline in the outbox), then reload
-  const refreshMatch = () => {
-    setMatch((m) => (m ? overlayPending(outbox.pending(), { match: m, events: [], teamPlayers: [] }).match : m))
-    return load()
-  }
 
   // Both show the new period state on this screen before the write and reload finish, as apply() does;
   // otherwise Start would briefly offer to restart the ended period and record it twice
@@ -351,7 +244,7 @@ export default function MatchTrackerPage() {
   // The draw stands (draw rule 'draw'): no winner, and resolveMatch sends the next teams on
   const endAsDraw = () => finishMatch({ is_draw: true, winner_team_id: null, draw_resolved_by: null })
 
-  const handlePenaltyDecide = async () => {
+  const handlePenaltyDecide = async (penaltyT1: number, penaltyT2: number) => {
     const winnerId = penaltyT1 > penaltyT2 ? match.team1_id : match.team2_id
     await finishMatch({
       is_draw: true, draw_resolved_by: 'penalties', winner_team_id: winnerId, penalties_team1: penaltyT1, penalties_team2: penaltyT2,
@@ -405,12 +298,11 @@ export default function MatchTrackerPage() {
   }
 
   // Same component instance is reused for the next match, so per-match UI state must be reset
+  // (the shoot-out's counts are keyed by the match and start again by themselves)
   const continueAfterResult = () => {
     const nextId = result?.nextMatchId
     setResult(null)
     setPenaltyMode(false)
-    setPenaltyT1(0)
-    setPenaltyT2(0)
     if (nextId) { navigate(adminPath(`/sessions/${sessionId}/match/${nextId}`)); return }
     if (awards) { navigate(adminPath(`/sessions/${sessionId}/awards`)); return }
     // No awards step: close the session here, as AwardsPage would
@@ -444,24 +336,14 @@ export default function MatchTrackerPage() {
             onAction={handleStep}
           />
         ) : !showPenalties && (
-          <>
-            <div className="text-5xl font-mono font-bold">
-              {formatMatchClock(Math.min(timer.elapsed, len), len)}
-              {len > 0 && timer.elapsed > len && (
-                <span className="block text-2xl text-red-400 mt-1">+{formatMatchClock(timer.elapsed - len, len)}</span>
-              )}
-            </div>
-            {/* Not shown between periods, where Start would restart the ended period's clock, nor once the match is over */}
-            {!matchOver && (
-              <div className="mt-2 flex justify-center gap-3">
-                {timer.timerStatus !== 'running' ? (
-                  <button onClick={handleStart} className="px-4 py-2 bg-green-600 rounded font-semibold">{t('match.start')}</button>
-                ) : (
-                  <button onClick={timer.pause} className="px-4 py-2 bg-yellow-600 rounded font-semibold">{t('match.pause')}</button>
-                )}
-              </div>
-            )}
-          </>
+          <MatchClock
+            elapsed={timer.elapsed}
+            periodSeconds={periodSeconds}
+            showButtons={!matchOver}
+            running={timer.timerStatus === 'running'}
+            onStart={handleStart}
+            onPause={timer.pause}
+          />
         )}
       </div>
 
@@ -474,18 +356,7 @@ export default function MatchTrackerPage() {
         </div>
       )}
 
-      {/* Score */}
-      <div className="flex items-center justify-center gap-6 mb-6">
-        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team1.color]}`}>
-          <div className="text-xs uppercase text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team1.color}`) })}</div>
-          <div className="text-4xl font-bold">{match.team1_score}</div>
-        </div>
-        <div className="text-gray-500 font-bold">{t('common.vs')}</div>
-        <div className={`flex-1 text-center p-4 rounded-xl border ${colorBg[team2.color]}`}>
-          <div className="text-xs uppercase text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team2.color}`) })}</div>
-          <div className="text-4xl font-bold">{match.team2_score}</div>
-        </div>
-      </div>
+      <MatchScoreboard team1={team1} team2={team2} score1={match.team1_score} score2={match.team2_score} />
 
       <NextUp queue={waitingQueue(match)} teams={teams} className="text-center text-sm text-gray-400 mb-6" />
 
@@ -530,53 +401,16 @@ export default function MatchTrackerPage() {
       </section>
 
       {confirmUndo && lastEvent && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmUndo(false)}>
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-2">{t('match.undoTitle')}</h2>
-            <p className="text-sm text-gray-300 mb-5">{lastEventLabel}</p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirmUndo(false)} className="flex-1 py-2 bg-gray-700 rounded font-semibold hover:bg-gray-600">
-                {t('common.cancel')}
-              </button>
-              <button onClick={handleUndo} className="flex-1 py-2 bg-red-600 rounded font-semibold hover:bg-red-500">
-                {t('match.undoConfirm')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <MatchConfirmDialog
+          title={t('match.undoTitle')}
+          body={lastEventLabel || ''}
+          confirmLabel={t('match.undoConfirm')}
+          onConfirm={handleUndo}
+          onCancel={() => setConfirmUndo(false)}
+        />
       )}
 
-      {/* Penalty mode */}
-      {showPenalties && (
-        <div className="bg-gray-800 rounded-xl p-4 mb-4">
-          <h3 className="font-bold mb-3">{t('match.penaltyTitle')}</h3>
-          <div className="flex gap-4 items-center mb-4">
-            <div className="flex-1">
-              <div className="text-xs text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team1.color}`) })}</div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setPenaltyT1((n) => Math.max(0, n - 1))} className="px-2 py-1 bg-gray-700 rounded">−</button>
-                <span className="text-2xl font-bold w-8 text-center">{penaltyT1}</span>
-                <button onClick={() => setPenaltyT1((n) => n + 1)} className="px-2 py-1 bg-gray-700 rounded">+</button>
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="text-xs text-gray-400 mb-1">{t('common.teamName', { color: t(`common.teamColor.${team2.color}`) })}</div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setPenaltyT2((n) => Math.max(0, n - 1))} className="px-2 py-1 bg-gray-700 rounded">−</button>
-                <span className="text-2xl font-bold w-8 text-center">{penaltyT2}</span>
-                <button onClick={() => setPenaltyT2((n) => n + 1)} className="px-2 py-1 bg-gray-700 rounded">+</button>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={handlePenaltyDecide}
-            disabled={penaltyT1 === penaltyT2 || finishing}
-            className="w-full py-2 bg-blue-600 rounded font-semibold disabled:opacity-50"
-          >
-            {t('match.penaltyConfirm')}
-          </button>
-        </div>
-      )}
+      {showPenalties && <PenaltyShootout key={match.id} team1={team1} team2={team2} busy={finishing} onDecide={handlePenaltyDecide} />}
 
       {/* Between periods the break card holds the button; the shoot-out has its own */}
       {!between && !showPenalties && !matchOver && (
@@ -605,29 +439,14 @@ export default function MatchTrackerPage() {
 
       {/* Early-end confirmation */}
       {confirmEarlyEnd && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmEarlyEnd(false)}>
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="text-2xl mb-3">⚠️</div>
-            <h2 className="text-lg font-bold mb-2">
-              {endsPeriodOnly ? t('match.earlyEndPeriodTitle', { period: periodName(step.period) }) : t('match.earlyEndTitle')}
-            </h2>
-            <p className="text-sm text-gray-400 mb-5">{endsPeriodOnly ? t('match.earlyEndPeriodBody') : t('match.earlyEndBody')}</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmEarlyEnd(false)}
-                className="flex-1 py-2 bg-gray-700 rounded font-semibold hover:bg-gray-600"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => { setConfirmEarlyEnd(false); runStep() }}
-                className="flex-1 py-2 bg-red-600 rounded font-semibold hover:bg-red-500"
-              >
-                {t('match.earlyEndConfirm')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <MatchConfirmDialog
+          warning
+          title={endsPeriodOnly && step.kind === 'endPeriod' ? t('match.earlyEndPeriodTitle', { period: periodName(step.period) }) : t('match.earlyEndTitle')}
+          body={endsPeriodOnly ? t('match.earlyEndPeriodBody') : t('match.earlyEndBody')}
+          confirmLabel={t('match.earlyEndConfirm')}
+          onConfirm={() => { setConfirmEarlyEnd(false); runStep() }}
+          onCancel={() => setConfirmEarlyEnd(false)}
+        />
       )}
 
       {result && (
