@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
-import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
+import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
 import { useMatchData } from '../../hooks/useMatchData'
 import { useMatchTimer } from '../../hooks/useMatchTimer'
 import { useEndAlert } from '../../hooks/useEndAlert'
@@ -39,14 +39,15 @@ export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
   const navigate = useNavigate()
   const adminPath = useAdminPath()
+  const league = useLeague()
   const cards = useFeature('cards')
   const swaps = useFeature('swaps')
   const { t } = useTranslation()
 
   const {
     match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
-    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef,
-  } = useMatchData(sessionId, matchId)
+    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef, missing,
+  } = useMatchData(sessionId, matchId, league.id)
   const [dialog, setDialog] = useState<'goal' | 'card' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
@@ -77,6 +78,7 @@ export default function MatchTrackerPage() {
     timer.start()
   }
 
+  if (missing) return <Navigate to={adminPath('/history')} replace />
   if (!match || !screen) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
 
   const team1 = teams.find((tm) => tm.id === match.team1_id)

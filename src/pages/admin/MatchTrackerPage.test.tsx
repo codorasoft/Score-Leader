@@ -34,6 +34,7 @@ const renderPage = (features = FEATURES) => render(
     <Routes>
       <Route path="/admin/eagles/sessions/:sessionId/match/:matchId" element={<MatchRoute />} />
       <Route path="/admin/eagles/sessions/:sessionId/awards" element={<p>awards page</p>} />
+      <Route path="/admin/eagles/history" element={<p>history page</p>} />
     </Routes>
   </InLeague></MemoryRouter>,
 )
@@ -175,6 +176,18 @@ it("shows a suspended player's name, not their id", async () => {
   const box = (await screen.findByText('Suspended')).parentElement!
   expect(box).toHaveTextContent('Omar')
   expect(box).not.toHaveTextContent('p2')
+})
+
+it("does not open another league's match: it goes back to History", async () => {
+  rows('sessions')[0].league_id = 'L2'
+  renderPage()
+  expect(await screen.findByText('history page')).toBeInTheDocument()
+})
+
+it('goes back to History for a match that is not in the session', async () => {
+  rows('matches')[0].id = 'other'
+  renderPage()
+  expect(await screen.findByText('history page')).toBeInTheDocument()
 })
 
 describe('a second tap while the result is being saved', () => {
