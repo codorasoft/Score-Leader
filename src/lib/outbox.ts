@@ -92,7 +92,16 @@ export function createOutbox({ client, storage, isOnline, isSignedIn = async () 
     return 'failed'
   }
 
-  const runOrQueue = async (op: OutboxOp): Promise<'sent' | 'queued' | 'failed'> => {
+  // Changes go out one at a time, in the order they were made: an undo sent while the goal it
+  // undoes is still on its way could otherwise reach the server first and find nothing to undo
+  let sending: Promise<unknown> = Promise.resolve()
+  const runOrQueue = (op: OutboxOp): Promise<'sent' | 'queued' | 'failed'> => {
+    const run = sending.then(() => sendOrQueue(op))
+    sending = run.catch(() => {})
+    return run
+  }
+
+  const sendOrQueue = async (op: OutboxOp): Promise<'sent' | 'queued' | 'failed'> => {
     // Anything already waiting must go first, so later changes never overtake earlier ones
     if (!isOnline() || queue.length > 0) {
       queue.push(op)
