@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
-import { players, session } from '../../test/fixtures'
+import { matches, player, players, session, teamPlayers, teams } from '../../test/fixtures'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -74,4 +74,26 @@ it('a finish that cannot be saved says so, keeps the session open and can be tap
   await user.click(screen.getByRole('button', { name: 'Finish Session' }))
   expect(await screen.findByText('history page')).toBeInTheDocument()
   await waitFor(() => expect(rows('sessions')[0].status).toBe('completed'))
+})
+
+it('gives best goalkeeper to the keeper who let in the fewest goals, with no pick or vote', async () => {
+  // Ali keeps for Green (let in 1 over two matches), Karim for Blue (let in 2)
+  resetDb({
+    players: [...players, player('p8', 'Karim', 'GK', 3)],
+    sessions: [{ ...session, status: 'active' }],
+    session_players: ['p1', 'p2', 'p3', 'p8'].map((player_id) => ({ league_id: 'L1', session_id: 's1', player_id })),
+    matches, teams, match_events: [],
+    team_players: [...teamPlayers, { league_id: 'L1', team_id: 'tb', player_id: 'p8' }],
+  })
+  const user = userEvent.setup()
+  renderPage()
+
+  expect(await screen.findByText('Ali · Goals conceded: 1')).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Best Goalkeeper' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+
+  expect(await screen.findByText('history page')).toBeInTheDocument()
+  expect(rows('session_awards').filter((a) => a.award_type === 'best_goalkeeper'))
+    .toMatchObject([{ winner_player_id: 'p1', decided_by: 'auto_stat', is_tied: false }])
+  expect(rows('award_votes')).toEqual([])
 })

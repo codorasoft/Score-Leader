@@ -9,6 +9,8 @@ export interface PlayerStat {
   matchesPlayed: number
   matchesWon: number
   cleanSheets: number
+  // Goals the player's team let in across those matches (penalty shootouts not counted)
+  goalsConceded: number
 }
 
 export function computePlayerStats(
@@ -35,35 +37,41 @@ export function computePlayerStats(
 
     // Clean sheet: GK's team conceded 0 goals in a match
     let cleanSheets = 0
-    if (player.position === 'GK') {
-      for (const m of completedMatches) {
-        const conceded = teamIds.has(m.team1_id) ? m.team2_score : m.team1_score
-        if (conceded === 0) cleanSheets++
-      }
+    let goalsConceded = 0
+    for (const m of completedMatches) {
+      const conceded = teamIds.has(m.team1_id) ? m.team2_score : m.team1_score
+      goalsConceded += conceded
+      if (player.position === 'GK' && conceded === 0) cleanSheets++
     }
 
-    return { player, goals, assists, yellowCards, redCards, matchesPlayed, matchesWon, cleanSheets }
+    return { player, goals, assists, yellowCards, redCards, matchesPlayed, matchesWon, cleanSheets, goalsConceded }
   })
 }
 
 export function getAutoAwardWinner(
   stats: PlayerStat[],
-  awardType: 'best_goalscorer' | 'best_assister' | 'best_goalkeeper',
+  awardType: 'best_goalscorer' | 'best_assister',
 ): { winner: PlayerStat | null; tied: boolean } {
-  let filtered = stats
+  const field = awardType === 'best_goalscorer' ? 'goals' : 'assists'
+  const sorted = [...stats].sort((a, b) => b[field] - a[field])
 
-  if (awardType === 'best_goalkeeper') {
-    filtered = stats.filter((s) => s.player.position === 'GK')
-  }
+  if (sorted.length === 0 || sorted[0][field] === 0) return { winner: null, tied: false }
 
-  const field = awardType === 'best_goalscorer' ? 'goals' : awardType === 'best_assister' ? 'assists' : 'cleanSheets'
-
-  const sorted = [...filtered].sort((a, b) => (b[field] as number) - (a[field] as number))
-
-  if (sorted.length === 0 || (sorted[0][field] as number) === 0) return { winner: null, tied: false }
-
-  const top = sorted[0][field] as number
-  const tied = sorted.filter((s) => (s[field] as number) === top).length > 1
+  const top = sorted[0][field]
+  const tied = sorted.filter((s) => s[field] === top).length > 1
 
   return { winner: sorted[0], tied }
+}
+
+// Best goalkeeper: the keeper who let in the fewest goals in the session's finished matches.
+// A tie goes to fewer goals per match; keepers still level share the award. Keepers who played
+// no finished match are not counted.
+export function getBestGoalkeepers(stats: PlayerStat[]): PlayerStat[] {
+  const keepers = stats.filter((s) => s.player.position === 'GK' && s.matchesPlayed > 0)
+  if (keepers.length === 0) return []
+  const fewest = Math.min(...keepers.map((s) => s.goalsConceded))
+  const level = keepers.filter((s) => s.goalsConceded === fewest)
+  const perMatch = (s: PlayerStat) => s.goalsConceded / s.matchesPlayed
+  const best = Math.min(...level.map(perMatch))
+  return level.filter((s) => perMatch(s) === best)
 }

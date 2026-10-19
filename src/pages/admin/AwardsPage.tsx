@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
-import { computePlayerStats, getAutoAwardWinner } from '../../utils/stats'
+import { computePlayerStats, getAutoAwardWinner, getBestGoalkeepers } from '../../utils/stats'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { VoteLinks, type CreatedVote } from '../../components/VoteLinks'
 import type { Player, Match, MatchEvent, TeamPlayer, SessionAward } from '../../lib/types'
 
-type ChosenAward = 'mvp' | 'best_goalkeeper' | 'fair_play'
+// Best goalkeeper is worked out from goals conceded, like the top scorer, so it is not chosen here
+type ChosenAward = 'mvp' | 'fair_play'
 type AwardDecision = 'admin_direct' | 'vote'
 
 interface Choice {
@@ -19,7 +20,6 @@ interface Choice {
 
 const CHOSEN_AWARDS: { type: ChosenAward; labelKey: string }[] = [
   { type: 'mvp', labelKey: 'awards.mvp' },
-  { type: 'best_goalkeeper', labelKey: 'awards.bestGk' },
   { type: 'fair_play', labelKey: 'awards.fairPlay' },
 ]
 
@@ -42,7 +42,6 @@ export default function AwardsPage() {
   const [createdVotes, setCreatedVotes] = useState<CreatedVote[] | null>(null)
   const [choices, setChoices] = useState<Record<ChosenAward, Choice>>({
     mvp: { decision: 'admin_direct', winner: null, nominees: [] },
-    best_goalkeeper: { decision: 'admin_direct', winner: null, nominees: [] },
     fair_play: { decision: 'admin_direct', winner: null, nominees: [] },
   })
 
@@ -80,6 +79,7 @@ export default function AwardsPage() {
   const stats = computePlayerStats(players, events, matches, teamPlayerMap)
   const bestScorer = getAutoAwardWinner(stats, 'best_goalscorer')
   const bestAssister = getAutoAwardWinner(stats, 'best_assister')
+  const bestKeepers = getBestGoalkeepers(stats)
 
   const update = (type: ChosenAward, patch: Partial<Choice>) =>
     setChoices((c) => ({ ...c, [type]: { ...c[type], ...patch } }))
@@ -98,6 +98,10 @@ export default function AwardsPage() {
     }
     if (bestAssister.winner) {
       awards.push({ award_type: 'best_assister', winner_player_id: bestAssister.winner.player.id, decided_by: 'auto_stat', is_tied: bestAssister.tied })
+    }
+    // Keepers still level after goals per match share the award: one row each
+    for (const k of bestKeepers) {
+      awards.push({ award_type: 'best_goalkeeper', winner_player_id: k.player.id, decided_by: 'auto_stat', is_tied: bestKeepers.length > 1 })
     }
 
     for (const { type } of CHOSEN_AWARDS) {
@@ -135,6 +139,12 @@ export default function AwardsPage() {
         <h2 className="font-semibold text-sm uppercase text-gray-400">{t('awards.autoCalc')}</h2>
         <AwardRow label={t('awards.bestScorer')} winner={bestScorer.winner?.player.name} tied={bestScorer.tied} tiedLabel={t('awards.tied')} />
         <AwardRow label={t('awards.bestAssister')} winner={bestAssister.winner?.player.name} tied={bestAssister.tied} tiedLabel={t('awards.tied')} />
+        <AwardRow
+          label={t('awards.bestGk')}
+          winner={bestKeepers.length ? `${bestKeepers.map((k) => k.player.name).join(', ')} · ${t('awards.goalsConceded', { count: bestKeepers[0].goalsConceded })}` : undefined}
+          tied={bestKeepers.length > 1}
+          tiedLabel={t('awards.tied')}
+        />
       </section>
 
       <SessionTopPlayers players={players} events={events} matches={matches} />
@@ -145,8 +155,7 @@ export default function AwardsPage() {
           title={t(labelKey)}
           choice={choices[type]}
           voting={voting}
-          players={type === 'best_goalkeeper' ? goalkeepersFirst(players) : players}
-          hint={type === 'best_goalkeeper' ? t('awards.gkFirst') : undefined}
+          players={players}
           onChange={(patch) => update(type, patch)}
         />
       ))}
@@ -165,15 +174,11 @@ export default function AwardsPage() {
   )
 }
 
-const goalkeepersFirst = (players: Player[]) =>
-  [...players].sort((a, b) => Number(b.position === 'GK') - Number(a.position === 'GK'))
-
-function AwardChoiceSection({ title, choice, players, hint, voting, onChange }: {
+function AwardChoiceSection({ title, choice, players, voting, onChange }: {
   title: string
   voting: boolean
   choice: Choice
   players: Player[]
-  hint?: string
   onChange: (patch: Partial<Choice>) => void
 }) {
   const { t } = useTranslation()
@@ -197,7 +202,6 @@ function AwardChoiceSection({ title, choice, players, hint, voting, onChange }: 
         {tab('admin_direct', t('awards.adminPicks'))}
         {voting && tab('vote', t('awards.openVote'))}
       </div>
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
       <div className="grid grid-cols-2 gap-2">
         {players.map((p) => {
           const active = choice.decision === 'admin_direct' ? choice.winner === p.id : choice.nominees.includes(p.id)
