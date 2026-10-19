@@ -8,8 +8,8 @@ const zero = {
 }
 const statOf = (position: Player['position'], o: Partial<PeriodStat>) => ({ ...zero, player: { position }, ...o }) as PeriodStat
 
-it('scores goal 3, assist 2, win 2 and draw 1', () => {
-  expect(potmPoints(statOf('ATT', { goals: 2, assists: 1, matchesWon: 3, matchesDrawn: 2 }))).toBe(6 + 2 + 6 + 2)
+it('scores goal 2, assist 2, win 2 and draw 1', () => {
+  expect(potmPoints(statOf('ATT', { goals: 2, assists: 1, matchesWon: 3, matchesDrawn: 2 }))).toBe(4 + 2 + 6 + 2)
 })
 
 it('gives a clean sheet 2 to a goalkeeper and 1 to a defender, and 1 per interception', () => {
@@ -20,7 +20,7 @@ it('gives a clean sheet 2 to a goalkeeper and 1 to a defender, and 1 per interce
 it('adds award bonuses and takes points away for cards', () => {
   expect(potmPoints(statOf('MID', { mvpAwards: 1, bestGoalkeeperAwards: 1, fairPlayAwards: 1 }))).toBe(9)
   expect(potmPoints(statOf('MID', { bestGoalAwards: 1, bestDefenderAwards: 1 }))).toBe(4)
-  expect(potmPoints(statOf('MID', { goals: 1, yellowCards: 1, redCards: 1 }))).toBe(3 - 1 - 3)
+  expect(potmPoints(statOf('MID', { goals: 1, yellowCards: 1, redCards: 1 }))).toBe(2 - 1 - 3)
 })
 
 const players = ['Ali', 'Omar', 'Sami'].map((name) => ({ id: name, name, position: 'MID' }) as Player)
@@ -42,8 +42,8 @@ const data = {
     match('o1', 'oct', 'D', 'E', 1, 0),
   ],
   events: [
-    goal('1', 's1', 'Ali'), // Ali: 3 + win 2 = 5
-    goal('2', 's2', 'Omar'), assist('3', 's2', 'Omar'), // Omar: 3 + 2 + win 2 = 7
+    goal('1', 's1', 'Ali'), // Ali: 2 + win 2 = 4
+    goal('2', 's2', 'Omar'), assist('3', 's2', 'Omar'), // Omar: 2 + 2 + win 2 = 6
     goal('4', 'o1', 'Ali'),
   ],
 }
@@ -51,7 +51,7 @@ const data = {
 it('crowns the player with the most points in the month', () => {
   const result = playersOfMonth(data, '2026-09')!
   expect(result.winners.map((s) => s.player.id)).toEqual(['Omar'])
-  expect(result.points).toBe(7)
+  expect(result.points).toBe(6)
 })
 
 it('shares the title when players are level on points, goals, assists and wins', () => {
@@ -73,5 +73,5 @@ it('counts the awards a player won that month', () => {
   const awards = [{ session_id: 'sep', award_type: 'mvp', winner_player_id: 'Ali' }] as SessionAward[]
   const result = playersOfMonth({ ...data, awards }, '2026-09')!
   expect(result.winners.map((s) => s.player.id)).toEqual(['Ali'])
-  expect(result.points).toBe(5 + 3)
+  expect(result.points).toBe(4 + 3)
 })

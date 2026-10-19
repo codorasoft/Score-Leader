@@ -387,7 +387,7 @@
     "leading": "Leading Player of the Month",
     "points_one": "{{count}} point",
     "points_other": "{{count}} points",
-    "formula": "Points: goal 3 · assist 2 · win 2 · draw 1 · clean sheet 2 (goalkeeper), 1 (defender) · interception 1 · MVP 3 · Best Goalkeeper 3 · Fair Play 3 · Best Goal 2 · Best Defender 2 · yellow card −1 · red card −3"
+    "formula": "Points: goal 2 · assist 2 · win 2 · draw 1 · clean sheet 2 (goalkeeper), 1 (defender) · interception 1 · MVP 3 · Best Goalkeeper 3 · Fair Play 3 · Best Goal 2 · Best Defender 2 · yellow card −1 · red card −3"
   },
   "badges": {
     "title": "Badges",
