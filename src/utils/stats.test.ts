@@ -81,45 +81,44 @@ it('does not count a draw as a win even though the draw keeps a winner_team_id f
 })
 
 describe('getBestGoalkeepers', () => {
-  // t1 v t2 2-0, t1 v t3 1-1, t2 v t3 0-3: t1 let in 1 (2 matches), t2 5, t3 1 (2 matches)
-  const matches = [
-    mkMatch({ id: 'm1', team1_id: 't1', team2_id: 't2', team1_score: 2, team2_score: 0 }),
-    mkMatch({ id: 'm2', team1_id: 't1', team2_id: 't3', team1_score: 1, team2_score: 1, is_draw: true }),
-    mkMatch({ id: 'm3', team1_id: 't2', team2_id: 't3', team1_score: 0, team2_score: 3 }),
-  ]
-  const keepers = (teams: Record<string, string[]>, ms = matches) =>
-    getBestGoalkeepers(computePlayerStats(Object.keys(teams).map((id) => mkPlayer(id, id.startsWith('gk') ? 'GK' : 'ATT')), [], ms, teams))
-      .map((s) => s.player.id)
+  // Each keeper's team plays one finished match per number, letting in that many goals
+  const keepers = (conceded: Record<string, number[]>, extra: Match[] = []) => {
+    const matches = Object.entries(conceded).flatMap(([id, goals]) => goals.map((g, n) =>
+      mkMatch({ id: `${id}-${n}`, team1_id: `t-${id}`, team2_id: `opp-${id}-${n}`, team1_score: 0, team2_score: g })))
+    const players = Object.keys(conceded).map((id) => mkPlayer(id, id.startsWith('gk') ? 'GK' : 'ATT'))
+    const teams = Object.fromEntries(Object.keys(conceded).map((id) => [id, [`t-${id}`]]))
+    return getBestGoalkeepers(computePlayerStats(players, [], [...matches, ...extra], teams)).map((s) => s.player.id)
+  }
 
-  it('picks the keeper who let in the fewest goals', () => {
-    expect(keepers({ gk1: ['t1'], gk2: ['t2'] })).toEqual(['gk1'])
+  it('picks the keeper who let in the fewest goals per match, not in total', () => {
+    // gk1: 3 in 6 (0.5 a match), gk2: 2 in 3 (0.67)
+    expect(keepers({ gk1: [1, 0, 1, 0, 1, 0], gk2: [1, 0, 1] })).toEqual(['gk1'])
   })
 
-  it('counts goals let in, not clean sheets', () => {
-    // gk2 kept a clean sheet in m1 but let in 3 in m3; gk3 had no clean sheet and let in 1
-    expect(keepers({ gk2: ['t2'], gk3: ['t3'] })).toEqual(['gk3'])
+  it('leaves out keepers who played under half as many matches as the busiest keeper', () => {
+    // gk2 kept a clean sheet in his only match, but gk1 played six
+    expect(keepers({ gk1: [1, 0, 1, 0, 1, 0], gk2: [0] })).toEqual(['gk1'])
+    // At exactly half, gk2 counts and wins on goals per match
+    expect(keepers({ gk1: [1, 0, 1, 0, 1, 0], gk2: [0, 0, 1] })).toEqual(['gk2'])
   })
 
-  it('ignores players who are not goalkeepers and keepers who played no finished match', () => {
-    const pending = [...matches, mkMatch({ id: 'm4', team1_id: 't4', team2_id: 't2', status: 'pending', team1_score: 0, team2_score: 0 })]
-    expect(keepers({ p1: ['t1'], gk2: ['t2'], gk4: ['t4'] }, pending)).toEqual(['gk2'])
-  })
-
-  it('breaks a tie on goals per match', () => {
-    // gk1 and gk5 both let in 1, but gk5 over three matches
-    const more = [...matches,
-      mkMatch({ id: 'm5', team1_id: 't5', team2_id: 't6', team1_score: 1, team2_score: 1 }),
-      mkMatch({ id: 'm6', team1_id: 't5', team2_id: 't6', team1_score: 1, team2_score: 0 }),
-      mkMatch({ id: 'm7', team1_id: 't5', team2_id: 't6', team1_score: 2, team2_score: 0 }),
-    ]
-    expect(keepers({ gk1: ['t1'], gk5: ['t5'] }, more)).toEqual(['gk5'])
+  it('breaks a tie on goals per match by more clean sheets, then more matches', () => {
+    // Both let in 1 a match; gk1 kept a clean sheet
+    expect(keepers({ gk1: [0, 2], gk2: [1, 1] })).toEqual(['gk1'])
+    // Both let in 1 a match with no clean sheets; gk2 played more
+    expect(keepers({ gk1: [1], gk2: [1, 1] })).toEqual(['gk2'])
   })
 
   it('lets keepers still level share the award', () => {
-    expect(keepers({ gk1: ['t1'], gk3: ['t3'] })).toEqual(['gk1', 'gk3'])
+    expect(keepers({ gk1: [0, 1], gk2: [1, 0] })).toEqual(['gk1', 'gk2'])
+  })
+
+  it('ignores players who are not goalkeepers and matches not finished', () => {
+    const pending = mkMatch({ id: 'p', team1_id: 't-gk2', team2_id: 'x', status: 'pending', team1_score: 0, team2_score: 0 })
+    expect(keepers({ p1: [0, 0], gk1: [2, 2], gk2: [] }, [pending])).toEqual(['gk1'])
   })
 
   it('has no winner when no keeper played', () => {
-    expect(keepers({ p1: ['t1'] })).toEqual([])
+    expect(keepers({ p1: [0] })).toEqual([])
   })
 })

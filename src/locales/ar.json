@@ -227,7 +227,7 @@
     "assistsUnit_many": "تمريرة",
     "assistsUnit_other": "تمريرة",
     "nomineesHint": "اختر مرشحَين على الأقل للتصويت.",
-    "goalsConceded": "الأهداف المستقبلة: {{count}}",
+    "goalsConceded": "الأهداف المستقبلة {{conceded}} · المباريات {{matches}}",
     "votesReady": "التصويت مفتوح",
     "votesReadyBody": "أرسل هذه الروابط إلى المجموعة. أغلق كل تصويت من صفحة سجل الجلسة عندما ينتهي الجميع من التصويت.",
     "copyLink": "نسخ الرابط",

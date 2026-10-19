@@ -141,7 +141,7 @@ export default function AwardsPage() {
         <AwardRow label={t('awards.bestAssister')} winner={bestAssister.winner?.player.name} tied={bestAssister.tied} tiedLabel={t('awards.tied')} />
         <AwardRow
           label={t('awards.bestGk')}
-          winner={bestKeepers.length ? `${bestKeepers.map((k) => k.player.name).join(', ')} · ${t('awards.goalsConceded', { count: bestKeepers[0].goalsConceded })}` : undefined}
+          winner={bestKeepers.length ? `${bestKeepers.map((k) => k.player.name).join(', ')} · ${t('awards.goalsConceded', { conceded: bestKeepers[0].goalsConceded, matches: bestKeepers[0].matchesPlayed })}` : undefined}
           tied={bestKeepers.length > 1}
           tiedLabel={t('awards.tied')}
         />

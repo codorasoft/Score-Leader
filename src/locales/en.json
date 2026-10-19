@@ -195,7 +195,7 @@
     "assistsUnit_one": "assist",
     "assistsUnit_other": "assists",
     "nomineesHint": "Pick at least 2 nominees for the vote.",
-    "goalsConceded": "Goals conceded: {{count}}",
+    "goalsConceded": "Conceded {{conceded}} · Matches {{matches}}",
     "votesReady": "Votes are open",
     "votesReadyBody": "Send these links to the group. Close each vote from the session’s history page when everyone has voted.",
     "copyLink": "Copy link",
