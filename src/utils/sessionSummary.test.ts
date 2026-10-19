@@ -62,6 +62,15 @@ it('marks tied awards and leaves out empty sections', () => {
   expect(text).not.toContain('Top assists')
 })
 
+it('names every keeper who shares best goalkeeper', () => {
+  const text = buildSessionSummary({
+    t: i18n.t.bind(i18n), date: '2026-10-04', teams, players,
+    matches: [match('m1', 'green', 'blue', 0, 0)], events: [],
+    awards: [award('best_goalkeeper', 'Ali', true), award('best_goalkeeper', 'Sami', true)], url: 'u',
+  })
+  expect(text).toContain('🧤 Best Goalkeeper: Ali, Sami (tied)')
+})
+
 it('names all four teams of a four-team session in the standings', () => {
   const four = (['green', 'blue', 'yellow', 'orange'] as const).map((color) => ({ id: color, session_id: 's', color, name: null })) as Team[]
   const text = buildSessionSummary({

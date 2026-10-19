@@ -143,7 +143,8 @@
       "first": "1st half",
       "second": "2nd half",
       "extra1": "Extra time 1",
-      "extra2": "Extra time 2",
+      "extra2": "Extra time 2",
+
       "extra": "Extra time",
       "penalties": "Penalties"
     },
@@ -194,7 +195,7 @@
     "assistsUnit_one": "assist",
     "assistsUnit_other": "assists",
     "nomineesHint": "Pick at least 2 nominees for the vote.",
-    "gkFirst": "Goalkeepers are listed first.",
+    "goalsConceded": "Goals conceded: {{count}}",
     "votesReady": "Votes are open",
     "votesReadyBody": "Send these links to the group. Close each vote from the session’s history page when everyone has voted.",
     "copyLink": "Copy link",
@@ -765,7 +766,8 @@
     "periods": "Periods",
     "minutes": "Minutes per period",
     "extraTime": "Extra time (min)",
-    "off": "Off",
+    "off": "Off",
+
     "open": "Open",
     "penalties": "Penalties",
     "goalLimit": "Goal limit",
@@ -783,7 +785,8 @@
     "line": {
       "periods_one": "{{count}} × {{minutes}} min",
       "periods_other": "{{count}} × {{minutes}} min",
-      "extraTime": "extra time 2 × {{minutes}}",
+      "extraTime": "extra time 2 × {{minutes}}",
+
       "extraTimeOpen": "open extra time",
       "penalties": "penalties",
       "goalLimit": "first to {{count}}",

@@ -64,8 +64,11 @@ export function buildSummaryParts({ t, date, teams, players, matches, events, aw
   if (assisters.length > 0) sections.push({ heading: `🎯 ${t('awards.topAssists')}`, lines: topLines(assisters) })
 
   const awardLines = AWARD_ORDER.flatMap(({ type, icon, key }) => {
-    const a = awards.find((x) => x.award_type === type)
-    return a ? [{ text: `${icon} ${t(key)}: ${playerName(a.winner_player_id)}${a.is_tied ? ` ${t('awards.tied')}` : ''}` }] : []
+    // A shared award (best goalkeeper) has a row for each winner
+    const won = awards.filter((x) => x.award_type === type)
+    if (won.length === 0) return []
+    const tied = won.some((x) => x.is_tied)
+    return [{ text: `${icon} ${t(key)}: ${won.map((x) => playerName(x.winner_player_id)).join(', ')}${tied ? ` ${t('awards.tied')}` : ''}` }]
   })
   if (awardLines.length > 0) sections.push({ heading: `🏅 ${t('awards.title')}`, lines: awardLines })
 

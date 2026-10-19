@@ -167,7 +167,8 @@
       "first": "الشوط الأول",
       "second": "الشوط الثاني",
       "extra1": "الشوط الإضافي الأول",
-      "extra2": "الشوط الإضافي الثاني",
+      "extra2": "الشوط الإضافي الثاني",
+
       "extra": "الوقت الإضافي",
       "penalties": "ركلات الترجيح"
     },
@@ -226,7 +227,7 @@
     "assistsUnit_many": "تمريرة",
     "assistsUnit_other": "تمريرة",
     "nomineesHint": "اختر مرشحَين على الأقل للتصويت.",
-    "gkFirst": "حراس المرمى يظهرون أولاً.",
+    "goalsConceded": "الأهداف المستقبلة: {{count}}",
     "votesReady": "التصويت مفتوح",
     "votesReadyBody": "أرسل هذه الروابط إلى المجموعة. أغلق كل تصويت من صفحة سجل الجلسة عندما ينتهي الجميع من التصويت.",
     "copyLink": "نسخ الرابط",
@@ -886,7 +887,8 @@
     "periods": "عدد الأشواط",
     "minutes": "دقائق كل شوط",
     "extraTime": "وقت إضافي (دقائق)",
-    "off": "بدون",
+    "off": "بدون",
+
     "open": "مفتوح",
     "penalties": "ركلات الترجيح",
     "goalLimit": "حد الأهداف",
@@ -908,7 +910,8 @@
       "periods_few": "{{count}} × {{minutes}} د",
       "periods_many": "{{count}} × {{minutes}} د",
       "periods_other": "{{count}} × {{minutes}} د",
-      "extraTime": "وقت إضافي 2 × {{minutes}}",
+      "extraTime": "وقت إضافي 2 × {{minutes}}",
+
       "extraTimeOpen": "وقت إضافي مفتوح",
       "penalties": "ركلات ترجيح",
       "goalLimit": "الأول إلى {{count}}",
