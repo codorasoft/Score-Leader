@@ -27,7 +27,7 @@ it('ranks active players by points and links to their profiles', async () => {
   resetDb(finishedLeague())
   renderPage()
   await screen.findByRole('link', { name: /Omar/ })
-  // Omar: 2 goals + 1 win = 8 points; Ali: assist + win, keeper clean sheet = 6
+  // Omar: 2 goals + 1 win = 6 points; Ali: assist + win, keeper clean sheet = 6; level, so more goals ranks Omar first
   expect(order().slice(0, 2)).toEqual(['Omar', 'Ali'])
   expect(screen.getByRole('link', { name: /Omar/ })).toHaveAttribute('href', '/l/eagles/players/p2')
   expect(screen.queryByText('Retired')).not.toBeInTheDocument()

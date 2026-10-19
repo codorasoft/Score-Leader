@@ -13,7 +13,7 @@ export interface LeagueData {
 // The leaderboard's points, also used for Player of the Month. A clean sheet is worth more to a
 // goalkeeper than to a defender; cards take points away, so a total can go below zero.
 export const POTM_POINTS = {
-  goal: 3, assist: 2, win: 2, draw: 1,
+  goal: 2, assist: 2, win: 2, draw: 1,
   cleanSheetGk: 2, cleanSheetDef: 1, interception: 1,
   mvp: 3, bestGoalkeeper: 3, fairPlay: 3, bestGoal: 2, bestDefender: 2,
   yellowCard: -1, redCard: -3,
