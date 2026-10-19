@@ -63,15 +63,20 @@ export function getAutoAwardWinner(
   return { winner: sorted[0], tied }
 }
 
-// Best goalkeeper: the keeper who let in the fewest goals in the session's finished matches.
-// A tie goes to fewer goals per match; keepers still level share the award. Keepers who played
-// no finished match are not counted.
+// Best goalkeeper: the keeper who let in the fewest goals per match in the session's finished
+// matches. Only keepers who played at least half as many matches as the busiest keeper count, so
+// one lucky match cannot beat a full session. A tie goes to more clean sheets, then more matches;
+// keepers still level share the award.
 export function getBestGoalkeepers(stats: PlayerStat[]): PlayerStat[] {
-  const keepers = stats.filter((s) => s.player.position === 'GK' && s.matchesPlayed > 0)
-  if (keepers.length === 0) return []
-  const fewest = Math.min(...keepers.map((s) => s.goalsConceded))
-  const level = keepers.filter((s) => s.goalsConceded === fewest)
-  const perMatch = (s: PlayerStat) => s.goalsConceded / s.matchesPlayed
-  const best = Math.min(...level.map(perMatch))
-  return level.filter((s) => perMatch(s) === best)
+  const played = stats.filter((s) => s.player.position === 'GK' && s.matchesPlayed > 0)
+  if (played.length === 0) return []
+  const busiest = Math.max(...played.map((s) => s.matchesPlayed))
+  const keepers = played.filter((s) => s.matchesPlayed * 2 >= busiest)
+  // Goals per match compared without dividing, so equal rates are exactly equal
+  const compare = (a: PlayerStat, b: PlayerStat) =>
+    a.goalsConceded * b.matchesPlayed - b.goalsConceded * a.matchesPlayed
+    || b.cleanSheets - a.cleanSheets
+    || b.matchesPlayed - a.matchesPlayed
+  const sorted = [...keepers].sort(compare)
+  return sorted.filter((s) => compare(s, sorted[0]) === 0)
 }

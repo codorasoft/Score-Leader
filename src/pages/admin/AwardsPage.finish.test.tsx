@@ -76,8 +76,8 @@ it('a finish that cannot be saved says so, keeps the session open and can be tap
   await waitFor(() => expect(rows('sessions')[0].status).toBe('completed'))
 })
 
-it('gives best goalkeeper to the keeper who let in the fewest goals, with no pick or vote', async () => {
-  // Ali keeps for Green (let in 1 over two matches), Karim for Blue (let in 2)
+it('gives best goalkeeper to the keeper who let in the fewest goals per match, with no pick or vote', async () => {
+  // Ali keeps for Green (let in 1 over two matches), Karim for Blue (let in 2 in one match)
   resetDb({
     players: [...players, player('p8', 'Karim', 'GK', 3)],
     sessions: [{ ...session, status: 'active' }],
@@ -88,7 +88,7 @@ it('gives best goalkeeper to the keeper who let in the fewest goals, with no pic
   const user = userEvent.setup()
   renderPage()
 
-  expect(await screen.findByText('Ali · Goals conceded: 1')).toBeInTheDocument()
+  expect(await screen.findByText('Ali · Conceded 1 · Matches 2')).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Best Goalkeeper' })).toBeNull()
   await user.click(screen.getByRole('button', { name: 'Finish Session' }))
 
