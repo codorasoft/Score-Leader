@@ -8,10 +8,14 @@ import { finishedLeague } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
-const shared = vi.hoisted(() => ({ images: [] as { title: string; lines: string[]; fileName: string }[] }))
+type ImageRow = { rank: number; name: string; value: number }
+const shared = vi.hoisted(() => ({ images: [] as { title: string; period: string; stat: string; rows: ImageRow[]; fileName: string; shareTitle: string }[] }))
 vi.mock('../../lib/shareImage', () => ({
-  drawSessionImage: (d: { title: string; sections: { lines: { text: string }[] }[] }) => ({ title: d.title, lines: d.sections[0].lines.map((l) => l.text) }),
-  shareCanvas: async (canvas: { title: string; lines: string[] }, fileName: string) => { shared.images.push({ ...canvas, fileName }); return 'shared' },
+  drawLeaderboardImage: async (d: { title: string; period: string; stat: string; rows: ImageRow[] }) => d,
+  shareCanvas: async (canvas: { title: string; period: string; stat: string; rows: ImageRow[] }, fileName: string, shareTitle: string) => {
+    shared.images.push({ ...canvas, fileName, shareTitle })
+    return 'shared'
+  },
 }))
 
 import LeaderboardPage from './LeaderboardPage'
@@ -89,7 +93,9 @@ it('shares the list as it is shown, for the chosen period and stat, as an image'
   await user.click(screen.getByRole('button', { name: 'Assists' }))
   await user.click(screen.getByRole('button', { name: /Share as image/ }))
   expect(shared.images).toHaveLength(1)
-  expect(shared.images[0].title).toMatch(/^Leaderboard · /)
-  expect(shared.images[0].lines[0]).toBe('1. Ali · 1')
-  expect(shared.images[0].fileName).toMatch(/assists\.png$/)
+  const image = shared.images[0]
+  expect(image.shareTitle).toMatch(/^Leaderboard · /)
+  expect(image.stat).toBe('Assists')
+  expect(image.rows[0]).toMatchObject({ rank: 1, name: 'Ali', value: 1 })
+  expect(image.fileName).toMatch(/assists\.png$/)
 })

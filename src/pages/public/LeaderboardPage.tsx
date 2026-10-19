@@ -6,7 +6,7 @@ import { loadLeague } from '../../lib/league'
 import { availablePeriods, defaultPeriod, periodStats, type PeriodKey } from '../../utils/leaderboardPeriod'
 import { monthKey, playersOfMonth, potmPoints } from '../../utils/playerOfMonth'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
-import { drawSessionImage, shareCanvas } from '../../lib/shareImage'
+import { drawLeaderboardImage, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import type { Player, Match, MatchEvent, TeamPlayer, Session, SessionAward } from '../../lib/types'
 
@@ -39,6 +39,7 @@ export default function LeaderboardPage() {
   const publicPath = usePublicPath()
   const potmOn = useFeature('potm')
   const profiles = useFeature('profiles')
+  const photosOn = useFeature('photos')
   const [loaded, setLoaded] = useState<{ leagueId: string; data: Data } | null>(null)
   const [sortBy, setSortBy] = useState<SortKey>('points')
 
@@ -81,22 +82,21 @@ export default function LeaderboardPage() {
   const sortLabel = t(SORTS.find((s) => s.key === sortBy)!.labelKey)
 
   // The list as it is on screen (period and sort), as a picture for the phone's share sheet
-  const shareImage = () => {
+  const shareImage = async () => {
     const title = t('leaderboard.shareTitle', { period: label(period) })
-    return shareCanvas(
-      drawSessionImage({
-        title,
-        subtitle: `${t('leaderboard.sessions', { count: sessionCount })} · ${t('summary.matches', { count: matchCount })}`,
-        rtl: i18n.dir() === 'rtl',
-        sections: [{
-          heading: sortLabel,
-          lines: sorted.slice(0, SHARE_ROWS).map((s, i) => ({ text: `${ranks[i]}. ${s.player.name} · ${s[sortBy]}`, bold: ranks[i] === 1 })),
-        }],
-        footer: 'ScoreLeader',
-      }),
-      `scoreleader-leaderboard-${period}-${sortBy}.png`,
-      title,
-    )
+    const canvas = await drawLeaderboardImage({
+      league: league.name,
+      title: t('leaderboard.title'),
+      period: label(period),
+      subtitle: `${t('leaderboard.sessions', { count: sessionCount })} · ${t('summary.matches', { count: matchCount })}`,
+      stat: sortLabel,
+      rtl: i18n.dir() === 'rtl',
+      rows: sorted.slice(0, SHARE_ROWS).map((s, i) => ({
+        rank: ranks[i], name: s.player.name, photo_url: photosOn ? s.player.photo_url : null, position: s.player.position, value: s[sortBy],
+      })),
+      footer: 'ScoreLeader',
+    })
+    return shareCanvas(canvas, `scoreleader-leaderboard-${period}-${sortBy}.png`, title)
   }
 
   return (
