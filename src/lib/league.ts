@@ -6,7 +6,6 @@ import type { Match, MatchEvent, Player, Session, SessionAward, Team, TeamPlayer
 
 export interface FullLeague extends LeagueData {
   teams: Team[]
-  awards: SessionAward[]
 }
 
 // Everyone's finished results; used for the leaderboard, Player of the Month, records, cards and

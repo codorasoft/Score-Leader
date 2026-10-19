@@ -1,6 +1,5 @@
-import type { Match, MatchEvent, Player, Session, TeamPlayer } from '../lib/types'
-import type { PlayerStat } from './stats'
-import { availablePeriods, periodStats } from './leaderboardPeriod'
+import type { Match, MatchEvent, Player, Session, SessionAward, TeamPlayer } from '../lib/types'
+import { availablePeriods, periodStats, type PeriodStat } from './leaderboardPeriod'
 
 export interface LeagueData {
   players: Player[]
@@ -8,17 +7,31 @@ export interface LeagueData {
   matches: Match[]
   events: MatchEvent[]
   teamPlayers: TeamPlayer[]
+  awards: SessionAward[]
 }
 
-export const POTM_POINTS = { goal: 3, assist: 2, win: 1, cleanSheet: 2 } as const
+// The leaderboard's points, also used for Player of the Month. A clean sheet is worth more to a
+// goalkeeper than to a defender; cards take points away, so a total can go below zero.
+export const POTM_POINTS = {
+  goal: 3, assist: 2, win: 2, draw: 1,
+  cleanSheetGk: 2, cleanSheetDef: 1, interception: 1,
+  mvp: 3, bestGoalkeeper: 3, fairPlay: 3, bestGoal: 2, bestDefender: 2,
+  yellowCard: -1, redCard: -3,
+} as const
 
-export const potmPoints = (s: PlayerStat) =>
-  s.goals * POTM_POINTS.goal + s.assists * POTM_POINTS.assist + s.matchesWon * POTM_POINTS.win + s.cleanSheets * POTM_POINTS.cleanSheet
+export const potmPoints = (s: PeriodStat) =>
+  s.goals * POTM_POINTS.goal + s.assists * POTM_POINTS.assist
+  + s.matchesWon * POTM_POINTS.win + s.matchesDrawn * POTM_POINTS.draw
+  + s.cleanSheets * (s.player.position === 'GK' ? POTM_POINTS.cleanSheetGk : POTM_POINTS.cleanSheetDef)
+  + s.interceptions * POTM_POINTS.interception
+  + s.mvpAwards * POTM_POINTS.mvp + s.bestGoalkeeperAwards * POTM_POINTS.bestGoalkeeper + s.fairPlayAwards * POTM_POINTS.fairPlay
+  + s.bestGoalAwards * POTM_POINTS.bestGoal + s.bestDefenderAwards * POTM_POINTS.bestDefender
+  + s.yellowCards * POTM_POINTS.yellowCard + s.redCards * POTM_POINTS.redCard
 
 // Points first, then goals, assists and wins; players level on all four share the title.
-const rankKey = (s: PlayerStat) => [potmPoints(s), s.goals, s.assists, s.matchesWon]
+const rankKey = (s: PeriodStat) => [potmPoints(s), s.goals, s.assists, s.matchesWon]
 
-export function playersOfMonth(data: LeagueData, month: string): { winners: PlayerStat[]; points: number } | null {
+export function playersOfMonth(data: LeagueData, month: string): { winners: PeriodStat[]; points: number } | null {
   const ranked = periodStats(data, month).stats
     .filter((s) => potmPoints(s) > 0)
     .sort((a, b) => {

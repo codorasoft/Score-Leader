@@ -97,3 +97,23 @@ it('gives best goalkeeper to the keeper who let in the fewest goals per match, w
     .toMatchObject([{ winner_player_id: 'p1', decided_by: 'auto_stat', is_tied: false }])
   expect(rows('award_votes')).toEqual([])
 })
+
+it('best goal and best defender are picked by the admin, with no vote, and saved with the other awards', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findAllByText('Omar')
+  const section = (name: string) => screen.getByRole('heading', { name }).parentElement!
+  expect(within(section('MVP')).getByRole('button', { name: 'Open vote' })).toBeInTheDocument()
+  for (const name of ['Best Goal', 'Best Defender']) {
+    expect(within(section(name)).queryByRole('button', { name: 'Open vote' })).not.toBeInTheDocument()
+  }
+  await user.click(within(section('Best Goal')).getByRole('button', { name: /Sami/ }))
+  await user.click(within(section('Best Defender')).getByRole('button', { name: /Zaid/ }))
+  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+
+  expect(await screen.findByText('history page')).toBeInTheDocument()
+  expect(rows('session_awards')).toMatchObject([
+    { award_type: 'best_goal', winner_player_id: 'p3', decided_by: 'admin_direct' },
+    { award_type: 'best_defender', winner_player_id: 'p4', decided_by: 'admin_direct' },
+  ])
+})

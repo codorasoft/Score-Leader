@@ -1,5 +1,5 @@
 import { availablePeriods, defaultPeriod, periodStats } from './leaderboardPeriod'
-import type { Match, MatchEvent, Player, Session, TeamPlayer } from '../lib/types'
+import type { Match, MatchEvent, Player, Session, SessionAward, TeamPlayer } from '../lib/types'
 
 const session = (id: string, date: string) => ({ id, date }) as Session
 
@@ -36,7 +36,7 @@ describe('periodStats', () => {
     { id: '2', match_id: 'm-oct', player_id: 'Ali', event_type: 'goal' },
     { id: '3', match_id: 'm-oct', player_id: 'Ali', event_type: 'goal' },
   ] as MatchEvent[]
-  const data = { players, sessions, matches, teamPlayers, events }
+  const data = { players, sessions, matches, teamPlayers, events, awards: [] as SessionAward[] }
 
   it('counts only the chosen month and lists only players who played in it', () => {
     const { stats, sessionCount, matchCount } = periodStats(data, '2026-10')
@@ -52,5 +52,18 @@ describe('periodStats', () => {
       const ali = periodStats(data, period).stats.find((s) => s.player.id === 'Ali')!
       expect([ali.goals, ali.matchesPlayed, ali.matchesWon]).toEqual([3, 2, 2])
     }
+  })
+
+  it('counts only the awards from sessions in the period', () => {
+    const awards = [
+      { session_id: 'sep', award_type: 'mvp', winner_player_id: 'Ali' },
+      { session_id: 'oct', award_type: 'mvp', winner_player_id: 'Ali' },
+      { session_id: 'oct', award_type: 'best_defender', winner_player_id: 'Sami' },
+      { session_id: 'oct', award_type: 'best_goal', winner_player_id: 'Ali' },
+    ] as SessionAward[]
+    const { stats } = periodStats({ ...data, awards }, '2026-10')
+    expect(stats.map((s) => [s.player.id, s.mvpAwards, s.bestGoalAwards, s.bestDefenderAwards])).toEqual([
+      ['Ali', 1, 1, 0], ['Sami', 0, 0, 1],
+    ])
   })
 })

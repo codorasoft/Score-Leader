@@ -1,7 +1,7 @@
 import { computePlayerStats, getAutoAwardWinner, getBestGoalkeepers } from './stats'
 import type { Player, MatchEvent, Match } from '../lib/types'
 
-const mkPlayer = (id: string, position: 'GK' | 'ATT' = 'ATT'): Player => ({
+const mkPlayer = (id: string, position: Player['position'] = 'ATT'): Player => ({
   id, name: `P${id}`, position, skill_rating: 3, photo_url: null, is_active: true, created_at: '',
 })
 
@@ -37,15 +37,24 @@ it('counts goals and assists correctly', () => {
   expect(stats.find((s) => s.player.id === 'p2')?.assists).toBe(1)
 })
 
-it('counts clean sheets for GK only', () => {
-  const players = [mkPlayer('gk1', 'GK'), mkPlayer('p2')]
+it('counts clean sheets for goalkeepers and defenders only', () => {
+  const players = [mkPlayer('gk1', 'GK'), mkPlayer('d1', 'DEF'), mkPlayer('p2')]
   const events: MatchEvent[] = []
   const matches = [mkMatch({ team1_id: 't1', team2_id: 't2', team2_score: 0, winner_team_id: 't1' })]
-  const teamMap = { gk1: ['t1'], p2: ['t1'] }
+  const teamMap = { gk1: ['t1'], d1: ['t1'], p2: ['t1'] }
 
   const stats = computePlayerStats(players, events, matches, teamMap)
   expect(stats.find((s) => s.player.id === 'gk1')?.cleanSheets).toBe(1)
+  expect(stats.find((s) => s.player.id === 'd1')?.cleanSheets).toBe(1)
   expect(stats.find((s) => s.player.id === 'p2')?.cleanSheets).toBe(0)
+})
+
+it('counts draws and interceptions', () => {
+  const players = [mkPlayer('d1', 'DEF')]
+  const events = [mkEvent({ player_id: 'd1', event_type: 'interception' }), mkEvent({ id: 'e2', player_id: 'd1', event_type: 'interception' })]
+  const matches = [mkMatch({ team1_score: 1, team2_score: 1, is_draw: true }), mkMatch({ id: 'm2' })]
+  const [d1] = computePlayerStats(players, events, matches, { d1: ['t1'] })
+  expect([d1.matchesDrawn, d1.matchesWon, d1.interceptions]).toEqual([1, 1, 2])
 })
 
 it('getAutoAwardWinner returns tied=true when multiple players share top', () => {

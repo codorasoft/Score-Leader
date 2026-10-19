@@ -30,6 +30,14 @@ describe('findLastUndoable', () => {
     expect((last as { id: string }).id).toBe('s1')
   })
 
+  it('includes interceptions', () => {
+    const last = findLastUndoable([
+      ev('g1', 'goal', '2026-10-04T10:00:00Z'),
+      ev('i1', 'interception', '2026-10-04T10:04:00Z'),
+    ])
+    expect(last?.id).toBe('i1')
+  })
+
   it('returns null when there is nothing to undo', () => {
     expect(findLastUndoable([])).toBeNull()
   })

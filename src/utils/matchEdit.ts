@@ -3,7 +3,7 @@ import { decideResult, drawGoesToPenalties } from './matchRotation'
 import type { MatchFormat } from './matchFormat'
 
 const SCORING: EventType[] = ['goal', 'penalty_goal']
-const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card', 'swap']
+const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card', 'swap', 'interception']
 
 // Assists and the second row of a swap pair are undone together with the event they belong to.
 export function findLastUndoable<E extends Pick<MatchEvent, 'event_type' | 'created_at'> & { related_event_id?: string | null }>(events: E[]): E | null {

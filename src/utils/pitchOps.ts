@@ -57,6 +57,10 @@ export function cardOps(p: Common & { playerId: string; teamId: string; cardType
   }))]
 }
 
+export function interceptionOps(p: Common & { playerId: string; teamId: string }): OutboxOp[] {
+  return [insert(p, eventRow(p, { id: p.newId(), player_id: p.playerId, team_id: p.teamId, event_type: 'interception' }))]
+}
+
 // Each swap row's team_id is the team that player moved to; the second row points at the first.
 export function swapOps(p: Common & { p1: { id: string; teamId: string }; p2: { id: string; teamId: string } }): OutboxOp[] {
   const first = eventRow(p, { id: p.newId(), player_id: p.p1.id, team_id: p.p2.teamId, event_type: 'swap' })

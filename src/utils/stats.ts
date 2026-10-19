@@ -8,7 +8,10 @@ export interface PlayerStat {
   redCards: number
   matchesPlayed: number
   matchesWon: number
+  matchesDrawn: number
+  // Goalkeepers and defenders only
   cleanSheets: number
+  interceptions: number
   // Goals the player's team let in across those matches (penalty shootouts not counted)
   goalsConceded: number
 }
@@ -26,6 +29,7 @@ export function computePlayerStats(
     const assists = pEvents.filter((e) => e.event_type === 'assist').length
     const yellowCards = pEvents.filter((e) => e.event_type === 'yellow_card').length
     const redCards = pEvents.filter((e) => e.event_type === 'red_card').length
+    const interceptions = pEvents.filter((e) => e.event_type === 'interception').length
 
     const teamIds = new Set(playerTeams[player.id] ?? [])
     const completedMatches = matches.filter(
@@ -34,17 +38,19 @@ export function computePlayerStats(
     const matchesPlayed = completedMatches.length
     // A draw still stores winner_team_id (who keeps the field), so it must not count as a win
     const matchesWon = completedMatches.filter((m) => !m.is_draw && m.winner_team_id && teamIds.has(m.winner_team_id)).length
+    const matchesDrawn = completedMatches.filter((m) => m.is_draw).length
 
-    // Clean sheet: GK's team conceded 0 goals in a match
+    // Clean sheet: a goalkeeper's or defender's team conceded 0 goals in a match
+    const keepsSheets = player.position === 'GK' || player.position === 'DEF'
     let cleanSheets = 0
     let goalsConceded = 0
     for (const m of completedMatches) {
       const conceded = teamIds.has(m.team1_id) ? m.team2_score : m.team1_score
       goalsConceded += conceded
-      if (player.position === 'GK' && conceded === 0) cleanSheets++
+      if (keepsSheets && conceded === 0) cleanSheets++
     }
 
-    return { player, goals, assists, yellowCards, redCards, matchesPlayed, matchesWon, cleanSheets, goalsConceded }
+    return { player, goals, assists, yellowCards, redCards, matchesPlayed, matchesWon, matchesDrawn, cleanSheets, interceptions, goalsConceded }
   })
 }
 
