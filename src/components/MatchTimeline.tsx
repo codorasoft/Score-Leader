@@ -56,6 +56,7 @@ export function MatchTimeline({ events, teams, players, format }: Props) {
               </>
             )}
             {e.kind === 'yellow_card' && <>🟨 {playerName(e.playerId)}</>}
+            {e.kind === 'interception' && <>{t('timeline.interception', { name: playerName(e.playerId) })}</>}
             {e.kind === 'red_card' && (
               <>
                 🟥 {playerName(e.playerId)}

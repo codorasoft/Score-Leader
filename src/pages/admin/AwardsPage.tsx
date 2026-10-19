@@ -9,7 +9,7 @@ import { VoteLinks, type CreatedVote } from '../../components/VoteLinks'
 import type { Player, Match, MatchEvent, TeamPlayer, SessionAward } from '../../lib/types'
 
 // Best goalkeeper is worked out from goals conceded, like the top scorer, so it is not chosen here
-type ChosenAward = 'mvp' | 'fair_play'
+type ChosenAward = 'mvp' | 'fair_play' | 'best_goal' | 'best_defender'
 type AwardDecision = 'admin_direct' | 'vote'
 
 interface Choice {
@@ -18,9 +18,12 @@ interface Choice {
   nominees: string[]
 }
 
-const CHOSEN_AWARDS: { type: ChosenAward; labelKey: string }[] = [
-  { type: 'mvp', labelKey: 'awards.mvp' },
-  { type: 'fair_play', labelKey: 'awards.fairPlay' },
+// Best goal and best defender are picked by the admin only, never put to a vote
+const CHOSEN_AWARDS: { type: ChosenAward; labelKey: string; votable: boolean }[] = [
+  { type: 'mvp', labelKey: 'awards.mvp', votable: true },
+  { type: 'fair_play', labelKey: 'awards.fairPlay', votable: true },
+  { type: 'best_goal', labelKey: 'awards.bestGoal', votable: false },
+  { type: 'best_defender', labelKey: 'awards.bestDefender', votable: false },
 ]
 
 const MIN_NOMINEES = 2
@@ -43,6 +46,8 @@ export default function AwardsPage() {
   const [choices, setChoices] = useState<Record<ChosenAward, Choice>>({
     mvp: { decision: 'admin_direct', winner: null, nominees: [] },
     fair_play: { decision: 'admin_direct', winner: null, nominees: [] },
+    best_goal: { decision: 'admin_direct', winner: null, nominees: [] },
+    best_defender: { decision: 'admin_direct', winner: null, nominees: [] },
   })
 
   useEffect(() => {
@@ -149,12 +154,12 @@ export default function AwardsPage() {
 
       <SessionTopPlayers players={players} events={events} matches={matches} />
 
-      {CHOSEN_AWARDS.map(({ type, labelKey }) => (
+      {CHOSEN_AWARDS.map(({ type, labelKey, votable }) => (
         <AwardChoiceSection
           key={type}
           title={t(labelKey)}
           choice={choices[type]}
-          voting={voting}
+          voting={voting && votable}
           players={players}
           onChange={(patch) => update(type, patch)}
         />

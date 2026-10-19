@@ -1,4 +1,4 @@
-import { goalOps, cardOps, swapOps, undoOps } from './pitchOps'
+import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from './pitchOps'
 import { overlayPending } from '../lib/outboxOverlay'
 import type { Match, MatchEvent, TeamPlayer } from '../lib/types'
 
@@ -21,6 +21,14 @@ it('records a card', () => {
   const ops = cardOps({ match, playerId: 'ali', teamId: 'A', cardType: 'red_card', suspensionMinutes: 2, clock, newId: ids, now })
   const [card] = overlayPending(ops, { match, events: [], teamPlayers: [] }).events
   expect(card).toMatchObject({ event_type: 'red_card', suspension_minutes: 2, suspension_started_at: now })
+})
+
+it('records an interception without touching the score', () => {
+  const ops = interceptionOps({ match, playerId: 'omar', teamId: 'B', clock, newId: ids, now })
+  const state = overlayPending(ops, { match, events: [], teamPlayers: [] })
+  expect(state.events).toHaveLength(1)
+  expect(state.events[0]).toMatchObject({ event_type: 'interception', player_id: 'omar', team_id: 'B', elapsed_seconds: 95 })
+  expect(state.match).toMatchObject({ team1_score: 1, team2_score: 0 })
 })
 
 it('records a swap as two team moves plus a linked pair of timeline rows', () => {

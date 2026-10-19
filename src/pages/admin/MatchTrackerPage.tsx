@@ -18,6 +18,7 @@ import { matchScreen } from '../../utils/matchScreen'
 import { canRecordEvents, finishedMatchFields } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
+import { InterceptionDialog } from '../../components/InterceptionDialog'
 import { SwapDialog } from '../../components/SwapDialog'
 import { SuspensionCountdown } from '../../components/SuspensionCountdown'
 import { MatchResultDialog } from '../../components/MatchResultDialog'
@@ -32,7 +33,7 @@ import { MatchConfirmDialog } from '../../components/MatchConfirmDialog'
 import { PenaltyShootout } from '../../components/PenaltyShootout'
 import { outbox, newId } from '../../lib/pitchOutbox'
 import { serverNowIso } from '../../lib/serverClock'
-import { goalOps, cardOps, swapOps, undoOps } from '../../utils/pitchOps'
+import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team } from '../../lib/types'
 
 export default function MatchTrackerPage() {
@@ -48,7 +49,7 @@ export default function MatchTrackerPage() {
     match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
     load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef, missing,
   } = useMatchData(sessionId, matchId, league.id)
-  const [dialog, setDialog] = useState<'goal' | 'card' | 'swap' | null>(null)
+  const [dialog, setDialog] = useState<'goal' | 'card' | 'interception' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
   const [result, setResult] = useState<{
@@ -102,7 +103,7 @@ export default function MatchTrackerPage() {
 
   const inProgress = canRecordEvents(match.status, timer.timerStatus)
 
-  const openEventDialog = (kind: 'goal' | 'card') => {
+  const openEventDialog = (kind: 'goal' | 'card' | 'interception') => {
     if (!inProgress) return
     setEventClock(timer.elapsed)
     setDialog(kind)
@@ -128,6 +129,13 @@ export default function MatchTrackerPage() {
     await apply(cardOps({ match, playerId, teamId, cardType, suspensionMinutes, clock: clockFields, newId, now: serverNowIso() }))
   }
 
+  const handleInterceptionConfirm = async (playerId: string) => {
+    setDialog(null)
+    const teamId = teamPlayers.find((tp) => tp.player_id === playerId)?.team_id
+    if (!inProgress || !teamId) return
+    await apply(interceptionOps({ match, playerId, teamId, clock: clockFields, newId, now: serverNowIso() }))
+  }
+
   const lastEvent = findLastUndoable(events)
   const lastEventIsGoal = lastEvent?.event_type === 'goal' || lastEvent?.event_type === 'penalty_goal'
   const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
@@ -137,7 +145,9 @@ export default function MatchTrackerPage() {
   const lastEventLabel = lastEvent && (
     lastEvent.event_type === 'swap'
       ? t('match.undoSwap', { a: nameOf(lastEvent.player_id), b: swapPartner ? nameOf(swapPartner.player_id) : '?' })
-      : t(lastEventIsGoal ? 'match.undoGoal' : lastEvent.event_type === 'red_card' ? 'match.undoRed' : 'match.undoYellow',
+      : t(lastEventIsGoal ? 'match.undoGoal'
+        : lastEvent.event_type === 'interception' ? 'match.undoInterception'
+        : lastEvent.event_type === 'red_card' ? 'match.undoRed' : 'match.undoYellow',
         { name: nameOf(lastEvent.player_id) })
   )
 
@@ -383,6 +393,7 @@ export default function MatchTrackerPage() {
         <div className="flex gap-3 mb-4">
           <button onClick={() => openEventDialog('goal')} disabled={!inProgress} className="flex-1 py-3 bg-green-700 rounded font-semibold disabled:opacity-40">{t('match.goal')}</button>
           {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className="flex-1 py-3 bg-yellow-700 rounded font-semibold disabled:opacity-40">{t('match.card')}</button>}
+          <button onClick={() => openEventDialog('interception')} disabled={!inProgress} className="flex-1 py-3 bg-sky-700 rounded font-semibold disabled:opacity-40">{t('match.interception')}</button>
           {swaps && <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>}
         </div>
       )}
@@ -477,6 +488,9 @@ export default function MatchTrackerPage() {
       )}
       {cards && dialog === 'card' && (
         <CardDialog teams={playingTeams} onConfirm={handleCardConfirm} onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'interception' && (
+        <InterceptionDialog teams={playingTeams} onConfirm={handleInterceptionConfirm} onClose={() => setDialog(null)} />
       )}
       {swaps && dialog === 'swap' && (
         <SwapDialog teams={teamsWithPlayers} onSwap={handleSwap} onClose={() => setDialog(null)} />

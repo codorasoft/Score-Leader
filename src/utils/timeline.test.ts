@@ -35,3 +35,8 @@ it('keeps red cards with their suspension length and leaves clock null when no t
   ])
   expect(entry).toMatchObject({ kind: 'red_card', clock: null, suspensionMinutes: 3 })
 })
+
+it('shows an interception as its own entry', () => {
+  expect(buildTimeline([ev({ id: 'i1', event_type: 'interception', player_id: 'p4', created_at: '2026-10-04T10:02:00Z', elapsed_seconds: 120 })]))
+    .toEqual([{ id: 'i1', kind: 'interception', clock: 120, teamId: 'red', playerId: 'p4' }])
+})

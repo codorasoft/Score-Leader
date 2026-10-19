@@ -28,6 +28,8 @@ const AWARD_META: Record<AwardType, { icon: string; key: string }> = {
   best_assister: { icon: '🎯', key: 'awards.bestAssister' },
   best_goalkeeper: { icon: '🧤', key: 'awards.bestGk' },
   fair_play: { icon: '🤝', key: 'awards.fairPlay' },
+  best_goal: { icon: '🚀', key: 'awards.bestGoal' },
+  best_defender: { icon: '🛡️', key: 'awards.bestDefender' },
 }
 
 interface ProfileData {

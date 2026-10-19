@@ -110,6 +110,23 @@ it('undoes the last goal', async () => {
   expect(rows('match_events')).toEqual([])
 })
 
+it('records an interception for the player who won the ball, and can undo it', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: '▶ Start' }))
+  await user.click(screen.getByRole('button', { name: '🛡️ Interception' }))
+  expect(screen.getByRole('heading', { name: 'Interception — who won the ball?' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: /Zaid/ }))
+
+  await waitFor(() => expect(rows('match_events')).toHaveLength(1))
+  expect(rows('match_events')[0]).toMatchObject({ event_type: 'interception', player_id: 'p4', team_id: 'tb' })
+  expect(score().slice(0, 2)).toEqual(['0', '0'])
+
+  await user.click(screen.getByRole('button', { name: /Undo.*Zaid/ }))
+  await user.click(screen.getByRole('button', { name: 'Yes, undo' }))
+  await waitFor(() => expect(rows('match_events')).toEqual([]))
+})
+
 it('ending early asks first, then saves the result and sets up the next match', async () => {
   scored('tg', 1)
   const user = userEvent.setup()

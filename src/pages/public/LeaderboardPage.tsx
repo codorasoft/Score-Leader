@@ -6,8 +6,9 @@ import { loadLeague } from '../../lib/league'
 import { availablePeriods, defaultPeriod, periodStats, type PeriodKey } from '../../utils/leaderboardPeriod'
 import { monthKey, playersOfMonth, potmPoints } from '../../utils/playerOfMonth'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
+import { drawSessionImage, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
-import type { Player, Match, MatchEvent, TeamPlayer, Session } from '../../lib/types'
+import type { Player, Match, MatchEvent, TeamPlayer, Session, SessionAward } from '../../lib/types'
 
 type SortKey = 'points' | 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
 
@@ -25,7 +26,11 @@ interface Data {
   matches: Match[]
   events: MatchEvent[]
   teamPlayers: TeamPlayer[]
+  awards: SessionAward[]
 }
+
+// The shared image lists this many places, so it stays readable in a chat
+const SHARE_ROWS = 20
 
 export default function LeaderboardPage() {
   const { t, i18n } = useTranslation()
@@ -39,9 +44,9 @@ export default function LeaderboardPage() {
 
   const load = useCallback(async () => {
     // Shared with cards, records and profiles; the leaderboard lists active players only
-    const { players, sessions, matches, events, teamPlayers } = await loadLeague(league.id)
+    const { players, sessions, matches, events, teamPlayers, awards } = await loadLeague(league.id)
     if (currentLeague.current !== league.id) return
-    setLoaded({ leagueId: league.id, data: { players: players.filter((p) => p.is_active), sessions, matches, events, teamPlayers } })
+    setLoaded({ leagueId: league.id, data: { players: players.filter((p) => p.is_active), sessions, matches, events, teamPlayers, awards } })
   }, [league.id])
 
   const currentLeague = useRef(league.id)
@@ -73,6 +78,26 @@ export default function LeaderboardPage() {
   sorted.forEach((s, i) => ranks.push(i > 0 && compare(sorted[i - 1], s) === 0 ? ranks[i - 1] : i + 1))
   const potm = potmOn && period.length === 7 ? playersOfMonth(data, period) : null
   const monthOver = period < monthKey(new Date())
+  const sortLabel = t(SORTS.find((s) => s.key === sortBy)!.labelKey)
+
+  // The list as it is on screen (period and sort), as a picture for the phone's share sheet
+  const shareImage = () => {
+    const title = t('leaderboard.shareTitle', { period: label(period) })
+    return shareCanvas(
+      drawSessionImage({
+        title,
+        subtitle: `${t('leaderboard.sessions', { count: sessionCount })} · ${t('summary.matches', { count: matchCount })}`,
+        rtl: i18n.dir() === 'rtl',
+        sections: [{
+          heading: sortLabel,
+          lines: sorted.slice(0, SHARE_ROWS).map((s, i) => ({ text: `${ranks[i]}. ${s.player.name} · ${s[sortBy]}`, bold: ranks[i] === 1 })),
+        }],
+        footer: 'ScoreLeader',
+      }),
+      `scoreleader-leaderboard-${period}-${sortBy}.png`,
+      title,
+    )
+  }
 
   return (
     <div className="max-w-lg mx-auto">
@@ -132,6 +157,7 @@ export default function LeaderboardPage() {
               <span className="block text-xs text-gray-400">
                 {s.player.position} · {t('leaderboard.line', { g: s.goals, a: s.assists, w: s.matchesWon, p: s.matchesPlayed })}
                 {s.cleanSheets > 0 && ` · ${t('leaderboard.cs', { count: s.cleanSheets })}`}
+                {s.interceptions > 0 && ` · ${t('leaderboard.int', { count: s.interceptions })}`}
               </span>
             </span>
             <span className="text-2xl font-bold shrink-0">{s[sortBy]}</span>
@@ -139,6 +165,11 @@ export default function LeaderboardPage() {
         ))}
         {sorted.length === 0 && <p className="text-gray-500 text-center py-8">{t('leaderboard.empty')}</p>}
         {sorted.length > 0 && sortBy === 'points' && <p className="text-[11px] text-gray-500 text-center pt-2">{t('potm.formula')}</p>}
+        {sorted.length > 0 && (
+          <button onClick={shareImage} className="w-full mt-2 py-3 rounded-xl bg-purple-700 hover:bg-purple-600 font-semibold text-sm">
+            🖼️ {t('leaderboard.share')}
+          </button>
+        )}
       </div>
     </div>
   )

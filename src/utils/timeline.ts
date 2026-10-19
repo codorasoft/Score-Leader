@@ -7,6 +7,7 @@ export type TimelineEntry =
   | { id: string; kind: 'goal'; period: number; clock: number | null; teamId: string; playerId: string; assistPlayerId?: string }
   | { id: string; kind: 'yellow_card'; period: number; clock: number | null; teamId: string; playerId: string }
   | { id: string; kind: 'red_card'; period: number; clock: number | null; teamId: string; playerId: string; suspensionMinutes: number | null }
+  | { id: string; kind: 'interception'; period: number; clock: number | null; teamId: string; playerId: string }
   | { id: string; kind: 'swap'; period: number; clock: number | null; teamId: string; swap: { a: SwapSide; b: SwapSide } }
 
 // Assists and the second half of a swap pair are folded into the entry they belong to.
@@ -25,6 +26,8 @@ export function buildTimeline(events: MatchEvent[]): TimelineEntry[] {
       entries.push({ ...base, kind: 'yellow_card', playerId: e.player_id })
     } else if (e.event_type === 'red_card') {
       entries.push({ ...base, kind: 'red_card', playerId: e.player_id, suspensionMinutes: e.suspension_minutes })
+    } else if (e.event_type === 'interception') {
+      entries.push({ ...base, kind: 'interception', playerId: e.player_id })
     } else if (e.event_type === 'swap' && !e.related_event_id) {
       const partner = linked(e, 'swap')
       if (!partner) continue

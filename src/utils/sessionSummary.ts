@@ -10,6 +10,8 @@ const AWARD_ORDER: { type: AwardType; icon: string; key: string }[] = [
   { type: 'best_goalkeeper', icon: '🧤', key: 'awards.bestGk' },
   { type: 'best_goalscorer', icon: '⚽', key: 'awards.bestScorer' },
   { type: 'best_assister', icon: '🎯', key: 'awards.bestAssister' },
+  { type: 'best_goal', icon: '🚀', key: 'awards.bestGoal' },
+  { type: 'best_defender', icon: '🛡️', key: 'awards.bestDefender' },
   { type: 'fair_play', icon: '🤝', key: 'awards.fairPlay' },
 ]
 

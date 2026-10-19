@@ -144,7 +144,6 @@
       "second": "2nd half",
       "extra1": "Extra time 1",
       "extra2": "Extra time 2",
-
       "extra": "Extra time",
       "penalties": "Penalties"
     },
@@ -153,7 +152,9 @@
     "betweenPeriods": "{{period}} finished",
     "goToPenalties": "Go to penalties",
     "periodTimeUp": "Time's up for the {{period}}",
-    "drawEnd": "Draw — end match"
+    "drawEnd": "Draw — end match",
+    "interception": "🛡️ Interception",
+    "undoInterception": "🛡️ Interception — {{name}}"
   },
   "goal": {
     "whoScored": "Who scored?",
@@ -210,7 +211,9 @@
     "tiePick": "Tied — tap the winner to close the vote",
     "winner": "Winner: {{name}}",
     "noVotesYet": "No votes yet",
-    "shareMessenger": "Messenger"
+    "shareMessenger": "Messenger",
+    "bestGoal": "Best Goal",
+    "bestDefender": "Best Defender"
   },
   "history": {
     "title": "Session History",
@@ -264,7 +267,11 @@
     "cs_one": "{{count}} clean sheet",
     "cs_other": "{{count}} clean sheets",
     "empty": "No finished matches in this period",
-    "sortPoints": "Points"
+    "sortPoints": "Points",
+    "int_one": "{{count}} interception",
+    "int_other": "{{count}} interceptions",
+    "share": "Share as image",
+    "shareTitle": "Leaderboard · {{period}}"
   },
   "vote": {
     "selectOne": "Select one player",
@@ -350,7 +357,8 @@
     "draw": "Draw",
     "show": "Timeline",
     "sessionProgress": "Session so far",
-    "drawWinner": "Draw · {{team}} wins"
+    "drawWinner": "Draw · {{team}} wins",
+    "interception": "🛡️ {{name}}"
   },
   "standings": {
     "title": "Team standings",
@@ -379,7 +387,7 @@
     "leading": "Leading Player of the Month",
     "points_one": "{{count}} point",
     "points_other": "{{count}} points",
-    "formula": "Points: goal 3 · assist 2 · win 1 · clean sheet 2 (goalkeepers)"
+    "formula": "Points: goal 3 · assist 2 · win 2 · draw 1 · clean sheet 2 (goalkeeper), 1 (defender) · interception 1 · MVP 3 · Best Goalkeeper 3 · Fair Play 3 · Best Goal 2 · Best Defender 2 · yellow card −1 · red card −3"
   },
   "badges": {
     "title": "Badges",
@@ -767,7 +775,6 @@
     "minutes": "Minutes per period",
     "extraTime": "Extra time (min)",
     "off": "Off",
-
     "open": "Open",
     "penalties": "Penalties",
     "goalLimit": "Goal limit",
@@ -786,7 +793,6 @@
       "periods_one": "{{count}} × {{minutes}} min",
       "periods_other": "{{count}} × {{minutes}} min",
       "extraTime": "extra time 2 × {{minutes}}",
-
       "extraTimeOpen": "open extra time",
       "penalties": "penalties",
       "goalLimit": "first to {{count}}",
@@ -908,5 +914,8 @@
     "needsInstall": "On an iPhone or iPad, add the app to the Home Screen first: tap Share, then Add to Home Screen. Open it from there and turn the notification on.",
     "blocked": "Notifications are blocked for this app. Allow them in your browser or phone settings, then come back here.",
     "close": "Close"
+  },
+  "interception": {
+    "who": "Interception — who won the ball?"
   }
 }

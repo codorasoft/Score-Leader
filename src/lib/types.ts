@@ -3,8 +3,8 @@ export type TeamColor = 'green' | 'blue' | 'yellow' | 'orange' | 'purple' | 'whi
 export type SessionStatus = 'draft' | 'active' | 'completed'
 export type MatchStatus = 'pending' | 'active' | 'completed'
 export type TimerStatus = 'running' | 'paused' | 'stopped'
-export type EventType = 'goal' | 'assist' | 'yellow_card' | 'red_card' | 'penalty_goal' | 'swap'
-export type AwardType = 'mvp' | 'best_goalkeeper' | 'best_assister' | 'best_goalscorer' | 'fair_play'
+export type EventType = 'goal' | 'assist' | 'yellow_card' | 'red_card' | 'penalty_goal' | 'swap' | 'interception'
+export type AwardType = 'mvp' | 'best_goalkeeper' | 'best_assister' | 'best_goalscorer' | 'fair_play' | 'best_goal' | 'best_defender'
 export type AwardDecidedBy = 'auto_stat' | 'admin_direct' | 'vote'
 
 export interface Player {
