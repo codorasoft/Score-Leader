@@ -403,3 +403,208 @@ export async function drawBoardImage(data: {
   ctx.fillText(data.footer, W / 2, H - 30)
   return canvas
 }
+
+export interface LeaderboardImageData {
+  league: string
+  title: string
+  period: string
+  subtitle: string
+  stat: string
+  rtl: boolean
+  rows: { rank: number; name: string; photo_url: string | null; position: string; value: number }[]
+  footer: string
+}
+
+const MEDAL = [
+  { ring: '#facc15', glow: 'rgba(250,204,21,0.35)', ink: '#422006' },
+  { ring: '#e2e8f0', glow: 'rgba(226,232,240,0.25)', ink: '#1e293b' },
+  { ring: '#fb923c', glow: 'rgba(251,146,60,0.28)', ink: '#431407' },
+]
+const medalOf = (rank: number) => MEDAL[rank - 1] ?? null
+
+// The leaderboard as a poster: the top three on a podium (first in the middle, raised, with a
+// crown), then everyone else as numbered rows. Rows follow the reading direction.
+export async function drawLeaderboardImage(data: LeaderboardImageData): Promise<HTMLCanvasElement> {
+  const W = 1080
+  const PAD = 64
+  const podium = data.rows.slice(0, 3)
+  const rest = data.rows.slice(3)
+  const ROW_H = 92
+  const PODIUM_FLOOR = 1150
+  const LIST_Y = 1200
+  const H = Math.max(1350, LIST_Y + rest.length * (ROW_H + 14) + 150)
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')!
+  ctx.direction = data.rtl ? 'rtl' : 'ltr'
+  const photos = await Promise.all(data.rows.map((r) => loadPhoto(r.photo_url)))
+
+  // Night-pitch background: deep navy, faint mowing stripes, a floodlight glow over the podium
+  const bg = ctx.createLinearGradient(0, 0, 0, H)
+  bg.addColorStop(0, '#0b1324')
+  bg.addColorStop(1, '#050a14')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+  for (let i = 0; i * 120 < H; i++) {
+    if (i % 2) continue
+    ctx.fillStyle = 'rgba(34,197,94,0.035)'
+    ctx.fillRect(0, i * 120, W, 120)
+  }
+  const glow = ctx.createRadialGradient(W / 2, 640, 40, W / 2, 640, 600)
+  glow.addColorStop(0, 'rgba(250,204,21,0.16)')
+  glow.addColorStop(1, 'rgba(250,204,21,0)')
+  ctx.fillStyle = glow
+  ctx.fillRect(0, 0, W, PODIUM_FLOOR + 100)
+
+  // Header
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#facc15'
+  ctx.font = `800 28px ${FONT}`
+  ctx.fillText(data.league.toUpperCase(), W / 2, 92)
+  ctx.fillStyle = '#ffffff'
+  fitText(ctx, data.title, W - PAD * 2, 76, 900)
+  ctx.fillText(data.title, W / 2, 178)
+
+  // Period and stat as two pills side by side
+  ctx.font = `700 30px ${FONT}`
+  const pills = [
+    { text: data.period, fill: 'rgba(255,255,255,0.08)', ink: '#e2e8f0' },
+    { text: data.stat, fill: '#facc15', ink: '#1c1917' },
+  ]
+  const pillW = pills.map((p) => ctx.measureText(p.text).width + 52)
+  let px = W / 2 - (pillW[0] + pillW[1] + 16) / 2
+  pills.forEach((p, i) => {
+    roundRect(ctx, px, 214, pillW[i], 54, 27)
+    ctx.fillStyle = p.fill
+    ctx.fill()
+    ctx.fillStyle = p.ink
+    ctx.fillText(p.text, px + pillW[i] / 2, 252)
+    px += pillW[i] + 16
+  })
+  ctx.fillStyle = '#94a3b8'
+  ctx.font = `500 28px ${FONT}`
+  ctx.fillText(data.subtitle, W / 2, 318)
+
+  const avatar = (row: LeaderboardImageData['rows'][number], photo: HTMLImageElement | null, cx: number, cy: number, r: number, ring: string | null) => {
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fillStyle = '#1e293b'
+    ctx.fill()
+    if (photo) {
+      ctx.save()
+      ctx.clip()
+      ctx.drawImage(photo, cx - r, cy - r, r * 2, r * 2)
+      ctx.restore()
+    } else {
+      ctx.fillStyle = '#cbd5e1'
+      ctx.font = `800 ${Math.round(r * 0.95)}px ${FONT}`
+      ctx.textAlign = 'center'
+      ctx.fillText(row.name.charAt(0).toUpperCase(), cx, cy + r * 0.33)
+    }
+    if (ring) {
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.lineWidth = Math.max(4, r * 0.09)
+      ctx.strokeStyle = ring
+      ctx.stroke()
+    }
+  }
+
+  // Podium: 2nd, 1st, 3rd from the left (mirrored for right-to-left)
+  const slots = [
+    { index: 1, cx: W / 2 - 320, top: 800, r: 92 },
+    { index: 0, cx: W / 2, top: 730, r: 118 },
+    { index: 2, cx: W / 2 + 320, top: 840, r: 84 },
+  ].map((s) => (data.rtl ? { ...s, cx: W - s.cx } : s))
+  for (const slot of slots) {
+    const row = podium[slot.index]
+    if (!row) continue
+    const medal = medalOf(row.rank) ?? MEDAL[2]
+    const cy = slot.top - slot.r - 70
+    // Block under the player, lit from above
+    const bw = 270
+    const block = ctx.createLinearGradient(0, slot.top, 0, PODIUM_FLOOR)
+    block.addColorStop(0, 'rgba(255,255,255,0.12)')
+    block.addColorStop(1, 'rgba(255,255,255,0.02)')
+    roundRect(ctx, slot.cx - bw / 2, slot.top, bw, PODIUM_FLOOR - slot.top, 22)
+    ctx.fillStyle = block
+    ctx.fill()
+
+    ctx.beginPath()
+    ctx.arc(slot.cx, cy, slot.r + 18, 0, Math.PI * 2)
+    ctx.fillStyle = medal.glow
+    ctx.fill()
+    avatar(row, photos[slot.index], slot.cx, cy, slot.r, medal.ring)
+    if (row.rank === 1) {
+      // A drawn crown, so it looks the same on every phone
+      const base = cy - slot.r - 14, w = 96, h = 56
+      ctx.beginPath()
+      ctx.moveTo(slot.cx - w / 2, base)
+      ctx.lineTo(slot.cx - w / 2, base - h * 0.55)
+      ctx.lineTo(slot.cx - w / 4, base - h * 0.25)
+      ctx.lineTo(slot.cx, base - h)
+      ctx.lineTo(slot.cx + w / 4, base - h * 0.25)
+      ctx.lineTo(slot.cx + w / 2, base - h * 0.55)
+      ctx.lineTo(slot.cx + w / 2, base)
+      ctx.closePath()
+      ctx.fillStyle = medal.ring
+      ctx.fill()
+    }
+    // Rank badge on the avatar's lower edge
+    ctx.beginPath()
+    ctx.arc(slot.cx, cy + slot.r, 26, 0, Math.PI * 2)
+    ctx.fillStyle = medal.ring
+    ctx.fill()
+    ctx.fillStyle = medal.ink
+    ctx.font = `900 30px ${FONT}`
+    ctx.textAlign = 'center'
+    ctx.fillText(String(row.rank), slot.cx, cy + slot.r + 11)
+
+    ctx.fillStyle = '#ffffff'
+    const lines = wrapLines(row.name, bw - 30, (s) => { ctx.font = `800 34px ${FONT}`; return ctx.measureText(s).width }).slice(0, 2)
+    ctx.font = `800 34px ${FONT}`
+    lines.forEach((line, n) => ctx.fillText(line, slot.cx, slot.top + 52 + n * 40))
+    const valueY = slot.top + 52 + lines.length * 40 + 56
+    ctx.fillStyle = medal.ring
+    ctx.font = `900 ${row.rank === 1 ? 72 : 60}px ${FONT}`
+    ctx.fillText(String(row.value), slot.cx, valueY)
+    ctx.fillStyle = '#94a3b8'
+    ctx.font = `600 24px ${FONT}`
+    ctx.fillText(data.stat, slot.cx, valueY + 36)
+  }
+
+  // Everyone else
+  const start = data.rtl ? W - PAD : PAD
+  const end = data.rtl ? PAD : W - PAD
+  const dir = data.rtl ? -1 : 1
+  rest.forEach((row, i) => {
+    const y = LIST_Y + i * (ROW_H + 14)
+    roundRect(ctx, PAD, y, W - PAD * 2, ROW_H, 20)
+    ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.08)'
+    ctx.fill()
+    const mid = y + ROW_H / 2
+    ctx.fillStyle = '#64748b'
+    ctx.font = `900 34px ${FONT}`
+    ctx.textAlign = 'center'
+    ctx.fillText(String(row.rank), start + dir * 44, mid + 12)
+    avatar(row, photos[i + 3], start + dir * 118, mid, 30, null)
+    ctx.textAlign = data.rtl ? 'right' : 'left'
+    ctx.fillStyle = '#f1f5f9'
+    fitText(ctx, row.name, 560, 34, 700)
+    ctx.fillText(row.name, start + dir * 168, mid + 3)
+    ctx.fillStyle = '#64748b'
+    ctx.font = `600 22px ${FONT}`
+    ctx.fillText(row.position, start + dir * 168, mid + 32)
+    ctx.textAlign = data.rtl ? 'left' : 'right'
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `900 42px ${FONT}`
+    ctx.fillText(String(row.value), end - dir * 32, mid + 15)
+  })
+
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#475569'
+  ctx.font = `700 28px ${FONT}`
+  ctx.fillText(data.footer, W / 2, H - 56)
+  return canvas
+}
