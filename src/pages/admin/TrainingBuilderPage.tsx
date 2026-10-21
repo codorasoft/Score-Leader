@@ -7,6 +7,7 @@ import { localToday } from '../../utils/trainingDays'
 import { youtubeThumbnail } from '../../utils/youtube'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import MoveButtons from '../../components/MoveButtons'
+import VideoPreviewDialog from '../../components/VideoPreviewDialog'
 import NotAvailablePage from '../NotAvailablePage'
 
 // The catalog is shown this many videos at a time, so a long one is not one endless list.
@@ -35,6 +36,8 @@ export default function TrainingBuilderPage() {
   // How many catalog videos are on screen; "Show more" raises it, a new badge starts again
   const [visible, setVisible] = useState(CATALOG_STEP)
   const chooseType = (id: string | null) => { setTypeFilter(id); setVisible(CATALOG_STEP) }
+  // The catalog video playing in the preview, if any
+  const [previewId, setPreviewId] = useState<string | null>(null)
 
   // Latest request, so a slow response for a training or league we have left is dropped
   const current = useRef('')
@@ -86,6 +89,11 @@ export default function TrainingBuilderPage() {
     })
     .filter((g) => g.videos.length > 0)
   const left = shown.reduce((n, g) => n + g.videos.length, 0) - onScreen.reduce((n, g) => n + g.videos.length, 0)
+  // The preview steps through every video the badge shows, in the order of the list
+  const order = shown.flatMap((g) => g.videos)
+  const typeName = new Map(catalog.types.map((type) => [type.id, type.name]))
+  const previewAt = order.findIndex((v) => v.id === previewId)
+  const preview = previewAt >= 0 ? order[previewAt] : null
   const badge = (on: boolean) =>
     `shrink-0 px-3 py-1.5 rounded-full text-sm border ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:text-white'}`
 
@@ -183,14 +191,27 @@ export default function TrainingBuilderPage() {
               {videos.map((video) => {
                 const on = picked.includes(video.id)
                 return (
-                  <li key={video.id}>
+                  <li key={video.id} className={`flex items-center gap-3 p-2 rounded-lg border ${on ? 'bg-blue-900/40 border-blue-500' : 'bg-gray-800 border-transparent hover:bg-gray-700'}`}>
+                    {/* The thumbnail plays the video in the app; the rest of the row picks it */}
+                    <button
+                      type="button"
+                      onClick={() => setPreviewId(video.id)}
+                      aria-label={t('training.preview', { title: video.title })}
+                      className="relative w-24 shrink-0 aspect-video rounded overflow-hidden bg-gray-700 group"
+                    >
+                      <img src={youtubeThumbnail(video.youtube_id)} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                      <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/10">
+                        <span className="w-8 h-8 rounded-full bg-black/70 group-hover:bg-red-600 flex items-center justify-center transition-colors">
+                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white"><path d="M8 5v14l11-7z" /></svg>
+                        </span>
+                      </span>
+                    </button>
                     <button
                       type="button"
                       aria-pressed={on}
                       onClick={() => toggle(video.id)}
-                      className={`w-full flex items-center gap-3 p-2 rounded-lg text-start border ${on ? 'bg-blue-900/40 border-blue-500' : 'bg-gray-800 border-transparent hover:bg-gray-700'}`}
+                      className="flex-1 min-w-0 self-stretch flex items-center gap-3 text-start"
                     >
-                      <img src={youtubeThumbnail(video.youtube_id)} alt="" loading="lazy" className="w-24 aspect-video object-cover rounded bg-gray-700 shrink-0" />
                       <span className="flex-1 min-w-0">{video.title}</span>
                       {on && (
                         <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 text-blue-400" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -226,6 +247,17 @@ export default function TrainingBuilderPage() {
         <button onClick={() => setConfirmDelete(true)} className="w-full mt-6 py-2 rounded-lg text-sm text-red-300 hover:bg-red-900/40">
           {t('training.delete')}
         </button>
+      )}
+      {preview && (
+        <VideoPreviewDialog
+          video={preview}
+          typeName={typeName.get(preview.type_id)}
+          position={picked.includes(preview.id) ? picked.indexOf(preview.id) + 1 : null}
+          onToggle={() => toggle(preview.id)}
+          onPrev={previewAt > 0 ? () => setPreviewId(order[previewAt - 1].id) : undefined}
+          onNext={previewAt < order.length - 1 ? () => setPreviewId(order[previewAt + 1].id) : undefined}
+          onClose={() => setPreviewId(null)}
+        />
       )}
       {confirmDelete && (
         <ConfirmDialog
