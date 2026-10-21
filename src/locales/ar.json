@@ -959,7 +959,15 @@
     "play": "تشغيل {{title}}",
     "openOnYouTube": "فتح في يوتيوب",
     "moveUp": "تحريك للأعلى",
-    "moveDown": "تحريك للأسفل"
+    "moveDown": "تحريك للأسفل",
+    "preview": "مشاهدة {{title}}",
+    "pickThis": "اختر هذا الفيديو",
+    "pickedAt": "تم الاختيار · رقم {{position}}",
+    "tapToRemove": "اضغط مرة أخرى لإزالته من الخطة",
+    "previewHint": "شاهده هنا، ثم اختره للخطة",
+    "prevVideo": "الفيديو السابق",
+    "nextVideo": "الفيديو التالي",
+    "close": "إغلاق"
   },
   "schedule": {
     "title": "جدول المدرب",

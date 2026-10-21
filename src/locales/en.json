@@ -826,7 +826,15 @@
     "play": "Play {{title}}",
     "openOnYouTube": "Open on YouTube",
     "moveUp": "Move up",
-    "moveDown": "Move down"
+    "moveDown": "Move down",
+    "preview": "Watch {{title}}",
+    "pickThis": "Pick this video",
+    "pickedAt": "Picked · #{{position}}",
+    "tapToRemove": "Tap again to remove it from the plan",
+    "previewHint": "Watch it here, then pick it for the plan",
+    "prevVideo": "Previous video",
+    "nextVideo": "Next video",
+    "close": "Close"
   },
   "schedule": {
     "title": "Coach's schedule",
