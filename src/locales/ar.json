@@ -324,7 +324,23 @@
     "int_many": "{{count}} قطع كرة",
     "int_other": "{{count}} قطع كرة",
     "share": "مشاركة كصورة",
-    "shareTitle": "قائمة المتصدرين · {{period}}"
+    "shareTitle": "قائمة المتصدرين · {{period}}",
+    "record": {
+      "goal": "{{count}} هدف",
+      "assist": "{{count}} تمريرة",
+      "win": "{{count}} فوز",
+      "draw": "{{count}} تعادل",
+      "cleanSheet": "{{count}} شباك نظيفة",
+      "interception": "{{count}} قطع كرة",
+      "mvp": "{{count}} أفضل لاعب",
+      "bestGoalkeeper": "{{count}} أفضل حارس",
+      "fairPlay": "{{count}} لعب نظيف",
+      "bestGoal": "{{count}} أفضل هدف",
+      "bestDefender": "{{count}} أفضل مدافع",
+      "yellowCard": "{{count}} صفراء",
+      "redCard": "{{count}} حمراء"
+    },
+    "legend": "النقاط: هدف 2 · تمريرة 2 · فوز 2 · تعادل 1 · شباك نظيفة 2 (حارس المرمى)، 1 (المدافع) · قطع كرة 1 · أفضل لاعب 3 · أفضل حارس 3 · اللعب النظيف 3 · أفضل هدف 2 · أفضل مدافع 2 · بطاقة صفراء \u2066−1\u2069 · بطاقة حمراء \u2066−3\u2069"
   },
   "vote": {
     "selectOne": "اختر لاعباً واحداً",

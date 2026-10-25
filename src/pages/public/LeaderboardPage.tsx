@@ -3,8 +3,8 @@ import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { loadLeague } from '../../lib/league'
-import { availablePeriods, defaultPeriod, periodStats, type PeriodKey } from '../../utils/leaderboardPeriod'
-import { monthKey, playersOfMonth, potmPoints } from '../../utils/playerOfMonth'
+import { availablePeriods, defaultPeriod, periodStats, type PeriodKey, type PeriodStat } from '../../utils/leaderboardPeriod'
+import { monthKey, playersOfMonth, pointParts, potmPoints } from '../../utils/playerOfMonth'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { drawLeaderboardImage, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
@@ -81,6 +81,13 @@ export default function LeaderboardPage() {
   const monthOver = period < monthKey(new Date())
   const sortLabel = t(SORTS.find((s) => s.key === sortBy)!.labelKey)
 
+  // A player's records, e.g. "3G · 2W"; sorted by points, each with the points it brings ("3G (+6)")
+  const recordOf = (s: PeriodStat) => pointParts(s).map((part) => {
+    const text = t(`leaderboard.record.${part.kind}`, { count: part.count })
+    // The signed number kept left to right (U+2066..U+2069), so Arabic shows (+6), not (6+)
+    return sortBy === 'points' ? `${text} (\u2066${part.points > 0 ? '+' : '−'}${Math.abs(part.points)}\u2069)` : text
+  }).join(' · ')
+
   // The list as it is on screen (period and sort), as a picture for the phone's share sheet
   const shareImage = async () => {
     const title = t('leaderboard.shareTitle', { period: label(period) })
@@ -93,7 +100,9 @@ export default function LeaderboardPage() {
       rtl: i18n.dir() === 'rtl',
       rows: sorted.slice(0, SHARE_ROWS).map((s, i) => ({
         rank: ranks[i], name: s.player.name, photo_url: photosOn ? s.player.photo_url : null, position: s.player.position, value: s[sortBy],
+        record: recordOf(s),
       })),
+      legend: sortBy === 'points' ? t('leaderboard.legend') : null,
       footer: 'ScoreLeader',
     })
     return shareCanvas(canvas, `scoreleader-leaderboard-${period}-${sortBy}.png`, title)

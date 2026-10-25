@@ -19,14 +19,31 @@ export const POTM_POINTS = {
   yellowCard: -1, redCard: -3,
 } as const
 
-export const potmPoints = (s: PeriodStat) =>
-  s.goals * POTM_POINTS.goal + s.assists * POTM_POINTS.assist
-  + s.matchesWon * POTM_POINTS.win + s.matchesDrawn * POTM_POINTS.draw
-  + s.cleanSheets * (s.player.position === 'GK' ? POTM_POINTS.cleanSheetGk : POTM_POINTS.cleanSheetDef)
-  + s.interceptions * POTM_POINTS.interception
-  + s.mvpAwards * POTM_POINTS.mvp + s.bestGoalkeeperAwards * POTM_POINTS.bestGoalkeeper + s.fairPlayAwards * POTM_POINTS.fairPlay
-  + s.bestGoalAwards * POTM_POINTS.bestGoal + s.bestDefenderAwards * POTM_POINTS.bestDefender
-  + s.yellowCards * POTM_POINTS.yellowCard + s.redCards * POTM_POINTS.redCard
+export type PointKind = 'goal' | 'assist' | 'win' | 'draw' | 'cleanSheet' | 'interception'
+  | 'mvp' | 'bestGoalkeeper' | 'fairPlay' | 'bestGoal' | 'bestDefender' | 'yellowCard' | 'redCard'
+
+// What a player's points are made of, in a fixed order: each record they have (count above zero)
+// and the points it brings. The leaderboard shows it so the total can be checked.
+export function pointParts(s: PeriodStat): { kind: PointKind; count: number; points: number }[] {
+  const parts: [PointKind, number, number][] = [
+    ['goal', s.goals, POTM_POINTS.goal],
+    ['assist', s.assists, POTM_POINTS.assist],
+    ['win', s.matchesWon, POTM_POINTS.win],
+    ['draw', s.matchesDrawn, POTM_POINTS.draw],
+    ['cleanSheet', s.cleanSheets, s.player.position === 'GK' ? POTM_POINTS.cleanSheetGk : POTM_POINTS.cleanSheetDef],
+    ['interception', s.interceptions, POTM_POINTS.interception],
+    ['mvp', s.mvpAwards, POTM_POINTS.mvp],
+    ['bestGoalkeeper', s.bestGoalkeeperAwards, POTM_POINTS.bestGoalkeeper],
+    ['fairPlay', s.fairPlayAwards, POTM_POINTS.fairPlay],
+    ['bestGoal', s.bestGoalAwards, POTM_POINTS.bestGoal],
+    ['bestDefender', s.bestDefenderAwards, POTM_POINTS.bestDefender],
+    ['yellowCard', s.yellowCards, POTM_POINTS.yellowCard],
+    ['redCard', s.redCards, POTM_POINTS.redCard],
+  ]
+  return parts.filter(([, count]) => count > 0).map(([kind, count, each]) => ({ kind, count, points: count * each }))
+}
+
+export const potmPoints = (s: PeriodStat) => pointParts(s).reduce((sum, part) => sum + part.points, 0)
 
 // Points first, then goals, assists and wins; players level on all four share the title.
 const rankKey = (s: PeriodStat) => [potmPoints(s), s.goals, s.assists, s.matchesWon]
