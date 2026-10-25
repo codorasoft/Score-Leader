@@ -250,7 +250,12 @@
     "startMatch": "Start match {{number}}",
     "teamsNotConfirmed": "Teams are not confirmed yet",
     "chooseTeams": "Choose teams",
-    "choosePlayers": "Choose players"
+    "choosePlayers": "Choose players",
+    "changePlayers": "Change players",
+    "nothingPlayedYet": "Nothing has been played yet, so the teams can still be changed.",
+    "backToTeams": "Back to picking teams",
+    "confirmBackToTeams": "Go back to picking teams? Match 1 is removed and the teams open in the team builder, as they are now, to change and confirm again.",
+    "backToTeamsFailed": "Couldn't go back to picking teams. A match may have been played already, or there's no connection. Try again."
   },
   "leaderboard": {
     "title": "Leaderboard",
