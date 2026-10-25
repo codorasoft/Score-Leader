@@ -9,10 +9,10 @@ import { FEATURES } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 type ImageRow = { rank: number; name: string; value: number; record: string }
-const shared = vi.hoisted(() => ({ images: [] as { title: string; period: string; stat: string; rows: ImageRow[]; legend: string | null; fileName: string; shareTitle: string }[] }))
+const shared = vi.hoisted(() => ({ images: [] as { title: string; period: string; stat: string; rows: ImageRow[]; fileName: string; shareTitle: string }[] }))
 vi.mock('../../lib/shareImage', () => ({
-  drawLeaderboardImage: async (d: { title: string; period: string; stat: string; rows: ImageRow[]; legend: string | null }) => d,
-  shareCanvas: async (canvas: { title: string; period: string; stat: string; rows: ImageRow[]; legend: string | null }, fileName: string, shareTitle: string) => {
+  drawLeaderboardImage: async (d: { title: string; period: string; stat: string; rows: ImageRow[] }) => d,
+  shareCanvas: async (canvas: { title: string; period: string; stat: string; rows: ImageRow[] }, fileName: string, shareTitle: string) => {
     shared.images.push({ ...canvas, fileName, shareTitle })
     return 'shared'
   },
@@ -98,12 +98,11 @@ it('shares the list as it is shown, for the chosen period and stat, as an image'
   expect(image.stat).toBe('Assists')
   expect(image.rows[0]).toMatchObject({ rank: 1, name: 'Ali', value: 1 })
   expect(image.fileName).toMatch(/assists\.png$/)
-  // Each player's records come along; the points legend only when sorted by points
+  // Each player's records come along
   expect(image.rows[0].record).toBe('1A · 1W · 1CS')
-  expect(image.legend).toBeNull()
 })
 
-it('shows on the shared image how each player got their points', async () => {
+it('shows each player\'s total points and records on the shared image', async () => {
   resetDb(finishedLeague())
   shared.images.length = 0
   const user = userEvent.setup()
@@ -112,6 +111,5 @@ it('shows on the shared image how each player got their points', async () => {
   await user.click(screen.getByRole('button', { name: /Share as image/ }))
   const image = shared.images[0]
   // Omar: 2 goals and a win, 6 points
-  expect(image.rows[0]).toMatchObject({ name: 'Omar', value: 6, record: '2G (\u2066+4\u2069) · 1W (\u2066+2\u2069)' })
-  expect(image.legend).toMatch(/^How points are counted: G goal \+2/)
+  expect(image.rows[0]).toMatchObject({ name: 'Omar', value: 6, record: '2G · 1W' })
 })

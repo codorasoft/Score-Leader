@@ -81,12 +81,8 @@ export default function LeaderboardPage() {
   const monthOver = period < monthKey(new Date())
   const sortLabel = t(SORTS.find((s) => s.key === sortBy)!.labelKey)
 
-  // A player's records, e.g. "3G · 2W"; sorted by points, each with the points it brings ("3G (+6)")
-  const recordOf = (s: PeriodStat) => pointParts(s).map((part) => {
-    const text = t(`leaderboard.record.${part.kind}`, { count: part.count })
-    // The signed number kept left to right (U+2066..U+2069), so Arabic shows (+6), not (6+)
-    return sortBy === 'points' ? `${text} (\u2066${part.points > 0 ? '+' : '−'}${Math.abs(part.points)}\u2069)` : text
-  }).join(' · ')
+  // A player's records, e.g. "3G · 2A · 4W"
+  const recordOf = (s: PeriodStat) => pointParts(s).map((part) => t(`leaderboard.record.${part.kind}`, { count: part.count })).join(' · ')
 
   // The list as it is on screen (period and sort), as a picture for the phone's share sheet
   const shareImage = async () => {
@@ -102,7 +98,6 @@ export default function LeaderboardPage() {
         rank: ranks[i], name: s.player.name, photo_url: photosOn ? s.player.photo_url : null, position: s.player.position, value: s[sortBy],
         record: recordOf(s),
       })),
-      legend: sortBy === 'points' ? t('leaderboard.legend') : null,
       footer: 'ScoreLeader',
     })
     return shareCanvas(canvas, `scoreleader-leaderboard-${period}-${sortBy}.png`, title)
