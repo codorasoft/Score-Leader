@@ -193,13 +193,13 @@ export function drawSessionImage(data: SessionImageData): HTMLCanvasElement {
   return canvas
 }
 
-// A name as lines no wider than maxWidth, broken at spaces. A word is never split, so a single
-// word can still be wider than the line.
-export function wrapLines(text: string, maxWidth: number, measure: (s: string) => number): string[] {
+// A name as lines no wider than maxWidth, broken at spaces (or at sep, e.g. ' · ' to keep each
+// item of a list whole). A word is never split, so a single word can still be wider than the line.
+export function wrapLines(text: string, maxWidth: number, measure: (s: string) => number, sep = ' '): string[] {
   const lines: string[] = []
-  for (const word of text.trim().split(/\s+/)) {
+  for (const word of sep === ' ' ? text.trim().split(/\s+/) : text.split(sep)) {
     const last = lines[lines.length - 1]
-    if (last !== undefined && measure(`${last} ${word}`) <= maxWidth) lines[lines.length - 1] = `${last} ${word}`
+    if (last !== undefined && measure(`${last}${sep}${word}`) <= maxWidth) lines[lines.length - 1] = `${last}${sep}${word}`
     else lines.push(word)
   }
   return lines
@@ -411,7 +411,10 @@ export interface LeaderboardImageData {
   subtitle: string
   stat: string
   rtl: boolean
-  rows: { rank: number; name: string; photo_url: string | null; position: string; value: number }[]
+  // record: what the player's value is made of (e.g. "3G (+6) · 2W (+4)"); legend: how to read
+  // it, printed under the list, or null for none
+  rows: { rank: number; name: string; photo_url: string | null; position: string; value: number; record: string }[]
+  legend: string | null
   footer: string
 }
 
@@ -432,11 +435,14 @@ export async function drawLeaderboardImage(data: LeaderboardImageData): Promise<
   const ROW_H = 92
   const PODIUM_FLOOR = 1150
   const LIST_Y = 1200
-  const H = Math.max(1350, LIST_Y + rest.length * (ROW_H + 14) + 150)
   const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+  const LEGEND_FONT = `500 24px ${FONT}`
+  const legendLines = data.legend ? wrapLines(data.legend, W - PAD * 2, (s) => { ctx.font = LEGEND_FONT; return ctx.measureText(s).width }, ' · ') : []
+  const legendH = legendLines.length ? legendLines.length * 34 + 40 : 0
+  const H = Math.max(1350, LIST_Y + rest.length * (ROW_H + 14) + 150 + legendH)
   canvas.width = W
   canvas.height = H
-  const ctx = canvas.getContext('2d')!
   ctx.direction = data.rtl ? 'rtl' : 'ltr'
   const photos = await Promise.all(data.rows.map((r) => loadPhoto(r.photo_url)))
 
@@ -572,6 +578,14 @@ export async function drawLeaderboardImage(data: LeaderboardImageData): Promise<
     ctx.fillStyle = '#94a3b8'
     ctx.font = `600 24px ${FONT}`
     ctx.fillText(data.stat, slot.cx, valueY + 36)
+    // The record under it, wrapped inside the block
+    ctx.fillStyle = '#cbd5e1'
+    const recordLines = row.record ? wrapLines(row.record, bw - 30, (s) => { ctx.font = `600 20px ${FONT}`; return ctx.measureText(s).width }, ' · ') : []
+    const recordTop = valueY + 80
+    const fits = Math.max(0, Math.floor((PODIUM_FLOOR - 16 - recordTop) / 27) + 1)
+    if (recordLines.length > fits) { recordLines.length = fits; if (fits) recordLines[fits - 1] += ' …' }
+    ctx.font = `600 20px ${FONT}`
+    recordLines.forEach((line, n) => ctx.fillText(line, slot.cx, recordTop + n * 27))
   }
 
   // Everyone else
@@ -593,9 +607,10 @@ export async function drawLeaderboardImage(data: LeaderboardImageData): Promise<
     ctx.fillStyle = '#f1f5f9'
     fitText(ctx, row.name, 560, 34, 700)
     ctx.fillText(row.name, start + dir * 168, mid + 3)
-    ctx.fillStyle = '#64748b'
-    ctx.font = `600 22px ${FONT}`
-    ctx.fillText(row.position, start + dir * 168, mid + 32)
+    ctx.fillStyle = '#94a3b8'
+    const detail = row.record ? `${row.position} · ${row.record}` : row.position
+    fitText(ctx, detail, 680, 22, 600)
+    ctx.fillText(detail, start + dir * 168, mid + 32)
     ctx.textAlign = data.rtl ? 'left' : 'right'
     ctx.fillStyle = '#ffffff'
     ctx.font = `900 42px ${FONT}`
@@ -603,6 +618,9 @@ export async function drawLeaderboardImage(data: LeaderboardImageData): Promise<
   })
 
   ctx.textAlign = 'center'
+  ctx.fillStyle = '#94a3b8'
+  ctx.font = LEGEND_FONT
+  legendLines.forEach((line, n) => ctx.fillText(line, W / 2, H - 56 - legendH + 10 + n * 34))
   ctx.fillStyle = '#475569'
   ctx.font = `700 28px ${FONT}`
   ctx.fillText(data.footer, W / 2, H - 56)

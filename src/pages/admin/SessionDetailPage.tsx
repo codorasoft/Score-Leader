@@ -17,7 +17,8 @@ import { FirstMatchPicker } from '../../components/FirstMatchPicker'
 import { drawGoesToPenalties, matchRowFields, nextMatchToStart, waitingQueue } from '../../utils/matchRotation'
 import { buildSummaryParts } from '../../utils/sessionSummary'
 import type { Match, Team, TeamColor, Session, MatchEvent, Player, TeamPlayer, SessionAward } from '../../lib/types'
-import { styleMap } from '../../lib/teamColors'
+import { styleMap, TEAM_COLORS } from '../../lib/teamColors'
+import { createTeamsBoard } from '../../lib/teamsBoard'
 import { MatchFormatLine } from '../../components/MatchFormatLine'
 import { DEFAULT_FORMAT, periodLength } from '../../utils/matchFormat'
 import { resultLabel } from '../../utils/resultLabel'
@@ -33,6 +34,7 @@ export default function SessionDetailPage() {
   const league = useLeague()
   const navigate = useNavigate()
   const summaryShare = useFeature('summary_share')
+  const coachBoard = useFeature('coach_board')
   const voting = useFeature('voting')
   const awardsOn = useFeature('awards')
   const [session, setSession] = useState<Session | null>(null)
@@ -51,6 +53,10 @@ export default function SessionDetailPage() {
   const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
   const [starting, setStarting] = useState(false)
   const [hasPlayers, setHasPlayers] = useState(false)
+  const [confirmReopen, setConfirmReopen] = useState(false)
+  const [reopening, setReopening] = useState(false)
+  const [reopenFailed, setReopenFailed] = useState(false)
+  const [makingBoard, setMakingBoard] = useState(false)
 
   // The session with everything linked to it, and its awards, side by side in one round
   const load = useCallback(async () => {
@@ -159,6 +165,37 @@ export default function SessionDetailPage() {
     if (data) navigate(adminPath(`/sessions/${sessionId}/match/${(data as Match).id}`))
   }
 
+  // Teams confirmed but nothing played yet (no match ended, no goal or card): the session can go
+  // back to picking teams. The confirmed teams are kept as the draft, so the builder opens on them.
+  const canReopen = session?.status === 'active' && completed.length === 0 && events.length === 0
+
+  // The confirmed teams in colour order, as player ids per team
+  const orderedTeams = [...teams].sort((a, b) => TEAM_COLORS.indexOf(a.color) - TEAM_COLORS.indexOf(b.color))
+  const playerIdsOf = (team: Team) => teamPlayers.filter((tp) => tp.team_id === team.id).map((tp) => tp.player_id)
+
+  // A coach board with the confirmed teams on it, as the team builder makes one, so the teams can
+  // still be put on a board and shared once the session is under way or over
+  const makeBoard = async () => {
+    if (makingBoard || !session) return
+    setMakingBoard(true)
+    const name = t('teamBuilder.boardName', { date: session.date, teams: orderedTeams.map((tm) => t(`common.teamColor.${tm.color}`)).join(' / ') })
+    const id = await createTeamsBoard(league.id, name, orderedTeams.map((tm) => ({ color: tm.color, label: teamLabel(tm), playerIds: playerIdsOf(tm) })))
+    if (id) { navigate(adminPath(`/lineups/${id}`)); return }
+    setMakingBoard(false)
+  }
+
+  const reopenTeams = async () => {
+    if (reopening) return
+    setReopening(true)
+    setReopenFailed(false)
+    const draft = orderedTeams.map(playerIdsOf)
+    const { data, error } = await supabase.rpc('reopen_teams', { p_session_id: sessionId, p_draft_teams: draft })
+    setReopening(false)
+    setConfirmReopen(false)
+    if (error || !data) { setReopenFailed(true); load(); return }
+    navigate(adminPath(`/sessions/${sessionId}/teams`))
+  }
+
   const deleteMatch = async (matchId: string) => {
     setConfirmDeleteMatchId(null)
     // match_events are removed by ON DELETE CASCADE
@@ -175,6 +212,16 @@ export default function SessionDetailPage() {
         <h1 className="text-xl font-bold">{session?.date ?? '…'}</h1>
       </div>
       {session && <MatchFormatLine format={session} />}
+
+      {coachBoard && session?.status !== 'draft' && teams.length > 0 && (
+        <button
+          onClick={makeBoard}
+          disabled={makingBoard}
+          className="mb-6 w-full py-2 text-sm bg-gray-700 rounded-xl hover:bg-gray-600 disabled:opacity-50"
+        >
+          <span aria-hidden="true">📋 </span>{t('teamBuilder.makeBoard')}
+        </button>
+      )}
 
       {summaryShare && session && completed.length > 0 && (
         <div className="mb-6">
@@ -220,6 +267,27 @@ export default function SessionDetailPage() {
           >
             {t(hasPlayers ? 'sessionDetail.chooseTeams' : 'sessionDetail.choosePlayers')}
           </Link>
+          {hasPlayers && (
+            <Link
+              to={adminPath(`/sessions/${sessionId}/players`)}
+              className="mt-2 block w-full py-2 bg-gray-700 rounded-xl text-sm font-semibold text-center hover:bg-gray-600"
+            >
+              {t('sessionDetail.changePlayers')}
+            </Link>
+          )}
+        </section>
+      )}
+
+      {canReopen && (
+        <section className="mb-6 bg-gray-800 rounded-xl p-4">
+          <p className="text-sm text-gray-300 mb-3">{t('sessionDetail.nothingPlayedYet')}</p>
+          <button
+            onClick={() => setConfirmReopen(true)}
+            className="w-full py-3 bg-gray-700 rounded-xl font-bold hover:bg-gray-600"
+          >
+            {t('sessionDetail.backToTeams')}
+          </button>
+          {reopenFailed && <p role="alert" className="mt-2 text-sm text-orange-300">{t('sessionDetail.backToTeamsFailed')}</p>}
         </section>
       )}
 
@@ -412,6 +480,22 @@ export default function SessionDetailPage() {
           }}
           onClose={() => setGoalDialog(null)}
         />
+      )}
+
+      {confirmReopen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmReopen(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm text-gray-300 mb-5">{t('sessionDetail.confirmBackToTeams')}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmReopen(false)} className="flex-1 py-2 bg-gray-700 rounded font-semibold hover:bg-gray-600">
+                {t('common.cancel')}
+              </button>
+              <button onClick={reopenTeams} disabled={reopening} className="flex-1 py-2 bg-blue-600 rounded font-semibold hover:bg-blue-500 disabled:opacity-50">
+                {t('sessionDetail.backToTeams')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmDeleteMatchId && (

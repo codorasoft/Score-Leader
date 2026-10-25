@@ -248,6 +248,19 @@ const DB_FUNCTIONS: Record<string, (a: Args) => unknown> = {
     })
     return id
   },
+  reopen_teams: (a) => {
+    const session = rows('sessions').find((s) => s.id === a.p_session_id && s.status === 'active')
+    if (!session) return false
+    const matchIds = new Set(rows('matches').filter((m) => m.session_id === session.id).map((m) => m.id))
+    if (rows('matches').some((m) => matchIds.has(m.id) && m.status === 'completed')) return false
+    if (rows('match_events').some((e) => matchIds.has(e.match_id))) return false
+    const teamIds = new Set(rows('teams').filter((t) => t.session_id === session.id).map((t) => t.id))
+    db.tables.matches = rows('matches').filter((m) => !matchIds.has(m.id))
+    db.tables.team_players = rows('team_players').filter((tp) => !teamIds.has(tp.team_id))
+    db.tables.teams = rows('teams').filter((t) => !teamIds.has(t.id))
+    Object.assign(session, { status: 'draft', draft_teams: a.p_draft_teams })
+    return true
+  },
   finish_match: (a) => {
     const match = rows('matches').find((m) => m.id === a.p_match_id)
     if (!match) throw { message: 'match not found' }
