@@ -411,10 +411,8 @@ export interface LeaderboardImageData {
   subtitle: string
   stat: string
   rtl: boolean
-  // record: what the player's value is made of (e.g. "3G (+6) · 2W (+4)"); legend: how to read
-  // it, printed under the list, or null for none
+  // record: the player's records, e.g. "3G · 2A · 4W"
   rows: { rank: number; name: string; photo_url: string | null; position: string; value: number; record: string }[]
-  legend: string | null
   footer: string
 }
 
@@ -437,10 +435,7 @@ export async function drawLeaderboardImage(data: LeaderboardImageData): Promise<
   const LIST_Y = 1200
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
-  const LEGEND_FONT = `500 24px ${FONT}`
-  const legendLines = data.legend ? wrapLines(data.legend, W - PAD * 2, (s) => { ctx.font = LEGEND_FONT; return ctx.measureText(s).width }, ' · ') : []
-  const legendH = legendLines.length ? legendLines.length * 34 + 40 : 0
-  const H = Math.max(1350, LIST_Y + rest.length * (ROW_H + 14) + 150 + legendH)
+  const H = Math.max(1350, LIST_Y + rest.length * (ROW_H + 14) + 150)
   canvas.width = W
   canvas.height = H
   ctx.direction = data.rtl ? 'rtl' : 'ltr'
@@ -618,9 +613,6 @@ export async function drawLeaderboardImage(data: LeaderboardImageData): Promise<
   })
 
   ctx.textAlign = 'center'
-  ctx.fillStyle = '#94a3b8'
-  ctx.font = LEGEND_FONT
-  legendLines.forEach((line, n) => ctx.fillText(line, W / 2, H - 56 - legendH + 10 + n * 34))
   ctx.fillStyle = '#475569'
   ctx.font = `700 28px ${FONT}`
   ctx.fillText(data.footer, W / 2, H - 56)

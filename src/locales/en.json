@@ -291,8 +291,7 @@
       "bestDefender": "{{count}}BD",
       "yellowCard": "{{count}}YC",
       "redCard": "{{count}}RC"
-    },
-    "legend": "How points are counted: G goal +2 · A assist +2 · W win +2 · D draw +1 · CS clean sheet +2 goalkeeper, +1 defender · INT interception +1 · MVP +3 · BGK best goalkeeper +3 · FP fair play +3 · BG best goal +2 · BD best defender +2 · YC yellow card −1 · RC red card −3"
+    }
   },
   "vote": {
     "selectOne": "Select one player",
