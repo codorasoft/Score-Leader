@@ -1,4 +1,5 @@
 import type { Player, MatchEvent, Match } from '../lib/types'
+import type { MatchRosters } from './playerMatches'
 
 export interface PlayerStat {
   player: Player
@@ -20,7 +21,7 @@ export function computePlayerStats(
   players: Player[],
   events: MatchEvent[],
   matches: Match[],
-  playerTeams: Record<string, string[]>, // playerId → the player’s team in each session
+  rosters: MatchRosters, // who was on which team in each match, after swaps (see matchRosters)
 ): PlayerStat[] {
   return players.map((player) => {
     const pEvents = events.filter((e) => e.player_id === player.id)
@@ -31,13 +32,11 @@ export function computePlayerStats(
     const redCards = pEvents.filter((e) => e.event_type === 'red_card').length
     const interceptions = pEvents.filter((e) => e.event_type === 'interception').length
 
-    const teamIds = new Set(playerTeams[player.id] ?? [])
-    const completedMatches = matches.filter(
-      (m) => m.status === 'completed' && (teamIds.has(m.team1_id) || teamIds.has(m.team2_id))
-    )
+    const teamIn = (m: Match) => rosters.get(m.id)?.get(player.id)
+    const completedMatches = matches.filter((m) => m.status === 'completed' && (teamIn(m) === m.team1_id || teamIn(m) === m.team2_id))
     const matchesPlayed = completedMatches.length
     // A draw still stores winner_team_id (who keeps the field), so it must not count as a win
-    const matchesWon = completedMatches.filter((m) => !m.is_draw && m.winner_team_id && teamIds.has(m.winner_team_id)).length
+    const matchesWon = completedMatches.filter((m) => !m.is_draw && m.winner_team_id === teamIn(m)).length
     const matchesDrawn = completedMatches.filter((m) => m.is_draw).length
 
     // Clean sheet: a goalkeeper's or defender's team conceded 0 goals in a match
@@ -45,7 +44,7 @@ export function computePlayerStats(
     let cleanSheets = 0
     let goalsConceded = 0
     for (const m of completedMatches) {
-      const conceded = teamIds.has(m.team1_id) ? m.team2_score : m.team1_score
+      const conceded = teamIn(m) === m.team1_id ? m.team2_score : m.team1_score
       goalsConceded += conceded
       if (keepsSheets && conceded === 0) cleanSheets++
     }

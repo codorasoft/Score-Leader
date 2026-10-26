@@ -1,5 +1,6 @@
 import type { Match, MatchEvent, Player, Session, SessionAward, TeamPlayer } from '../lib/types'
 import { computePlayerStats, type PlayerStat } from './stats'
+import { matchRosters } from './playerMatches'
 
 // 'all' | season 'YYYY' (calendar year) | month 'YYYY-MM'; session dates are 'YYYY-MM-DD'
 export type PeriodKey = string
@@ -37,14 +38,14 @@ export function periodStats(
   const matchIds = new Set(matches.map((m) => m.id))
   const events = data.events.filter((e) => matchIds.has(e.match_id))
 
-  const playerTeams: Record<string, string[]> = {}
-  for (const tp of data.teamPlayers) (playerTeams[tp.player_id] ??= []).push(tp.team_id)
+  // From every match and event, not just this period's: undoing swaps needs the whole session
+  const rosters = matchRosters(data)
 
   const awards = data.awards.filter((a) => sessionIds.has(a.session_id))
   const won = (playerId: string, type: SessionAward['award_type']) =>
     awards.filter((a) => a.winner_player_id === playerId && a.award_type === type).length
 
-  const stats = computePlayerStats(data.players, events, matches, playerTeams)
+  const stats = computePlayerStats(data.players, events, matches, rosters)
     .filter((s) => s.matchesPlayed > 0)
     .map((s) => ({
       ...s,

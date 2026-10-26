@@ -18,6 +18,8 @@ const award = (session_id: string, award_type: SessionAward['award_type']): Sess
 
 const input = {
   position: 'ATT' as const,
+  // No swaps: the player's team in each session
+  teamIn: (matchId: string) => (['m1', 'm2', 'm3'].includes(matchId) ? 't1' : 't2'),
   sessions: [session('s2', '2026-09-27'), session('s1', '2026-09-20')],
   teams: [team('t1', 's1', 'red'), team('t2', 's2', 'blue')],
   matches: [

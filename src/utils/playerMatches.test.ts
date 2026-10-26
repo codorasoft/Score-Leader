@@ -1,5 +1,5 @@
-import { matchesByPlayer, partnerships, partnersOf } from './playerMatches'
-import type { Match, Session, TeamPlayer } from '../lib/types'
+import { matchesByPlayer, matchRosters, partnerships, partnersOf } from './playerMatches'
+import type { Match, MatchEvent, Session, TeamPlayer } from '../lib/types'
 
 const sessions = [{ id: 's1', date: '2026-09-01' }, { id: 's2', date: '2026-09-08' }] as Session[]
 const m = (id: string, session_id: string, match_number: number, team1_id: string, team2_id: string, a: number, b: number) =>
@@ -52,4 +52,44 @@ it('shows no toughest list when every partner has the same win rate', () => {
   const { best, worst } = partnersOf(pairs, 'ali', 5)
   expect(best).toHaveLength(2)
   expect(worst).toEqual([])
+})
+
+describe('matchRosters', () => {
+  // Ali starts on A and Sami on B; team_players holds where they ended the session
+  const games = [m('g1', 's1', 1, 'A', 'B', 1, 0), m('g2', 's1', 2, 'A', 'B', 0, 0), m('g3', 's1', 3, 'B', 'A', 2, 0)]
+  const swapped: TeamPlayer[] = [{ team_id: 'B', player_id: 'ali' }, { team_id: 'A', player_id: 'sami' }, { team_id: 'A', player_id: 'omar' }]
+  // Each row's team_id is the team that player moved to; the second row points at the first
+  const swap = (match_id: string, elapsed_seconds: number | null, period = 1) => [
+    { id: 'sw1', match_id, player_id: 'ali', team_id: 'B', event_type: 'swap', related_event_id: null, elapsed_seconds, period, created_at: '1' },
+    { id: 'sw2', match_id, player_id: 'sami', team_id: 'A', event_type: 'swap', related_event_id: 'sw1', elapsed_seconds, period, created_at: '1' },
+  ] as MatchEvent[]
+  const teamOf = (events: MatchEvent[], player: string) => {
+    const rosters = matchRosters({ matches: games, teamPlayers: swapped, events })
+    return games.map((g) => rosters.get(g.id)!.get(player))
+  }
+
+  it('keeps everyone on their team when nobody swapped', () => {
+    expect(teamOf([], 'omar')).toEqual(['A', 'A', 'A'])
+  })
+
+  it('moves both players from the match a swap was made before kick-off', () => {
+    expect(teamOf(swap('g2', null), 'ali')).toEqual(['A', 'B', 'B'])
+    expect(teamOf(swap('g2', null), 'sami')).toEqual(['B', 'A', 'A'])
+  })
+
+  it('moves them from the next match when the swap was made during a match', () => {
+    expect(teamOf(swap('g2', 300), 'ali')).toEqual(['A', 'A', 'B'])
+    expect(teamOf(swap('g2', null, 2), 'ali')).toEqual(['A', 'A', 'B'])
+  })
+
+  it('puts a swap made in an unfinished match after every finished one', () => {
+    expect(teamOf(swap('never-finished', null), 'ali')).toEqual(['A', 'A', 'A'])
+  })
+
+  it('credits results to the team the player was on in each match', () => {
+    const ali = matchesByPlayer({ sessions, matches: games, teamPlayers: swapped, events: swap('g2', null) }).get('ali')!
+    expect(ali.map((x) => [x.match.id, x.teamId, x.result, x.goalsAgainst])).toEqual([
+      ['g1', 'A', 'W', 0], ['g2', 'B', 'D', 0], ['g3', 'B', 'W', 0],
+    ])
+  })
 })

@@ -10,7 +10,7 @@ import { careerFromHistory, computeBadges } from '../../utils/badges'
 import { monthsWonBy, type LeagueData } from '../../utils/playerOfMonth'
 import { PlayerCardView } from '../../components/PlayerCardView'
 import { cardsForLeague } from '../../utils/leagueCards'
-import { partnerships, partnersOf, type Partner } from '../../utils/playerMatches'
+import { matchRosters, partnerships, partnersOf, type Partner } from '../../utils/playerMatches'
 import { drawPlayerCard, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import NotAvailablePage from '../NotAvailablePage'
@@ -99,7 +99,8 @@ export default function PlayerProfilePage() {
   if (data === 'missing') return <NotAvailablePage kind="page" embedded />
 
   const { player } = data
-  const history = buildPlayerHistory({ position: player.position, ...data })
+  const rosters = matchRosters(data.league)
+  const history = buildPlayerHistory({ position: player.position, teamIn: (matchId) => rosters.get(matchId)?.get(player.id), ...data })
   const { totals, awardCounts } = history
   const winRate = totals.played ? Math.round((totals.wins / totals.played) * 100) : 0
   const potmMonths = monthsWonBy(data.league, player.id)

@@ -24,15 +24,17 @@ const emptyTally = (): SessionTally => ({
 })
 
 // `teams` are the player's own teams (one per session) and `events` the player's own events.
+// `teamIn` gives the team the player was on in a match, which a swap can change mid-session.
 export function buildPlayerHistory(input: {
   position: PlayerPosition
+  teamIn: (matchId: string) => string | undefined
   sessions: Session[]
   teams: Team[]
   matches: Match[]
   events: MatchEvent[]
   awards: SessionAward[]
 }) {
-  const { position, sessions, teams, matches, events, awards } = input
+  const { position, teamIn, sessions, teams, matches, events, awards } = input
   const sessionOfMatch = new Map(matches.map((m) => [m.id, m.session_id]))
 
   const rows: SessionHistoryRow[] = [...sessions]
@@ -47,13 +49,14 @@ export function buildPlayerHistory(input: {
       if (team) {
         for (const m of matches) {
           if (m.session_id !== s.id || m.status !== 'completed') continue
-          if (m.team1_id !== team.id && m.team2_id !== team.id) continue
+          const side = teamIn(m.id)
+          if (m.team1_id !== side && m.team2_id !== side) continue
           row.played++
           if (m.is_draw) row.draws++
-          else if (m.winner_team_id === team.id) row.wins++
+          else if (m.winner_team_id === side) row.wins++
           else row.losses++
           // Clean sheets count for goalkeepers and defenders, as on the leaderboard
-          const conceded = m.team1_id === team.id ? m.team2_score : m.team1_score
+          const conceded = m.team1_id === side ? m.team2_score : m.team1_score
           if ((position === 'GK' || position === 'DEF') && conceded === 0) row.cleanSheets++
         }
       }
