@@ -2,7 +2,7 @@ import { computeBadges, careerFromHistory, type Career } from './badges'
 import type { SessionHistoryRow } from './playerHistory'
 
 const career = (o: Partial<Career> = {}): Career => ({
-  goals: 0, assists: 0, wins: 0, sessions: 0, cleanSheets: 0,
+  goals: 0, assists: 0, wins: 0, sessions: 0, cleanSheets: 0, cleanDefences: 0,
   hatTricks: 0, playmakerSessions: 0, unbeatenSessions: 0,
   potmMonths: 0, mvpAwards: 0, gkAwards: 0, ...o,
 })
@@ -32,10 +32,20 @@ it('builds career numbers from session history rows', () => {
     row({ goals: 3, assists: 1, wins: 3, draws: 0, losses: 0, awards: ['mvp'] }),
     row({ goals: 1, assists: 3, cleanSheets: 2, awards: ['best_goalkeeper', 'mvp'] }),
     row({ played: 0, wins: 0, draws: 0, losses: 0 }),
-  ], 1)
+  ], 1, 'GK')
   expect(c).toEqual({
-    goals: 4, assists: 4, wins: 4, sessions: 2, cleanSheets: 2,
+    goals: 4, assists: 4, wins: 4, sessions: 2, cleanSheets: 2, cleanDefences: 0,
     hatTricks: 1, playmakerSessions: 1, unbeatenSessions: 1,
     potmMonths: 1, mvpAwards: 2, gkAwards: 1,
   })
+})
+
+it('counts a defender\'s clean sheets as clean defences, with their own badges', () => {
+  const row = { played: 3, wins: 3, draws: 0, losses: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 5, awards: [] } as unknown as SessionHistoryRow
+  expect(careerFromHistory([row], 0, 'DEF')).toMatchObject({ cleanSheets: 0, cleanDefences: 5 })
+  expect(careerFromHistory([row], 0, 'GK')).toMatchObject({ cleanSheets: 5, cleanDefences: 0 })
+  expect(careerFromHistory([row], 0, 'MID')).toMatchObject({ cleanSheets: 0, cleanDefences: 0 })
+  const ids = computeBadges(career({ cleanDefences: 5 })).earned.map((b) => b.id)
+  expect(ids).toContain('cleanDefences_5')
+  expect(ids).not.toContain('cleanSheets_5')
 })

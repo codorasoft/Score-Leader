@@ -104,7 +104,7 @@ export default function PlayerProfilePage() {
   const { totals, awardCounts } = history
   const winRate = totals.played ? Math.round((totals.wins / totals.played) * 100) : 0
   const potmMonths = monthsWonBy(data.league, player.id)
-  const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length))
+  const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length, player.position))
   const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
   const partners = partnersOf(partnerships(data.league), player.id, PARTNER_MIN_MATCHES)
   const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
@@ -117,7 +117,7 @@ export default function PlayerProfilePage() {
     { label: t('profile.goals'), value: totals.goals },
     { label: t('profile.assists'), value: totals.assists },
     player.position === 'GK' || player.position === 'DEF'
-      ? { label: t('profile.cleanSheets'), value: totals.cleanSheets }
+      ? { label: t(player.position === 'DEF' ? 'profile.cleanDefences' : 'profile.cleanSheets'), value: totals.cleanSheets }
       : { label: t('profile.cards'), value: `🟨${totals.yellowCards} 🟥${totals.redCards}` },
   ]
 

@@ -10,8 +10,8 @@ export interface LeagueData {
   awards: SessionAward[]
 }
 
-// The leaderboard's points, also used for Player of the Month. A clean sheet is worth more to a
-// goalkeeper than to a defender; cards take points away, so a total can go below zero.
+// The leaderboard's points, also used for Player of the Month. A goalkeeper's clean sheet is worth
+// more than a defender's, which is named a clean defence; cards take points away, so a total can go below zero.
 export const POTM_POINTS = {
   goal: 2, assist: 2, win: 2, draw: 1,
   cleanSheetGk: 2, cleanSheetDef: 1, interception: 1,
@@ -19,7 +19,7 @@ export const POTM_POINTS = {
   yellowCard: -1, redCard: -3,
 } as const
 
-export type PointKind = 'goal' | 'assist' | 'win' | 'draw' | 'cleanSheet' | 'interception'
+export type PointKind = 'goal' | 'assist' | 'win' | 'draw' | 'cleanSheet' | 'cleanDefence' | 'interception'
   | 'mvp' | 'bestGoalkeeper' | 'fairPlay' | 'bestGoal' | 'bestDefender' | 'yellowCard' | 'redCard'
 
 // What a player's points are made of, in a fixed order: each record they have (count above zero)
@@ -30,7 +30,9 @@ export function pointParts(s: PeriodStat): { kind: PointKind; count: number; poi
     ['assist', s.assists, POTM_POINTS.assist],
     ['win', s.matchesWon, POTM_POINTS.win],
     ['draw', s.matchesDrawn, POTM_POINTS.draw],
-    ['cleanSheet', s.cleanSheets, s.player.position === 'GK' ? POTM_POINTS.cleanSheetGk : POTM_POINTS.cleanSheetDef],
+    // The same count, named and scored by position: a clean sheet for a keeper, a clean defence for a defender
+    ['cleanSheet', s.player.position === 'GK' ? s.cleanSheets : 0, POTM_POINTS.cleanSheetGk],
+    ['cleanDefence', s.player.position === 'DEF' ? s.cleanSheets : 0, POTM_POINTS.cleanSheetDef],
     ['interception', s.interceptions, POTM_POINTS.interception],
     ['mvp', s.mvpAwards, POTM_POINTS.mvp],
     ['bestGoalkeeper', s.bestGoalkeeperAwards, POTM_POINTS.bestGoalkeeper],

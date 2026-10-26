@@ -1,4 +1,4 @@
-import { potmPoints, playersOfMonth, monthsWonBy } from './playerOfMonth'
+import { pointParts, potmPoints, playersOfMonth, monthsWonBy } from './playerOfMonth'
 import type { Match, MatchEvent, Player, Session, SessionAward, TeamPlayer } from '../lib/types'
 import type { PeriodStat } from './leaderboardPeriod'
 
@@ -15,6 +15,11 @@ it('scores goal 2, assist 2, win 2 and draw 1', () => {
 it('gives a clean sheet 2 to a goalkeeper and 1 to a defender, and 1 per interception', () => {
   expect(potmPoints(statOf('GK', { cleanSheets: 2 }))).toBe(4)
   expect(potmPoints(statOf('DEF', { cleanSheets: 2, interceptions: 3 }))).toBe(2 + 3)
+})
+
+it('names a goalkeeper\'s clean sheet and a defender\'s clean defence apart', () => {
+  expect(pointParts(statOf('GK', { cleanSheets: 2 }))).toEqual([{ kind: 'cleanSheet', count: 2, points: 4 }])
+  expect(pointParts(statOf('DEF', { cleanSheets: 2 }))).toEqual([{ kind: 'cleanDefence', count: 2, points: 2 }])
 })
 
 it('adds award bonuses and takes points away for cards', () => {

@@ -271,6 +271,8 @@
     "line": "{{p}}P · {{w}}W · {{g}}G · {{a}}A",
     "cs_one": "{{count}} clean sheet",
     "cs_other": "{{count}} clean sheets",
+    "cd_one": "{{count}} clean defence",
+    "cd_other": "{{count}} clean defences",
     "empty": "No finished matches in this period",
     "sortPoints": "Points",
     "int_one": "{{count}} interception",
@@ -283,6 +285,7 @@
       "win": "{{count}}W",
       "draw": "{{count}}D",
       "cleanSheet": "{{count}}CS",
+      "cleanDefence": "{{count}}CD",
       "interception": "{{count}}INT",
       "mvp": "{{count}}MVP",
       "bestGoalkeeper": "{{count}}BGK",
@@ -329,6 +332,7 @@
     "goals": "Goals",
     "assists": "Assists",
     "cleanSheets": "Clean sheets",
+    "cleanDefences": "Clean defences",
     "cards": "Cards",
     "awardsTitle": "Awards",
     "chartTitle": "Goals & assists per session",
@@ -407,7 +411,7 @@
     "leading": "Leading Player of the Month",
     "points_one": "{{count}} point",
     "points_other": "{{count}} points",
-    "formula": "Points: goal 2 · assist 2 · win 2 · draw 1 · clean sheet 2 (goalkeeper), 1 (defender) · interception 1 · MVP 3 · Best Goalkeeper 3 · Fair Play 3 · Best Goal 2 · Best Defender 2 · yellow card −1 · red card −3"
+    "formula": "Points: goal 2 · assist 2 · win 2 · draw 1 · clean sheet (goalkeeper) 2 · clean defence (defender) 1 · interception 1 · MVP 3 · Best Goalkeeper 3 · Fair Play 3 · Best Goal 2 · Best Defender 2 · yellow card −1 · red card −3"
   },
   "badges": {
     "title": "Badges",
@@ -430,7 +434,9 @@
     "mvp": "MVP",
     "best_gk": "Best Goalkeeper",
     "cleanSheets_one": "{{count}} clean sheet",
-    "cleanSheets_other": "{{count}} clean sheets"
+    "cleanSheets_other": "{{count}} clean sheets",
+    "cleanDefences_one": "{{count}} clean defence",
+    "cleanDefences_other": "{{count}} clean defences"
   },
   "offline": {
     "noSignal": "No signal",
