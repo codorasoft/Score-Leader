@@ -46,7 +46,9 @@ it('sums career totals and counts awards by type', () => {
   expect(awardCounts).toEqual({ best_goalscorer: 1, mvp: 2 })
 })
 
-it('counts clean sheets only for goalkeepers', () => {
+it('counts clean sheets only for goalkeepers and defenders', () => {
   expect(buildPlayerHistory(input).totals.cleanSheets).toBe(0)
+  expect(buildPlayerHistory({ ...input, position: 'MID' }).totals.cleanSheets).toBe(0)
   expect(buildPlayerHistory({ ...input, position: 'GK' }).totals.cleanSheets).toBe(1)
+  expect(buildPlayerHistory({ ...input, position: 'DEF' }).totals.cleanSheets).toBe(1)
 })

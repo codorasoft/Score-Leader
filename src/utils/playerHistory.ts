@@ -52,8 +52,9 @@ export function buildPlayerHistory(input: {
           if (m.is_draw) row.draws++
           else if (m.winner_team_id === team.id) row.wins++
           else row.losses++
+          // Clean sheets count for goalkeepers and defenders, as on the leaderboard
           const conceded = m.team1_id === team.id ? m.team2_score : m.team1_score
-          if (position === 'GK' && conceded === 0) row.cleanSheets++
+          if ((position === 'GK' || position === 'DEF') && conceded === 0) row.cleanSheets++
         }
       }
 

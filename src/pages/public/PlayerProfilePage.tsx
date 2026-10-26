@@ -115,7 +115,7 @@ export default function PlayerProfilePage() {
     { label: t('profile.winRate'), value: `${winRate}%`, sub: t('profile.record', { w: totals.wins, d: totals.draws, l: totals.losses }) },
     { label: t('profile.goals'), value: totals.goals },
     { label: t('profile.assists'), value: totals.assists },
-    player.position === 'GK'
+    player.position === 'GK' || player.position === 'DEF'
       ? { label: t('profile.cleanSheets'), value: totals.cleanSheets }
       : { label: t('profile.cards'), value: `🟨${totals.yellowCards} 🟥${totals.redCards}` },
   ]
