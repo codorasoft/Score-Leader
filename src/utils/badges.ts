@@ -1,3 +1,4 @@
+import type { PlayerPosition } from '../lib/types'
 import type { SessionHistoryRow } from './playerHistory'
 
 export interface Career {
@@ -5,7 +6,9 @@ export interface Career {
   assists: number
   wins: number
   sessions: number
+  // A goalkeeper's clean sheets, and a defender's (named clean defences)
   cleanSheets: number
+  cleanDefences: number
   hatTricks: number
   playmakerSessions: number
   unbeatenSessions: number
@@ -57,6 +60,7 @@ export const BADGES: BadgeDef[] = [
   once('mvp', 'awards', '⭐', 'mvpAwards', true),
   once('best_gk', 'awards', '🧤', 'gkAwards', true),
   ...milestones('cleanSheets', 'awards', '🧱', [5, 10, 25]),
+  ...milestones('cleanDefences', 'awards', '🧱', [5, 10, 25]),
 ]
 
 const toBadge = (def: BadgeDef, career: Career): Badge => ({
@@ -80,7 +84,7 @@ const HAT_TRICK = 3
 const PLAYMAKER_ASSISTS = 3
 const UNBEATEN_MIN_MATCHES = 3
 
-export function careerFromHistory(rows: SessionHistoryRow[], potmMonths: number): Career {
+export function careerFromHistory(rows: SessionHistoryRow[], potmMonths: number, position: PlayerPosition): Career {
   const played = rows.filter((r) => r.played > 0)
   const sum = (k: 'goals' | 'assists' | 'wins' | 'cleanSheets') => played.reduce((n, r) => n + r[k], 0)
   const awards = rows.flatMap((r) => r.awards)
@@ -89,7 +93,8 @@ export function careerFromHistory(rows: SessionHistoryRow[], potmMonths: number)
     assists: sum('assists'),
     wins: sum('wins'),
     sessions: played.length,
-    cleanSheets: sum('cleanSheets'),
+    cleanSheets: position === 'GK' ? sum('cleanSheets') : 0,
+    cleanDefences: position === 'DEF' ? sum('cleanSheets') : 0,
     hatTricks: played.filter((r) => r.goals >= HAT_TRICK).length,
     playmakerSessions: played.filter((r) => r.assists >= PLAYMAKER_ASSISTS).length,
     unbeatenSessions: played.filter((r) => r.played >= UNBEATEN_MIN_MATCHES && r.losses === 0).length,

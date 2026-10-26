@@ -18,6 +18,8 @@ const award = (session_id: string, award_type: SessionAward['award_type']): Sess
 
 const input = {
   position: 'ATT' as const,
+  // No swaps: the player's team in each session
+  teamIn: (matchId: string) => (['m1', 'm2', 'm3'].includes(matchId) ? 't1' : 't2'),
   sessions: [session('s2', '2026-09-27'), session('s1', '2026-09-20')],
   teams: [team('t1', 's1', 'red'), team('t2', 's2', 'blue')],
   matches: [
@@ -46,7 +48,9 @@ it('sums career totals and counts awards by type', () => {
   expect(awardCounts).toEqual({ best_goalscorer: 1, mvp: 2 })
 })
 
-it('counts clean sheets only for goalkeepers', () => {
+it('counts clean sheets only for goalkeepers and defenders', () => {
   expect(buildPlayerHistory(input).totals.cleanSheets).toBe(0)
+  expect(buildPlayerHistory({ ...input, position: 'MID' }).totals.cleanSheets).toBe(0)
   expect(buildPlayerHistory({ ...input, position: 'GK' }).totals.cleanSheets).toBe(1)
+  expect(buildPlayerHistory({ ...input, position: 'DEF' }).totals.cleanSheets).toBe(1)
 })

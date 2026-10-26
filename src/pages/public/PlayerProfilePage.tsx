@@ -10,7 +10,7 @@ import { careerFromHistory, computeBadges } from '../../utils/badges'
 import { monthsWonBy, type LeagueData } from '../../utils/playerOfMonth'
 import { PlayerCardView } from '../../components/PlayerCardView'
 import { cardsForLeague } from '../../utils/leagueCards'
-import { partnerships, partnersOf, type Partner } from '../../utils/playerMatches'
+import { matchRosters, partnerships, partnersOf, type Partner } from '../../utils/playerMatches'
 import { drawPlayerCard, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import NotAvailablePage from '../NotAvailablePage'
@@ -99,11 +99,12 @@ export default function PlayerProfilePage() {
   if (data === 'missing') return <NotAvailablePage kind="page" embedded />
 
   const { player } = data
-  const history = buildPlayerHistory({ position: player.position, ...data })
+  const rosters = matchRosters(data.league)
+  const history = buildPlayerHistory({ position: player.position, teamIn: (matchId) => rosters.get(matchId)?.get(player.id), ...data })
   const { totals, awardCounts } = history
   const winRate = totals.played ? Math.round((totals.wins / totals.played) * 100) : 0
   const potmMonths = monthsWonBy(data.league, player.id)
-  const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length))
+  const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length, player.position))
   const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
   const partners = partnersOf(partnerships(data.league), player.id, PARTNER_MIN_MATCHES)
   const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
@@ -115,8 +116,8 @@ export default function PlayerProfilePage() {
     { label: t('profile.winRate'), value: `${winRate}%`, sub: t('profile.record', { w: totals.wins, d: totals.draws, l: totals.losses }) },
     { label: t('profile.goals'), value: totals.goals },
     { label: t('profile.assists'), value: totals.assists },
-    player.position === 'GK'
-      ? { label: t('profile.cleanSheets'), value: totals.cleanSheets }
+    player.position === 'GK' || player.position === 'DEF'
+      ? { label: t(player.position === 'DEF' ? 'profile.cleanDefences' : 'profile.cleanSheets'), value: totals.cleanSheets }
       : { label: t('profile.cards'), value: `🟨${totals.yellowCards} 🟥${totals.redCards}` },
   ]
 

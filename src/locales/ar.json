@@ -315,6 +315,12 @@
     "cs_few": "{{count}} شباك نظيفة",
     "cs_many": "{{count}} شباك نظيفة",
     "cs_other": "{{count}} شباك نظيفة",
+    "cd_zero": "{{count}} دفاع نظيف",
+    "cd_one": "دفاع نظيف واحد",
+    "cd_two": "دفاعان نظيفان",
+    "cd_few": "{{count}} دفاع نظيف",
+    "cd_many": "{{count}} دفاع نظيف",
+    "cd_other": "{{count}} دفاع نظيف",
     "empty": "لا توجد مباريات منتهية في هذه الفترة",
     "sortPoints": "النقاط",
     "int_zero": "{{count}} قطع كرة",
@@ -331,6 +337,7 @@
       "win": "{{count}} فوز",
       "draw": "{{count}} تعادل",
       "cleanSheet": "{{count}} شباك نظيفة",
+      "cleanDefence": "{{count}} دفاع نظيف",
       "interception": "{{count}} قطع كرة",
       "mvp": "{{count}} أفضل لاعب",
       "bestGoalkeeper": "{{count}} أفضل حارس",
@@ -377,6 +384,7 @@
     "goals": "الأهداف",
     "assists": "التمريرات الحاسمة",
     "cleanSheets": "شباك نظيفة",
+    "cleanDefences": "دفاع نظيف",
     "cards": "البطاقات",
     "awardsTitle": "الجوائز",
     "chartTitle": "الأهداف والتمريرات في كل جلسة",
@@ -467,7 +475,7 @@
     "points_few": "{{count}} نقاط",
     "points_many": "{{count}} نقطة",
     "points_other": "{{count}} نقطة",
-    "formula": "النقاط: هدف 2 · تمريرة 2 · فوز 2 · تعادل 1 · شباك نظيفة 2 (حارس المرمى)، 1 (المدافع) · قطع كرة 1 · أفضل لاعب 3 · أفضل حارس 3 · اللعب النظيف 3 · أفضل هدف 2 · أفضل مدافع 2 · بطاقة صفراء −1 · بطاقة حمراء −3"
+    "formula": "النقاط: هدف 2 · تمريرة 2 · فوز 2 · تعادل 1 · شباك نظيفة (حارس المرمى) 2 · دفاع نظيف (المدافع) 1 · كل 3 قطع كرة في الجلسة 1 · أفضل لاعب 3 · أفضل حارس 3 · اللعب النظيف 3 · أفضل هدف 2 · أفضل مدافع 2 · بطاقة صفراء −1 · بطاقة حمراء −3"
   },
   "badges": {
     "title": "الشارات",
@@ -495,7 +503,13 @@
     "best_gk": "أفضل حارس مرمى",
     "cleanSheets_few": "{{count}} شباك نظيفة",
     "cleanSheets_many": "{{count}} شباك نظيفة",
-    "cleanSheets_other": "{{count}} شباك نظيفة"
+    "cleanSheets_other": "{{count}} شباك نظيفة",
+    "cleanDefences_zero": "{{count}} دفاع نظيف",
+    "cleanDefences_one": "دفاع نظيف واحد",
+    "cleanDefences_two": "دفاعان نظيفان",
+    "cleanDefences_few": "{{count}} دفاع نظيف",
+    "cleanDefences_many": "{{count}} دفاع نظيف",
+    "cleanDefences_other": "{{count}} دفاع نظيف"
   },
   "offline": {
     "noSignal": "لا يوجد اتصال",

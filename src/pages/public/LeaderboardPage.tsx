@@ -160,7 +160,7 @@ export default function LeaderboardPage() {
               <span className="block font-semibold truncate">{s.player.name}</span>
               <span className="block text-xs text-gray-400">
                 {s.player.position} · {t('leaderboard.line', { g: s.goals, a: s.assists, w: s.matchesWon, p: s.matchesPlayed })}
-                {s.cleanSheets > 0 && ` · ${t('leaderboard.cs', { count: s.cleanSheets })}`}
+                {s.cleanSheets > 0 && ` · ${t(s.player.position === 'DEF' ? 'leaderboard.cd' : 'leaderboard.cs', { count: s.cleanSheets })}`}
                 {s.interceptions > 0 && ` · ${t('leaderboard.int', { count: s.interceptions })}`}
               </span>
             </span>

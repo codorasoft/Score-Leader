@@ -10,37 +10,42 @@ export interface LeagueData {
   awards: SessionAward[]
 }
 
-// The leaderboard's points, also used for Player of the Month. A clean sheet is worth more to a
-// goalkeeper than to a defender; cards take points away, so a total can go below zero.
+// The leaderboard's points, also used for Player of the Month. A goalkeeper's clean sheet is worth
+// more than a defender's, which is named a clean defence; cards take points away, so a total can go below zero.
 export const POTM_POINTS = {
   goal: 2, assist: 2, win: 2, draw: 1,
-  cleanSheetGk: 2, cleanSheetDef: 1, interception: 1,
+  cleanSheetGk: 2, cleanSheetDef: 1,
   mvp: 3, bestGoalkeeper: 3, fairPlay: 3, bestGoal: 2, bestDefender: 2,
   yellowCard: -1, redCard: -3,
 } as const
 
-export type PointKind = 'goal' | 'assist' | 'win' | 'draw' | 'cleanSheet' | 'interception'
+export type PointKind = 'goal' | 'assist' | 'win' | 'draw' | 'cleanSheet' | 'cleanDefence' | 'interception'
   | 'mvp' | 'bestGoalkeeper' | 'fairPlay' | 'bestGoal' | 'bestDefender' | 'yellowCard' | 'redCard'
 
 // What a player's points are made of, in a fixed order: each record they have (count above zero)
 // and the points it brings. The leaderboard shows it so the total can be checked.
 export function pointParts(s: PeriodStat): { kind: PointKind; count: number; points: number }[] {
+  // Each record and the points it brings; most are a fixed amount each
+  const each = (kind: PointKind, count: number, points: number): [PointKind, number, number] => [kind, count, count * points]
   const parts: [PointKind, number, number][] = [
-    ['goal', s.goals, POTM_POINTS.goal],
-    ['assist', s.assists, POTM_POINTS.assist],
-    ['win', s.matchesWon, POTM_POINTS.win],
-    ['draw', s.matchesDrawn, POTM_POINTS.draw],
-    ['cleanSheet', s.cleanSheets, s.player.position === 'GK' ? POTM_POINTS.cleanSheetGk : POTM_POINTS.cleanSheetDef],
-    ['interception', s.interceptions, POTM_POINTS.interception],
-    ['mvp', s.mvpAwards, POTM_POINTS.mvp],
-    ['bestGoalkeeper', s.bestGoalkeeperAwards, POTM_POINTS.bestGoalkeeper],
-    ['fairPlay', s.fairPlayAwards, POTM_POINTS.fairPlay],
-    ['bestGoal', s.bestGoalAwards, POTM_POINTS.bestGoal],
-    ['bestDefender', s.bestDefenderAwards, POTM_POINTS.bestDefender],
-    ['yellowCard', s.yellowCards, POTM_POINTS.yellowCard],
-    ['redCard', s.redCards, POTM_POINTS.redCard],
+    each('goal', s.goals, POTM_POINTS.goal),
+    each('assist', s.assists, POTM_POINTS.assist),
+    each('win', s.matchesWon, POTM_POINTS.win),
+    each('draw', s.matchesDrawn, POTM_POINTS.draw),
+    // The same count, named and scored by position: a clean sheet for a keeper, a clean defence for a defender
+    each('cleanSheet', s.player.position === 'GK' ? s.cleanSheets : 0, POTM_POINTS.cleanSheetGk),
+    each('cleanDefence', s.player.position === 'DEF' ? s.cleanSheets : 0, POTM_POINTS.cleanSheetDef),
+    // 1 point per 3 interceptions in a session, worked out per session
+    ['interception', s.interceptions, s.interceptionPoints],
+    each('mvp', s.mvpAwards, POTM_POINTS.mvp),
+    each('bestGoalkeeper', s.bestGoalkeeperAwards, POTM_POINTS.bestGoalkeeper),
+    each('fairPlay', s.fairPlayAwards, POTM_POINTS.fairPlay),
+    each('bestGoal', s.bestGoalAwards, POTM_POINTS.bestGoal),
+    each('bestDefender', s.bestDefenderAwards, POTM_POINTS.bestDefender),
+    each('yellowCard', s.yellowCards, POTM_POINTS.yellowCard),
+    each('redCard', s.redCards, POTM_POINTS.redCard),
   ]
-  return parts.filter(([, count]) => count > 0).map(([kind, count, each]) => ({ kind, count, points: count * each }))
+  return parts.filter(([, count]) => count > 0).map(([kind, count, points]) => ({ kind, count, points }))
 }
 
 export const potmPoints = (s: PeriodStat) => pointParts(s).reduce((sum, part) => sum + part.points, 0)

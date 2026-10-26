@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature } from '../../contexts/LeagueContext'
 import { computePlayerStats, getAutoAwardWinner, getBestGoalkeepers } from '../../utils/stats'
+import { matchRosters } from '../../utils/playerMatches'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { VoteLinks, type CreatedVote } from '../../components/VoteLinks'
 import type { Player, Match, MatchEvent, TeamPlayer, SessionAward } from '../../lib/types'
@@ -38,7 +39,7 @@ export default function AwardsPage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [events, setEvents] = useState<MatchEvent[]>([])
-  const [teamPlayerMap, setTeamPlayerMap] = useState<Record<string, string[]>>({})
+  const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([])
   const [saving, setSaving] = useState(false)
   // The last Finish could not be saved (no signal, or the server refused it)
   const [saveFailed, setSaveFailed] = useState(false)
@@ -74,14 +75,12 @@ export default function AwardsPage() {
       setMatches((matchData ?? []) as Match[])
       setEvents((evData ?? []) as MatchEvent[])
 
-      const map: Record<string, string[]> = {}
-      for (const tp of (tpData ?? []) as TeamPlayer[]) (map[tp.player_id] ??= []).push(tp.team_id)
-      setTeamPlayerMap(map)
+      setTeamPlayers((tpData ?? []) as TeamPlayer[])
     }
     load()
   }, [sessionId])
 
-  const stats = computePlayerStats(players, events, matches, teamPlayerMap)
+  const stats = computePlayerStats(players, events, matches, matchRosters({ matches, teamPlayers, events }))
   const bestScorer = getAutoAwardWinner(stats, 'best_goalscorer')
   const bestAssister = getAutoAwardWinner(stats, 'best_assister')
   const bestKeepers = getBestGoalkeepers(stats)

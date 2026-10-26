@@ -1,5 +1,12 @@
 import { computePlayerStats, getAutoAwardWinner, getBestGoalkeepers } from './stats'
 import type { Player, MatchEvent, Match } from '../lib/types'
+import { matchRosters } from './playerMatches'
+
+// Each player's team per session, with no swaps
+const byTeam = (teamMap: Record<string, string[]>, matches: Match[]) => matchRosters({
+  matches, events: [],
+  teamPlayers: Object.entries(teamMap).flatMap(([player_id, teams]) => teams.map((team_id) => ({ player_id, team_id }))),
+})
 
 const mkPlayer = (id: string, position: Player['position'] = 'ATT'): Player => ({
   id, name: `P${id}`, position, skill_rating: 3, photo_url: null, is_active: true, created_at: '',
@@ -32,7 +39,7 @@ it('counts goals and assists correctly', () => {
   const matches = [mkMatch({})]
   const teamMap = { p1: ['t1'], p2: ['t1'] }
 
-  const stats = computePlayerStats(players, events, matches, teamMap)
+  const stats = computePlayerStats(players, events, matches, byTeam(teamMap, matches))
   expect(stats.find((s) => s.player.id === 'p1')?.goals).toBe(2)
   expect(stats.find((s) => s.player.id === 'p2')?.assists).toBe(1)
 })
@@ -43,7 +50,7 @@ it('counts clean sheets for goalkeepers and defenders only', () => {
   const matches = [mkMatch({ team1_id: 't1', team2_id: 't2', team2_score: 0, winner_team_id: 't1' })]
   const teamMap = { gk1: ['t1'], d1: ['t1'], p2: ['t1'] }
 
-  const stats = computePlayerStats(players, events, matches, teamMap)
+  const stats = computePlayerStats(players, events, matches, byTeam(teamMap, matches))
   expect(stats.find((s) => s.player.id === 'gk1')?.cleanSheets).toBe(1)
   expect(stats.find((s) => s.player.id === 'd1')?.cleanSheets).toBe(1)
   expect(stats.find((s) => s.player.id === 'p2')?.cleanSheets).toBe(0)
@@ -53,7 +60,7 @@ it('counts draws and interceptions', () => {
   const players = [mkPlayer('d1', 'DEF')]
   const events = [mkEvent({ player_id: 'd1', event_type: 'interception' }), mkEvent({ id: 'e2', player_id: 'd1', event_type: 'interception' })]
   const matches = [mkMatch({ team1_score: 1, team2_score: 1, is_draw: true }), mkMatch({ id: 'm2' })]
-  const [d1] = computePlayerStats(players, events, matches, { d1: ['t1'] })
+  const [d1] = computePlayerStats(players, events, matches, byTeam({ d1: ['t1'] }, matches))
   expect([d1.matchesDrawn, d1.matchesWon, d1.interceptions]).toEqual([1, 1, 2])
 })
 
@@ -65,7 +72,7 @@ it('getAutoAwardWinner returns tied=true when multiple players share top', () =>
     mkEvent({ id: 'e3', player_id: 'p3', event_type: 'assist' }),
   ]
   const matches = [mkMatch({})]
-  const stats = computePlayerStats(players, events, matches, { p1: ['t1'], p2: ['t2'], p3: ['t1'] })
+  const stats = computePlayerStats(players, events, matches, byTeam({ p1: ['t1'], p2: ['t2'], p3: ['t1'] }, matches))
   const result = getAutoAwardWinner(stats, 'best_goalscorer')
   expect(result.tied).toBe(true)
 })
@@ -76,7 +83,7 @@ it('counts matches and wins from every session the player took part in', () => {
     mkMatch({ id: 'm1', session_id: 's1', team1_id: 't1', team2_id: 't2', winner_team_id: 't1' }),
     mkMatch({ id: 'm2', session_id: 's2', team1_id: 't7', team2_id: 't8', winner_team_id: 't7' }),
   ]
-  const [stat] = computePlayerStats(players, [], matches, { p1: ['t1', 't7'] })
+  const [stat] = computePlayerStats(players, [], matches, byTeam({ p1: ['t1', 't7'] }, matches))
   expect(stat.matchesPlayed).toBe(2)
   expect(stat.matchesWon).toBe(2)
 })
@@ -84,7 +91,7 @@ it('counts matches and wins from every session the player took part in', () => {
 it('does not count a draw as a win even though the draw keeps a winner_team_id for rotation', () => {
   const players = [mkPlayer('p1')]
   const matches = [mkMatch({ team1_score: 1, team2_score: 1, is_draw: true, draw_resolved_by: 'late_team', winner_team_id: 't1' })]
-  const [stat] = computePlayerStats(players, [], matches, { p1: ['t1'] })
+  const [stat] = computePlayerStats(players, [], matches, byTeam({ p1: ['t1'] }, matches))
   expect(stat.matchesPlayed).toBe(1)
   expect(stat.matchesWon).toBe(0)
 })
@@ -96,7 +103,7 @@ describe('getBestGoalkeepers', () => {
       mkMatch({ id: `${id}-${n}`, team1_id: `t-${id}`, team2_id: `opp-${id}-${n}`, team1_score: 0, team2_score: g })))
     const players = Object.keys(conceded).map((id) => mkPlayer(id, id.startsWith('gk') ? 'GK' : 'ATT'))
     const teams = Object.fromEntries(Object.keys(conceded).map((id) => [id, [`t-${id}`]]))
-    return getBestGoalkeepers(computePlayerStats(players, [], [...matches, ...extra], teams)).map((s) => s.player.id)
+    return getBestGoalkeepers(computePlayerStats(players, [], [...matches, ...extra], byTeam(teams, [...matches, ...extra]))).map((s) => s.player.id)
   }
 
   it('picks the keeper who let in the fewest goals per match, not in total', () => {
