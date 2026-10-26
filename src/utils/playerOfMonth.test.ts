@@ -3,7 +3,7 @@ import type { Match, MatchEvent, Player, Session, SessionAward, TeamPlayer } fro
 import type { PeriodStat } from './leaderboardPeriod'
 
 const zero = {
-  goals: 0, assists: 0, matchesWon: 0, matchesDrawn: 0, cleanSheets: 0, interceptions: 0, yellowCards: 0, redCards: 0,
+  goals: 0, assists: 0, matchesWon: 0, matchesDrawn: 0, cleanSheets: 0, interceptions: 0, interceptionPoints: 0, yellowCards: 0, redCards: 0,
   mvpAwards: 0, bestGoalkeeperAwards: 0, fairPlayAwards: 0, bestGoalAwards: 0, bestDefenderAwards: 0,
 }
 const statOf = (position: Player['position'], o: Partial<PeriodStat>) => ({ ...zero, player: { position }, ...o }) as PeriodStat
@@ -12,9 +12,9 @@ it('scores goal 2, assist 2, win 2 and draw 1', () => {
   expect(potmPoints(statOf('ATT', { goals: 2, assists: 1, matchesWon: 3, matchesDrawn: 2 }))).toBe(4 + 2 + 6 + 2)
 })
 
-it('gives a clean sheet 2 to a goalkeeper and 1 to a defender, and 1 per interception', () => {
+it('gives a clean sheet 2 to a goalkeeper and 1 to a defender, and the interception points', () => {
   expect(potmPoints(statOf('GK', { cleanSheets: 2 }))).toBe(4)
-  expect(potmPoints(statOf('DEF', { cleanSheets: 2, interceptions: 3 }))).toBe(2 + 3)
+  expect(potmPoints(statOf('DEF', { cleanSheets: 2, interceptions: 7, interceptionPoints: 2 }))).toBe(2 + 2)
 })
 
 it('names a goalkeeper\'s clean sheet and a defender\'s clean defence apart', () => {

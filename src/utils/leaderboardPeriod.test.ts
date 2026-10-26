@@ -66,4 +66,15 @@ describe('periodStats', () => {
       ['Ali', 1, 1, 0], ['Sami', 0, 0, 1],
     ])
   })
+
+  it('gives 1 point per 3 interceptions in a session, without carrying spares to the next', () => {
+    const intercept = (match_id: string, n: number) =>
+      Array.from({ length: n }, (_, i) => ({ id: `${match_id}-i${i}`, match_id, player_id: 'Ali', event_type: 'interception' }) as MatchEvent)
+    // 7 in September (2 points, 1 spare) and 2 in October (none): 9 in all, but 2 points, not 3
+    const withInterceptions = { ...data, events: [...intercept('m-sep', 7), ...intercept('m-oct', 2)] }
+    const ali = (period: string) => periodStats(withInterceptions, period).stats.find((s) => s.player.id === 'Ali')!
+    expect([ali('all').interceptions, ali('all').interceptionPoints]).toEqual([9, 2])
+    expect([ali('2026-09').interceptions, ali('2026-09').interceptionPoints]).toEqual([7, 2])
+    expect([ali('2026-10').interceptions, ali('2026-10').interceptionPoints]).toEqual([2, 0])
+  })
 })
