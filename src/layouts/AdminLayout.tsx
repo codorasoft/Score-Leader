@@ -87,7 +87,8 @@ export default function AdminLayout() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    // The tab bar's room is kept inside the full-screen height, so a short page fits without scrolling
+    <div className="min-h-dvh pb-[var(--bottom-bar)] bg-gray-900 text-white flex flex-col">
       <header className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur border-b border-gray-800">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-4">
           {/* On a phone the match screen has no tab bar; its way out is back to the session */}

@@ -103,9 +103,6 @@ body {
     --bottom-bar: calc(3.75rem + env(safe-area-inset-bottom));
     --bar-safe: 0.75rem;
   }
-  .has-bottom-bar body {
-    padding-bottom: var(--bottom-bar);
-  }
 }
 
 /* A page's main button, pinned to the bottom of the screen so it is always in reach */

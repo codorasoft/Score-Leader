@@ -84,7 +84,7 @@ export default function NewLeaguePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-dvh bg-gray-900 text-white">
       <header className="border-b border-gray-800">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-4">
           <span className="font-bold text-lg" dir="ltr">Score<span className="text-blue-400">Leader</span></span>
