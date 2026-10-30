@@ -23,6 +23,14 @@ export function PositionBadge({ position }: { position: PlayerPosition }) {
   )
 }
 
+const icon = (d: string) => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={d} />
+  </svg>
+)
+const EDIT_ICON = icon('M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z')
+const REMOVE_ICON = icon('M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6')
+
 const POSITIONS: PlayerPosition[] = ['GK', 'DEF', 'MID', 'ATT']
 
 interface PlayerFormData {
@@ -142,37 +150,38 @@ export default function PlayersPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {players.map((p) => (
-          <div key={p.id} className="bg-gray-800 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <PlayerAvatar player={p} />
-              <div className="flex-1 min-w-0">
-                {profilesOn ? (
-                  <Link to={publicPath(`/players/${p.id}`)} className="font-semibold truncate block hover:underline">{p.name}</Link>
-                ) : (
-                  <span className="font-semibold truncate block">{p.name}</span>
-                )}
-                <div className="flex items-center gap-2 mt-1">
-                  <PositionBadge position={p.position} />
-                  <span className="text-yellow-400 text-sm">{'★'.repeat(p.skill_rating)}{'☆'.repeat(5 - p.skill_rating)}</span>
-                </div>
+          <div key={p.id} className="bg-gray-800 rounded-lg px-3 py-2 flex items-center gap-2.5">
+            <PlayerAvatar player={p} size="sm" />
+            <div className="flex-1 min-w-0">
+              {profilesOn ? (
+                <Link to={publicPath(`/players/${p.id}`)} className="text-sm font-semibold truncate block hover:underline">{p.name}</Link>
+              ) : (
+                <span className="text-sm font-semibold truncate block">{p.name}</span>
+              )}
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <PositionBadge position={p.position} />
+                <span className="text-yellow-400 text-xs whitespace-nowrap">{'★'.repeat(p.skill_rating)}{'☆'.repeat(5 - p.skill_rating)}</span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-700">
+            {/* Sits on the trailing side of the name: right in English, left in Arabic */}
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => openEdit(p)}
                 aria-label={t('players.editNamed', { name: p.name })}
-                className="min-h-[44px] rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-semibold flex items-center justify-center gap-2"
+                title={t('common.edit')}
+                className="w-9 h-9 rounded-lg bg-gray-700 text-gray-200 hover:bg-gray-600 flex items-center justify-center"
               >
-                <span aria-hidden="true">✏️</span> {t('common.edit')}
+                {EDIT_ICON}
               </button>
               <button
                 onClick={() => setConfirmRemove(p)}
                 aria-label={t('players.removeNamed', { name: p.name })}
-                className="min-h-[44px] rounded-lg bg-red-900/40 border border-red-700/60 text-red-200 hover:bg-red-900/70 text-sm font-semibold flex items-center justify-center gap-2"
+                title={t('common.remove')}
+                className="w-9 h-9 rounded-lg bg-red-900/40 border border-red-700/60 text-red-200 hover:bg-red-900/70 flex items-center justify-center"
               >
-                <span aria-hidden="true">🗑️</span> {t('common.remove')}
+                {REMOVE_ICON}
               </button>
             </div>
           </div>
