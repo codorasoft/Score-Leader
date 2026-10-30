@@ -70,3 +70,15 @@ it('marks the current league', () => {
   expect(screen.getByRole('menuitem', { name: /EAGLES/ })).toHaveAttribute('aria-current', 'true')
   expect(screen.getByRole('menuitem', { name: /TIGERS/ })).not.toHaveAttribute('aria-current')
 })
+
+it('puts a long league name on a second line instead of cutting it off, in either language', () => {
+  render(
+    <MemoryRouter initialEntries={['/admin/eagles/players']}>
+      <LeagueSwitcher current={leagues[0]} leagues={leagues} maxLeagues={3} />
+    </MemoryRouter>,
+  )
+  const name = screen.getByText('EAGLES')
+  expect(name).toHaveClass('line-clamp-2')
+  expect(name).not.toHaveClass('truncate')
+  expect(name).toHaveAttribute('dir', 'auto')
+})

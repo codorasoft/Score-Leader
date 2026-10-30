@@ -30,9 +30,10 @@ export default function PublicLayout() {
     <div className="min-h-screen bg-gray-900 text-white">
       <header className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur border-b border-gray-800">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-4">
-          <Link to={publicPath()} className="flex items-center gap-2 font-bold text-lg tracking-tight min-w-0">
+          <Link to={publicPath()} className="flex items-center gap-2 font-bold text-base sm:text-lg tracking-tight min-w-0">
             <LeagueLogo league={league} size="sm" />
-            <span className="truncate">{league.name}</span>
+            {/* Same as the admin header: a second line rather than "…", in either language */}
+            <span dir="auto" className="min-w-0 leading-tight line-clamp-2 break-words">{league.name}</span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1 text-sm flex-1">
             {items.map(({ to, key }) => (
