@@ -97,7 +97,7 @@ export default function AdminLayout() {
             </Link>
           )}
           {owned && (
-            <div className={inMatch ? 'hidden lg:block' : undefined}>
+            <div className={`min-w-0 ${inMatch ? 'hidden lg:block' : ''}`}>
               <LeagueSwitcher current={owned} leagues={leagues} maxLeagues={profile.max_leagues} />
             </div>
           )}

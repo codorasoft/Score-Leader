@@ -49,11 +49,13 @@ export function LeagueSwitcher({ current, leagues, maxLeagues }: { current: Leag
         aria-expanded={open}
         aria-label={`${current.name} - ${t('league.switch')}`}
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 min-w-0 max-w-full h-10 px-1 rounded-lg hover:bg-gray-800"
+        className="flex items-center gap-2 min-w-0 max-w-full min-h-10 py-0.5 px-1 rounded-lg text-start hover:bg-gray-800"
       >
         <LeagueLogo league={current} size="sm" />
-        <span className="font-bold text-lg truncate">{current.name}</span>
-        <span aria-hidden="true" className="text-gray-400 text-xs">▾</span>
+        {/* A long name goes onto a second line instead of being cut off with "…". dir="auto" lays an
+            English name out left to right inside the Arabic page, so it reads and fits the same in both */}
+        <span dir="auto" className="min-w-0 font-bold text-base sm:text-lg leading-tight line-clamp-2 break-words">{current.name}</span>
+        <span aria-hidden="true" className="shrink-0 text-gray-400 text-xs">▾</span>
       </button>
 
       {open && (
@@ -71,7 +73,7 @@ export function LeagueSwitcher({ current, leagues, maxLeagues }: { current: Leag
                 className={`${item} hover:bg-gray-700`}
               >
                 <LeagueLogo league={l} size="sm" />
-                <span className="truncate flex-1">{l.name}</span>
+                <span dir="auto" className="flex-1 min-w-0 leading-tight line-clamp-2 break-words">{l.name}</span>
                 {l.slug === current.slug && <span aria-hidden="true" className="text-blue-400">✓</span>}
               </button>
             ))}
