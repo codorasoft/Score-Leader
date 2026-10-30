@@ -86,7 +86,6 @@ it('starts the clock and records a goal with an assist', async () => {
   expect(screen.queryByRole('button', { name: 'Hadi' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Omar' }))
   await user.click(screen.getByRole('button', { name: 'Ali' }))
-  await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
   await waitFor(() => expect(m1().team1_score).toBe(1))
   const goal = rows('match_events').find((e) => e.event_type === 'goal')!
@@ -101,7 +100,7 @@ it('undoes the last goal', async () => {
   await user.click(await screen.findByRole('button', { name: '▶ Start' }))
   await user.click(screen.getByRole('button', { name: '⚽ Goal' }))
   await user.click(screen.getByRole('button', { name: 'Sami' }))
-  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await user.click(screen.getByRole('button', { name: 'No assist' }))
   await waitFor(() => expect(m1().team2_score).toBe(1))
 
   await user.click(screen.getByRole('button', { name: /Undo.*Sami/ }))
@@ -287,7 +286,7 @@ describe('score and timeline out of step', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: '⚽ Goal' }))
     await user.click(screen.getByRole('button', { name: 'Omar' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'No assist' }))
     // Shown on the phone, nothing on the server yet, and no correction sent
     await waitFor(() => expect(score().slice(0, 2)).toEqual(['1', '0']))
     expect(screen.getByRole('status')).toHaveTextContent('No signal')
@@ -311,7 +310,7 @@ describe('score and timeline out of step', () => {
     renderPage()
     await user.click(await screen.findByRole('button', { name: '⚽ Goal' }))
     await user.click(screen.getByRole('button', { name: 'Omar' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'No assist' }))
     await waitFor(() => expect(score().slice(0, 2)).toEqual(['1', '0']))
 
     // Signal returns, but the server refuses the goal (its score change goes through)

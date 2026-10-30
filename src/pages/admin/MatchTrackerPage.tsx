@@ -329,6 +329,8 @@ export default function MatchTrackerPage() {
     navigate(adminPath(`/sessions/${sessionId}/match/${result.nextMatchId}`))
   }
 
+  const tile = 'min-h-[60px] rounded-xl font-bold text-base disabled:opacity-40 shadow-sm'
+
   const teamsWithPlayers = teams
     .filter((t) => t.session_id === sessionId)
     .map((team) => ({
@@ -389,13 +391,13 @@ export default function MatchTrackerPage() {
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons: big tiles in two columns, Goal (the most used) the widest and first */}
       {!showPenalties && (
-        <div className="flex gap-3 mb-4">
-          <button onClick={() => openEventDialog('goal')} disabled={!inProgress} className="flex-1 py-3 bg-green-700 rounded font-semibold disabled:opacity-40">{t('match.goal')}</button>
-          {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className="flex-1 py-3 bg-yellow-700 rounded font-semibold disabled:opacity-40">{t('match.card')}</button>}
-          <button onClick={() => openEventDialog('interception')} disabled={!inProgress} className="flex-1 py-3 bg-sky-700 rounded font-semibold disabled:opacity-40">{t('match.interception')}</button>
-          {swaps && <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <button onClick={() => openEventDialog('goal')} disabled={!inProgress} className={`${tile} col-span-2 min-h-[72px] text-xl bg-green-600 hover:bg-green-500`}>{t('match.goal')}</button>
+          {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className={`${tile} bg-yellow-600 hover:bg-yellow-500`}>{t('match.card')}</button>}
+          <button onClick={() => openEventDialog('interception')} disabled={!inProgress} className={`${tile} bg-sky-700 hover:bg-sky-600`}>{t('match.interception')}</button>
+          {swaps && <button onClick={() => setDialog('swap')} className={`${tile} bg-gray-700 hover:bg-gray-600 ${cards ? 'col-span-2' : ''}`}>{t('match.swap')}</button>}
         </div>
       )}
 
@@ -430,22 +432,6 @@ export default function MatchTrackerPage() {
 
       {showPenalties && <PenaltyShootout key={match.id} team1={team1} team2={team2} busy={finishing} onDecide={handlePenaltyDecide} />}
 
-      {/* Between periods the break card holds the button; the shoot-out has its own */}
-      {!between && !showPenalties && !matchOver && (
-        <button
-          onClick={handleStep}
-          disabled={finishing}
-          className={`w-full py-3 rounded-xl font-bold transition-colors disabled:opacity-50 ${
-            reachedEnd
-              ? 'bg-red-500 hover:bg-red-400 animate-pulse shadow-lg shadow-red-700/50'
-              : 'bg-red-700 hover:bg-red-600'
-          }`}
-        >
-          {stepLabel}
-        </button>
-      )}
-      {endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('offline.endBlocked')}</p>}
-      {finishFailed && !endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('match.finishFailed')}</p>}
 
       {sessionMatches.some((m) => m.status === 'completed') && (
         <div className="mt-8">
@@ -453,6 +439,29 @@ export default function MatchTrackerPage() {
           <div className="mb-5"><SessionStandings teams={teams} matches={sessionMatches} /></div>
           <div className="mb-5"><SessionTopPlayers players={players} events={sessionEvents} matches={sessionMatches} /></div>
           <SessionMatchList matches={sessionMatches} events={sessionEvents} teams={teams} players={players} format={session ?? undefined} />
+        </div>
+      )}
+
+
+      {/* Between periods the break card holds the button; the shoot-out has its own. Pinned to the
+          bottom of the screen, so it never moves down as goals fill the timeline. */}
+      {(endBlocked || finishFailed || (!between && !showPenalties && !matchOver)) && (
+        <div className="sticky bottom-0 z-30 -mx-4 mt-6 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-900/95 backdrop-blur border-t border-gray-800">
+          {!between && !showPenalties && !matchOver && (
+            <button
+              onClick={handleStep}
+              disabled={finishing}
+              className={`w-full min-h-[56px] rounded-xl font-bold text-lg disabled:opacity-50 ${
+                reachedEnd
+                  ? 'bg-red-500 hover:bg-red-400 animate-pulse shadow-lg shadow-red-700/50'
+                  : 'bg-red-700 hover:bg-red-600'
+              }`}
+            >
+              {stepLabel}
+            </button>
+          )}
+          {endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('offline.endBlocked')}</p>}
+          {finishFailed && !endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('match.finishFailed')}</p>}
         </div>
       )}
 

@@ -23,7 +23,6 @@ it('calls onConfirm with scorerId and null assisterId when No assist selected', 
   render(<GoalDialog teams={mockTeams} onConfirm={onConfirm} onClose={vi.fn()} />)
   fireEvent.click(screen.getByText('Player 1'))
   fireEvent.click(screen.getByText('No assist'))
-  fireEvent.click(screen.getByText('Confirm'))
   expect(onConfirm).toHaveBeenCalledWith({ scorerId: 'p1', assisterId: null })
 })
 
@@ -32,7 +31,6 @@ it('calls onConfirm with both scorer and assister', () => {
   render(<GoalDialog teams={mockTeams} onConfirm={onConfirm} onClose={vi.fn()} />)
   fireEvent.click(screen.getByText('Player 1'))
   fireEvent.click(screen.getByText('Player 2'))
-  fireEvent.click(screen.getByText('Confirm'))
   expect(onConfirm).toHaveBeenCalledWith({ scorerId: 'p1', assisterId: 'p2' })
 })
 
@@ -40,4 +38,17 @@ it('shows team group headers for scorer selection', () => {
   render(<GoalDialog teams={mockTeams} onConfirm={vi.fn()} onClose={vi.fn()} />)
   expect(screen.getByText('Green Team')).toBeInTheDocument()
   expect(screen.getByText('Blue Team')).toBeInTheDocument()
+})
+
+it('asks who assisted the scorer, and can go back to pick another scorer', () => {
+  const onConfirm = vi.fn()
+  render(<GoalDialog teams={mockTeams} onConfirm={onConfirm} onClose={vi.fn()} />)
+  fireEvent.click(screen.getByText('Player 1'))
+  expect(screen.getByRole('heading', { name: 'Who assisted Player 1?' })).toBeInTheDocument()
+  // The scorer cannot assist their own goal
+  expect(screen.queryByRole('button', { name: 'Player 1' })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByText('Change scorer'))
+  fireEvent.click(screen.getByText('Player 2'))
+  fireEvent.click(screen.getByText('No assist'))
+  expect(onConfirm).toHaveBeenCalledWith({ scorerId: 'p2', assisterId: null })
 })

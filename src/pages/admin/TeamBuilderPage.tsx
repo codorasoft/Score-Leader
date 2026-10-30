@@ -217,14 +217,14 @@ export default function TeamBuilderPage() {
             <button
               onClick={makeBoard}
               disabled={makingBoard || teams.every((team) => team.length === 0)}
-              className="px-4 py-2 text-sm bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
+              className="min-h-[44px] px-4 text-sm bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50"
             >
               <span aria-hidden="true">📋 </span>{t('teamBuilder.makeBoard')}
             </button>
           )}
           <button
             onClick={() => reshuffle()}
-            className="px-4 py-2 text-sm bg-gray-700 rounded hover:bg-gray-600"
+            className="min-h-[44px] px-4 text-sm bg-gray-700 rounded-lg hover:bg-gray-600"
           >
             {t('teamBuilder.shuffleAll')}
           </button>
@@ -271,11 +271,12 @@ export default function TeamBuilderPage() {
       {/* With two teams both always play, so there is nothing to choose */}
       {colors.length > 2 && <FirstMatchPicker colors={colors} playing={firstPlaying} onChange={setFirstPlaying} />}
 
-      <div className="mt-6">
+      {/* Pinned to the bottom of the screen, so the way on is always in reach */}
+      <div className="sticky bottom-0 z-30 -mx-4 mt-6 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-900/95 backdrop-blur border-t border-gray-800">
         <button
           onClick={handleConfirm}
           disabled={saving || teams.every((t) => t.length === 0)}
-          className="w-full sm:w-auto px-6 py-3 bg-green-600 rounded-xl font-bold hover:bg-green-700 disabled:opacity-50"
+          className="w-full min-h-[56px] px-6 bg-green-600 rounded-xl font-bold text-lg hover:bg-green-500 disabled:opacity-50"
         >
           {saving ? t('teamBuilder.saving') : t('teamBuilder.confirmAndStart')}
         </button>

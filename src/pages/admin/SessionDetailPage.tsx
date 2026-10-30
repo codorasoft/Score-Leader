@@ -322,7 +322,7 @@ export default function SessionDetailPage() {
                     {resultLabel(m, teamNameOf, t)}
                   </span>
                   {isEditing ? (
-                    <button onClick={() => setEditingId(null)} className="px-3 py-1 bg-blue-600 rounded text-xs font-semibold hover:bg-blue-500">
+                    <button onClick={() => setEditingId(null)} className="min-h-[40px] px-4 bg-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-500">
                       {t('sessionDetail.done')}
                     </button>
                   ) : (
@@ -330,14 +330,14 @@ export default function SessionDetailPage() {
                       <button
                         onClick={() => setTimelineId(timelineId === m.id ? null : m.id)}
                         aria-expanded={timelineId === m.id}
-                        className={`px-2 py-1 rounded text-xs ${timelineId === m.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+                        className={`min-h-[40px] px-3 rounded-lg text-sm ${timelineId === m.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
                       >
                         {t('timeline.show')}
                       </button>
-                      <button onClick={() => setEditingId(m.id)} className="px-2 py-1 bg-gray-700 rounded text-xs hover:bg-gray-600">
+                      <button onClick={() => setEditingId(m.id)} className="min-h-[40px] px-3 bg-gray-700 rounded-lg text-sm hover:bg-gray-600">
                         {t('sessionDetail.editMatch')}
                       </button>
-                      <button onClick={() => setConfirmDeleteMatchId(m.id)} className="px-2 py-1 bg-red-900/60 rounded text-xs text-red-300 hover:bg-red-800">
+                      <button onClick={() => setConfirmDeleteMatchId(m.id)} className="min-h-[40px] px-3 ms-3 border border-red-800/70 rounded-lg text-sm text-red-300 hover:bg-red-900/60">
                         {t('sessionDetail.deleteMatch')}
                       </button>
                     </>
@@ -366,7 +366,7 @@ export default function SessionDetailPage() {
                           </span>
                           <button
                             onClick={() => setGoalDialog({ match: m, teamId: team.id })}
-                            className="px-3 py-1 bg-green-700 rounded text-xs font-semibold hover:bg-green-600"
+                            className="min-h-[40px] px-4 bg-green-700 rounded-lg text-sm font-semibold hover:bg-green-600"
                           >
                             {t('sessionDetail.addGoal')}
                           </button>
@@ -376,7 +376,7 @@ export default function SessionDetailPage() {
                           {goals.map((g) => {
                             const assist = matchEvents.find((e) => e.event_type === 'assist' && e.related_event_id === g.id)
                             return (
-                              <div key={g.id} className="flex items-center justify-between bg-gray-700/60 rounded px-3 py-1.5 text-sm">
+                              <div key={g.id} className="flex items-center justify-between gap-2 bg-gray-700/60 rounded-lg ps-3 pe-1 py-1 text-sm">
                                 <span>
                                   {eventClockSeconds(g) != null && (
                                     <span className="font-mono text-xs text-gray-400 me-2" dir="ltr">{formatMatchClock(eventClockSeconds(g)!, periodLength(g.period, format) ?? MATCH_DURATION_SECONDS)}</span>
@@ -391,7 +391,7 @@ export default function SessionDetailPage() {
                                 <button
                                   onClick={() => removeGoal(m, g)}
                                   aria-label={t('common.remove')}
-                                  className="w-7 h-7 rounded text-red-300 hover:bg-red-900/60"
+                                  className="w-10 h-10 shrink-0 rounded-lg text-red-300 hover:bg-red-900/60"
                                 >
                                   ✕
                                 </button>

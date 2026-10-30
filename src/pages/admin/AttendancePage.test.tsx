@@ -29,7 +29,7 @@ it("shows the session's setup and only this league's active players", async () =
   expect(await screen.findByText('Omar')).toBeInTheDocument()
   expect(screen.queryByText('Retired')).not.toBeInTheDocument()
   expect(screen.queryByText('Stranger')).not.toBeInTheDocument()
-  expect(screen.getByText('0 / 6')).toBeInTheDocument()
+  expect(screen.getByText('0 of 6 picked')).toBeInTheDocument()
 })
 
 it('allows at most teams × players and needs one player per team', async () => {
@@ -39,7 +39,7 @@ it('allows at most teams × players and needs one player per team', async () => 
   await user.click(await screen.findByText('Ali'))
   expect(confirm).toBeDisabled()
   for (const name of ['Omar', 'Sami', 'Zaid', 'Hadi', 'Nour']) await user.click(screen.getByText(name))
-  expect(screen.getByText('6 / 6')).toBeInTheDocument()
+  expect(screen.getByText('6 of 6 picked')).toBeInTheDocument()
   expect(confirm).toBeEnabled()
 })
 
@@ -58,7 +58,7 @@ it('coming back to change attendance shows the saved players and replaces them',
   rows('session_players').push({ league_id: 'L1', session_id: 's9', player_id: 'p1' }, { league_id: 'L1', session_id: 's9', player_id: 'p2' })
   const user = userEvent.setup()
   renderPage()
-  expect(await screen.findByText('2 / 6')).toBeInTheDocument()
+  expect(await screen.findByText('2 of 6 picked')).toBeInTheDocument()
   await user.click(screen.getByText('Omar'))
   await user.click(screen.getByText('Hadi'))
   await user.click(screen.getByRole('button', { name: 'Confirm Attendance' }))
@@ -96,4 +96,19 @@ it('describes the setup in English', async () => {
   rows('sessions')[0].team_size = 11
   renderPage()
   expect(await screen.findByText(/2 teams × 11 players/)).toBeInTheDocument()
+})
+
+it('picks the same players as the last session in one tap', async () => {
+  rows('sessions').push({ ...session, id: 's8', date: '2026-09-13' })
+  rows('session_players').push(
+    { league_id: 'L1', session_id: 's8', player_id: 'p1' },
+    { league_id: 'L1', session_id: 's8', player_id: 'p2' },
+    { league_id: 'L1', session_id: 's8', player_id: 'p3' },
+  )
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'Same players as last session (3)' }))
+  expect(screen.getByText('3 of 6 picked')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Clear' }))
+  expect(screen.getByText('0 of 6 picked')).toBeInTheDocument()
 })
