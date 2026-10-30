@@ -26,6 +26,16 @@ import { sessionDate } from '../../utils/sessionDate'
 
 const colorDot = styleMap('dot')
 
+const icon = (d: string) => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={d} />
+  </svg>
+)
+const TIMELINE_ICON = icon('M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z')
+const EDIT_ICON = icon('M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z')
+const DELETE_ICON = icon('M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6')
+const iconButton = 'w-9 h-9 shrink-0 rounded-lg flex items-center justify-center'
+
 const isGoal = (e: MatchEvent) => e.event_type === 'goal' || e.event_type === 'penalty_goal'
 
 export default function SessionDetailPage() {
@@ -206,6 +216,9 @@ export default function SessionDetailPage() {
 
   if (loadFailed) return <LoadFailed onRetry={load} />
 
+  const showBoard = coachBoard && session?.status !== 'draft' && teams.length > 0
+  const showSummary = summaryShare && session && completed.length > 0
+
   return (
     <div className="max-w-lg mx-auto p-4">
       <div className="flex items-center gap-3 mb-5">
@@ -214,24 +227,29 @@ export default function SessionDetailPage() {
       </div>
       {session && <MatchFormatLine format={session} />}
 
-      {coachBoard && session?.status !== 'draft' && teams.length > 0 && (
-        <button
-          onClick={makeBoard}
-          disabled={makingBoard}
-          className="mb-6 w-full py-2 text-sm bg-gray-700 rounded-xl hover:bg-gray-600 disabled:opacity-50"
-        >
-          <span aria-hidden="true">📋 </span>{t('teamBuilder.makeBoard')}
-        </button>
-      )}
-
-      {summaryShare && session && completed.length > 0 && (
-        <div className="mb-6">
-          <SessionSummaryShare
-            parts={buildSummaryParts({
-              t, date: session.date, teams, players, matches, events, awards: awardsOn ? awards : [],
-              url: `${window.location.origin}/s/${session.share_token}`,
-            })}
-          />
+      {/* Board and summary side by side; whichever shows alone takes the full row */}
+      {(showBoard || showSummary) && (
+        <div className="mb-6 flex gap-2">
+          {showBoard && (
+            <button
+              onClick={makeBoard}
+              disabled={makingBoard}
+              className="flex-1 min-w-0 min-h-[44px] px-2 flex items-center justify-center gap-1.5 text-[13px] font-semibold whitespace-nowrap bg-gray-700 rounded-xl hover:bg-gray-600 disabled:opacity-50"
+            >
+              {/* The icons only fit beside the labels once the screen is a little wider than 320px */}
+              <span aria-hidden="true" className="hidden min-[360px]:inline">📋</span><span className="truncate">{t('teamBuilder.makeBoard')}</span>
+            </button>
+          )}
+          {showSummary && (
+            <div className="flex-1 min-w-0 flex">
+              <SessionSummaryShare
+                parts={buildSummaryParts({
+                  t, date: session.date, teams, players, matches, events, awards: awardsOn ? awards : [],
+                  url: `${window.location.origin}/s/${session.share_token}`,
+                })}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -311,46 +329,55 @@ export default function SessionDetailPage() {
           const matchEvents = events.filter((e) => e.match_id === m.id)
 
           return (
-            <div key={m.id} className="bg-gray-800 rounded-xl p-4">
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <span className="text-xs text-gray-400 font-mono pt-1">
-                  {t('common.match', { number: m.match_number })}
+            <div key={m.id} className="bg-gray-800 rounded-xl px-3 py-2.5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs text-gray-400 font-mono shrink-0">#{m.match_number}</span>
+                <span className={`flex-1 min-w-0 flex items-center gap-1.5 text-xs font-semibold ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>
+                  {winner && <span className={`w-2 h-2 rounded-full shrink-0 ${colorDot[winner.color] ?? 'bg-gray-400'}`} />}
+                  <span className="truncate">{resultLabel(m, teamNameOf, t)}</span>
                 </span>
-                <div className="flex items-center justify-end flex-wrap gap-2">
-                  <span className={`flex items-center gap-1.5 text-xs font-semibold ${m.is_draw ? 'text-yellow-400' : 'text-green-400'}`}>
-                    {winner && <span className={`w-2 h-2 rounded-full ${colorDot[winner.color] ?? 'bg-gray-400'}`} />}
-                    {resultLabel(m, teamNameOf, t)}
-                  </span>
-                  {isEditing ? (
-                    <button onClick={() => setEditingId(null)} className="min-h-[40px] px-4 bg-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-500">
-                      {t('sessionDetail.done')}
+                {/* Sits on the trailing side: right in English, left in Arabic */}
+                {isEditing ? (
+                  <button onClick={() => setEditingId(null)} className="h-9 px-4 shrink-0 bg-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-500">
+                    {t('sessionDetail.done')}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setTimelineId(timelineId === m.id ? null : m.id)}
+                      aria-expanded={timelineId === m.id}
+                      aria-label={t('timeline.show')}
+                      title={t('timeline.show')}
+                      className={`${iconButton} ${timelineId === m.id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}`}
+                    >
+                      {TIMELINE_ICON}
                     </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setTimelineId(timelineId === m.id ? null : m.id)}
-                        aria-expanded={timelineId === m.id}
-                        className={`min-h-[40px] px-3 rounded-lg text-sm ${timelineId === m.id ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                      >
-                        {t('timeline.show')}
-                      </button>
-                      <button onClick={() => setEditingId(m.id)} className="min-h-[40px] px-3 bg-gray-700 rounded-lg text-sm hover:bg-gray-600">
-                        {t('sessionDetail.editMatch')}
-                      </button>
-                      <button onClick={() => setConfirmDeleteMatchId(m.id)} className="min-h-[40px] px-3 ms-3 border border-red-800/70 rounded-lg text-sm text-red-300 hover:bg-red-900/60">
-                        {t('sessionDetail.deleteMatch')}
-                      </button>
-                    </>
-                  )}
-                </div>
+                    <button
+                      onClick={() => setEditingId(m.id)}
+                      aria-label={t('sessionDetail.editMatch')}
+                      title={t('sessionDetail.editMatch')}
+                      className={`${iconButton} bg-gray-700 text-gray-200 hover:bg-gray-600`}
+                    >
+                      {EDIT_ICON}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteMatchId(m.id)}
+                      aria-label={t('sessionDetail.deleteMatch')}
+                      title={t('sessionDetail.deleteMatch')}
+                      className={`${iconButton} bg-red-900/40 border border-red-700/60 text-red-200 hover:bg-red-900/70`}
+                    >
+                      {DELETE_ICON}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <TeamChip team={t1} />
-                <div className="flex-1 text-center font-mono font-bold text-lg tracking-widest">
+                <div className="shrink-0 text-center font-mono font-bold text-base tracking-wider">
                   {m.team1_score} – {m.team2_score}
                 </div>
-                <TeamChip team={t2} />
+                <TeamChip team={t2} end />
               </div>
 
               {isEditing && (
@@ -447,18 +474,18 @@ export default function SessionDetailPage() {
         <div className="mt-4">
           <h2 className="text-xs uppercase text-gray-500 mb-2">{t('sessionDetail.upcoming')}</h2>
           {upcoming.map((m) => (
-            <div key={m.id} className="bg-gray-800/50 rounded-xl p-3 flex items-center gap-3 mb-2">
-              <span className="text-xs text-gray-500 font-mono w-16">
-                {t('common.match', { number: m.match_number })}
-              </span>
+            <div key={m.id} className="bg-gray-800/50 rounded-xl px-3 py-2 flex items-center gap-2 mb-2">
+              <span className="text-xs text-gray-500 font-mono shrink-0">#{m.match_number}</span>
               <TeamChip team={teamById[m.team1_id]} />
-              <span className="text-gray-600 text-sm">{t('common.vs')}</span>
-              <TeamChip team={teamById[m.team2_id]} />
+              <span className="text-gray-600 text-xs shrink-0">{t('common.vs')}</span>
+              <TeamChip team={teamById[m.team2_id]} end />
               <button
                 onClick={() => setConfirmDeleteMatchId(m.id)}
-                className="ms-auto px-2 py-1 bg-red-900/60 rounded text-xs text-red-300 hover:bg-red-800"
+                aria-label={t('sessionDetail.deleteMatch')}
+                title={t('sessionDetail.deleteMatch')}
+                className={`${iconButton} bg-red-900/40 border border-red-700/60 text-red-200 hover:bg-red-900/70`}
               >
-                {t('sessionDetail.deleteMatch')}
+                {DELETE_ICON}
               </button>
             </div>
           ))}
@@ -519,11 +546,12 @@ export default function SessionDetailPage() {
   )
 }
 
-function TeamChip({ team }: { team: Team | undefined }) {
+// `end` lines the chip up against the trailing edge, for the second team of a pairing
+function TeamChip({ team, end }: { team: Team | undefined; end?: boolean }) {
   const { t } = useTranslation()
   if (!team) return <span className="flex-1 text-center text-gray-500 text-sm">?</span>
   return (
-    <div className="flex-1 flex items-center gap-1.5">
+    <div className={`flex-1 min-w-0 flex items-center gap-1.5 ${end ? 'flex-row-reverse' : ''}`}>
       <span className={`w-3 h-3 rounded-full flex-shrink-0 ${colorDot[team.color] ?? 'bg-gray-400'}`} />
       <span className="text-sm font-semibold truncate">
         {t('common.teamName', { color: t(`common.teamColor.${team.color}`) })}

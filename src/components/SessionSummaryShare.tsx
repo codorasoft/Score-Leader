@@ -37,9 +37,9 @@ export function SessionSummaryShare({ parts }: { parts: SummaryParts }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold"
+        className="w-full min-h-[44px] px-2 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-[13px] font-semibold whitespace-nowrap"
       >
-        📤 {t('summary.button')}
+        <span aria-hidden="true" className="hidden min-[360px]:inline">📤</span><span className="truncate">{t('summary.button')}</span>
       </button>
 
       {open && (

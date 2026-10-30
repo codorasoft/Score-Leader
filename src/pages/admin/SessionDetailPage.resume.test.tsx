@@ -70,7 +70,7 @@ it('after a draw that stands, shows it as a draw and carries the rotation on', a
 it('offers nothing to start once the session is finished', async () => {
   resetDb(finishedLeague())
   renderPage()
-  expect(await screen.findByText('Match #2')).toBeInTheDocument()
+  expect(await screen.findByText('#2')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Start match/ })).not.toBeInTheDocument()
 })
 
