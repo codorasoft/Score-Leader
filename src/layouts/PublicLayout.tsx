@@ -27,7 +27,7 @@ export default function PublicLayout() {
   const active = (to: string) => location.pathname.startsWith(to)
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-dvh bg-gray-900 text-white">
       <header className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur border-b border-gray-800">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-4">
           <Link to={publicPath()} className="flex items-center gap-2 font-bold text-base sm:text-lg tracking-tight min-w-0">

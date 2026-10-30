@@ -17,7 +17,7 @@ export default function LoginPage() {
   // While Supabase checks the stored session, show a neutral spinner
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="min-h-dvh flex items-center justify-center bg-gray-900">
         <div className="text-gray-400">{t('common.loading')}</div>
       </div>
     )
@@ -43,7 +43,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+    <div className="min-h-dvh flex items-center justify-center bg-gray-900">
       <div className="bg-gray-800 p-8 rounded-xl w-full max-w-sm">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">Score<span className="text-blue-400">Leader</span></h1>
