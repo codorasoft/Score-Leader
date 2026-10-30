@@ -33,7 +33,7 @@ export function MatchResultDialog({ outcome, team1, team2, next, format, onConti
   )
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onContinue}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onContinue}>
       <div
         role="dialog"
         aria-modal="true"

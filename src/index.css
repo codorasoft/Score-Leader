@@ -4,6 +4,39 @@
   --color-team-red: #EF4444;
   --color-team-blue: #3B82F6;
   --color-team-yellow: #EAB308;
+
+  /* The app's surfaces: a deep navy, the same as the leaderboard share images. The lighter
+     steps are raised a little, so small grey text stays readable outdoors. */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cdd6e3;
+  --color-gray-400: #a5b1c4;
+  --color-gray-500: #8291a8;
+  --color-gray-600: #4a5a75;
+  --color-gray-700: #2a3852;
+  --color-gray-800: #18233a;
+  --color-gray-900: #0b1220;
+  --color-gray-950: #060a13;
+
+  /* One set of corners: small controls 8px, cards and big buttons 12–16px */
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --animate-page-in: page-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes shimmer {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
 }
 
 /* A wide screen with a mouse: there a team card has room for the name alone, and shows the rest on hover */
@@ -17,4 +50,73 @@
 html,
 body {
   background-color: var(--color-gray-900);
+}
+
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Every tap answers at once: colours ease, and a pressed control sinks a little */
+  button,
+  a,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+  button:not(:disabled):not([aria-disabled="true"]):active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.97);
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-blue-400);
+    outline-offset: 2px;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    color-scheme: dark;
+  }
+}
+
+/* Popups fade in and their panel rises into place */
+.dialog-backdrop {
+  animation: backdrop-in 160ms ease-out;
+}
+.dialog-backdrop > * {
+  animation: dialog-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+}
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+}
+
+/* Each page eases in when it opens */
+.page-enter > * {
+  animation: var(--animate-page-in);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

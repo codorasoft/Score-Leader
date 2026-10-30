@@ -24,7 +24,7 @@ export function GoalDialog({ teams, onConfirm, onClose }: GoalDialogProps) {
   const step = scorerId === null ? 'scorer' : 'assister'
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold mb-4">
           {step === 'scorer' ? t('goal.whoScored') : t('goal.assist')}

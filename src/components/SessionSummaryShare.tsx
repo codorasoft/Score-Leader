@@ -43,7 +43,7 @@ export function SessionSummaryShare({ parts }: { parts: SummaryParts }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
           <div
             role="dialog"
             aria-modal="true"

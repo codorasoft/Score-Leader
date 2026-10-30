@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { addType, fetchCatalog, nextSortOrder, swapOrder, type Catalog } from '../../lib/trainingApi'
 import MoveButtons from '../../components/MoveButtons'
+import PageSkeleton from '../../components/PageSkeleton'
 
 // The catalog's training types. Every league's coaches pick videos from this one catalog.
 export default function TrainingTypesPage() {
@@ -49,7 +50,7 @@ export default function TrainingTypesPage() {
           <button onClick={load} className="px-4 py-2 bg-blue-600 rounded font-semibold hover:bg-blue-700">{t('common.retry')}</button>
         </div>
       ) : !catalog ? (
-        <p className="text-gray-400">{t('common.loading')}</p>
+        <PageSkeleton />
       ) : (
         <>
           <form onSubmit={add} className="flex gap-2 mb-4">

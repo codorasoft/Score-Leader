@@ -10,6 +10,7 @@ import MoveButtons from '../../components/MoveButtons'
 import TrainingVideo from '../../components/TrainingVideo'
 import TrainingVideoForm from '../../components/TrainingVideoForm'
 import NotAvailablePage from '../NotAvailablePage'
+import PageSkeleton from '../../components/PageSkeleton'
 
 // One training type of the catalog and its videos.
 export default function TrainingTypePage() {
@@ -44,7 +45,7 @@ export default function TrainingTypePage() {
       </div>
     )
   }
-  if (!catalog) return <p className="text-gray-400">{t('common.loading')}</p>
+  if (!catalog) return <PageSkeleton />
 
   const type = catalog.types.find((x) => x.id === typeId)
   if (!type) return <NotAvailablePage kind="page" embedded />

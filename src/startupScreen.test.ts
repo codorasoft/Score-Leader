@@ -5,11 +5,11 @@ import { resolve } from 'node:path'
 
 const html = readFileSync(resolve(__dirname, '../index.html'), 'utf8')
 const css = readFileSync(resolve(__dirname, 'index.css'), 'utf8')
-const GRAY_900 = '#101828' // Tailwind v4 gray-900, the app background
+const GRAY_900 = '#0b1220' // the app background (gray-900 in index.css)
 
 it('paints the app background before any code runs', () => {
   expect(html).toMatch(new RegExp(`<html[^>]*style="[^"]*background(-color)?:\\s*${GRAY_900}`, 'i'))
-  expect(html).toMatch(/<meta name="theme-color" content="#101828"/)
+  expect(html).toMatch(/<meta name="theme-color" content="#0b1220"/)
 })
 
 it('shows the same Loading… as the app until the app takes over', () => {

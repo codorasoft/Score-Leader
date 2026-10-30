@@ -22,6 +22,7 @@ import { createTeamsBoard } from '../../lib/teamsBoard'
 import { MatchFormatLine } from '../../components/MatchFormatLine'
 import { DEFAULT_FORMAT, periodLength } from '../../utils/matchFormat'
 import { resultLabel } from '../../utils/resultLabel'
+import { sessionDate } from '../../utils/sessionDate'
 
 const colorDot = styleMap('dot')
 
@@ -29,7 +30,7 @@ const isGoal = (e: MatchEvent) => e.event_type === 'goal' || e.event_type === 'p
 
 export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const adminPath = useAdminPath()
   const league = useLeague()
   const navigate = useNavigate()
@@ -209,7 +210,7 @@ export default function SessionDetailPage() {
     <div className="max-w-lg mx-auto p-4">
       <div className="flex items-center gap-3 mb-5">
         <Link to={adminPath()} className="text-gray-400 hover:text-white text-sm">← {t('sessionDetail.back')}</Link>
-        <h1 className="text-xl font-bold">{session?.date ?? '…'}</h1>
+        <h1 className="text-xl font-bold">{session ? sessionDate(session.date, i18n.language) : '…'}</h1>
       </div>
       {session && <MatchFormatLine format={session} />}
 
@@ -483,7 +484,7 @@ export default function SessionDetailPage() {
       )}
 
       {confirmReopen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmReopen(false)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmReopen(false)}>
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm text-gray-300 mb-5">{t('sessionDetail.confirmBackToTeams')}</p>
             <div className="flex gap-3">
@@ -499,7 +500,7 @@ export default function SessionDetailPage() {
       )}
 
       {confirmDeleteMatchId && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmDeleteMatchId(null)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmDeleteMatchId(null)}>
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <div className="text-3xl mb-3">🗑️</div>
             <p className="text-sm text-gray-300 mb-5">{t('sessionDetail.confirmDeleteMatch')}</p>

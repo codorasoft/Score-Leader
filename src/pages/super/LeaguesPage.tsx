@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchAdmins, fetchAllLeagues, type League } from '../../lib/tenancy'
 import { LeagueLogo } from '../../components/LeagueLogo'
+import PageSkeleton from '../../components/PageSkeleton'
 
 type LeagueRow = League & { session_count: number }
 
@@ -33,7 +34,7 @@ export default function LeaguesPage() {
           <button onClick={load} className="px-4 py-2 bg-blue-600 rounded font-semibold hover:bg-blue-700">{t('common.retry')}</button>
         </div>
       ) : !leagues ? (
-        <p className="text-gray-400">{t('common.loading')}</p>
+        <PageSkeleton />
       ) : leagues.length === 0 ? (
         <p className="text-gray-400">{t('super.leagues.empty')}</p>
       ) : (

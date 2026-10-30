@@ -35,6 +35,7 @@ import { outbox, newId } from '../../lib/pitchOutbox'
 import { serverNowIso } from '../../lib/serverClock'
 import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team } from '../../lib/types'
+import PageSkeleton from '../../components/PageSkeleton'
 
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
@@ -80,12 +81,12 @@ export default function MatchTrackerPage() {
   }
 
   if (missing) return <Navigate to={adminPath('/history')} replace />
-  if (!match || !screen) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!match || !screen) return <PageSkeleton />
 
   const team1 = teams.find((tm) => tm.id === match.team1_id)
   const team2 = teams.find((tm) => tm.id === match.team2_id)
 
-  if (!team1 || !team2) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!team1 || !team2) return <PageSkeleton />
 
   const { step, reachedEnd, matchOver, showPenalties, between, endsMatch, endsPeriodOnly, periodSeconds } = screen
 

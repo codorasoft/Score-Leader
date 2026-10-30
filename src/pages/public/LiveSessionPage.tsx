@@ -16,12 +16,14 @@ import { waitingQueue } from '../../utils/matchRotation'
 import NotAvailablePage from '../NotAvailablePage'
 import type { Session, Match, Team, MatchEvent, Player } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
+import PageSkeleton from '../../components/PageSkeleton'
+import { sessionDate } from '../../utils/sessionDate'
 
 const colorBg = styleMap('card')
 
 export default function LiveSessionPage() {
   const { token } = useParams<{ token: string }>()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [session, setSession] = useState<Session | null>(null)
   const [matches, setMatches] = useState<Match[]>([])
   const [teams, setTeams] = useState<Team[]>([])
@@ -77,7 +79,7 @@ export default function LiveSessionPage() {
 
   if (status === 'failed') return <LoadFailed onRetry={() => { setStatus('loading'); load() }} />
   if (status === 'missing') return <NotAvailablePage kind="page" embedded />
-  if (!session) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!session) return <PageSkeleton />
 
   const teamName = (team: Team | undefined) =>
     team ? t('common.teamName', { color: t(`common.teamColor.${team.color}`) }) : ''
@@ -90,7 +92,7 @@ export default function LiveSessionPage() {
     <div className="max-w-lg mx-auto">
       {!match ? (
         <div className="text-center mb-8">
-          <h1 className="text-xl font-bold mb-2">{session.date}</h1>
+          <h1 className="text-xl font-bold mb-2">{sessionDate(session.date, i18n.language)}</h1>
           <p className="text-gray-400">{t('live.noActiveMatch')}</p>
         </div>
       ) : (

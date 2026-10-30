@@ -9,6 +9,7 @@ import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { drawLeaderboardImage, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import type { Player, Match, MatchEvent, TeamPlayer, Session, SessionAward } from '../../lib/types'
+import PageSkeleton from '../../components/PageSkeleton'
 
 type SortKey = 'points' | 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
 
@@ -56,7 +57,7 @@ export default function LeaderboardPage() {
 
   const data = loaded?.leagueId === league.id ? loaded.data : null
 
-  if (!data) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!data) return <PageSkeleton />
 
   const periods = availablePeriods(data.sessions)
   const requested = searchParams.get('period')

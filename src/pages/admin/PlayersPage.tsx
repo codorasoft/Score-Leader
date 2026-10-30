@@ -188,7 +188,7 @@ export default function PlayersPage() {
       )}
 
       {confirmRemove && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmRemove(null)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmRemove(null)}>
           <div role="dialog" aria-modal="true" aria-labelledby="remove-title" className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <div className="text-3xl mb-2" aria-hidden="true">🗑️</div>
             <h2 id="remove-title" className="text-lg font-bold mb-2">{t('players.removeTitle', { name: confirmRemove.name })}</h2>
@@ -206,7 +206,7 @@ export default function PlayersPage() {
       )}
 
       {dialogOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setDialogOpen(false)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setDialogOpen(false)}>
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">{editingPlayer ? t('players.editPlayer') : t('players.addPlayerTitle')}</h2>
 

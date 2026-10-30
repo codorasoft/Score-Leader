@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
 import { fetchTrainings, type TrainingSummary } from '../../lib/trainingApi'
 import { dayLabel, groupByDay, localToday } from '../../utils/trainingDays'
+import PageSkeleton from '../../components/PageSkeleton'
 
 // The league's trainings: today's first, so the coach at the pitch finds it at once.
 export default function TrainingsPage() {
@@ -48,7 +49,7 @@ export default function TrainingsPage() {
           <button onClick={load} className="px-4 py-2 bg-blue-600 rounded font-semibold hover:bg-blue-700">{t('common.retry')}</button>
         </div>
       ) : !sections ? (
-        <p className="text-gray-400">{t('common.loading')}</p>
+        <PageSkeleton />
       ) : sections.length === 0 ? (
         <p className="text-gray-500 text-center py-10">{t('training.empty')}</p>
       ) : (

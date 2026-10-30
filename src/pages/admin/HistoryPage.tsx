@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { useLeague, useAdminPath, useFeature } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
 import type { Session } from '../../lib/types'
+import { sessionDate } from '../../utils/sessionDate'
 
 const tile = 'min-h-[56px] rounded-lg bg-gray-700 hover:bg-gray-600 text-[11px] leading-tight font-semibold flex flex-col items-center justify-center gap-0.5 px-1 text-center'
 
 export default function HistoryPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const league = useLeague()
   const adminPath = useAdminPath()
   const awardsOn = useFeature('awards')
@@ -102,7 +103,7 @@ export default function HistoryPage() {
               <>
                 {/* Row 1: date and status */}
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-lg" dir="ltr">{s.date}</span>
+                  <span className="font-semibold text-lg">{sessionDate(s.date, i18n.language)}</span>
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                     s.status === 'completed' ? 'bg-green-900/50 text-green-300'
                       : s.status === 'active' ? 'bg-yellow-900/50 text-yellow-300'
@@ -159,7 +160,7 @@ export default function HistoryPage() {
 
       {/* Delete confirmation popup */}
       {confirmDeleteId && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmDeleteId(null)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setConfirmDeleteId(null)}>
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <div className="text-3xl mb-3">🗑️</div>
             <p className="text-sm text-gray-300 mb-5">{t('history.confirmDeleteSession')}</p>

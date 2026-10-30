@@ -96,7 +96,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   // Fits a 360×640 phone without scrolling. On anything smaller (or with large text) only the middle
   // scrolls, so the title and the Create button always stay on screen.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
+    <div className="dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
       <form
         ref={formRef}
         role="dialog"

@@ -14,7 +14,7 @@ interface Props {
 export default function ConfirmDialog({ message, detail, confirmLabel, onConfirm, onCancel, busy }: Props) {
   const { t } = useTranslation()
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onCancel}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onCancel}>
       <div role="dialog" aria-modal="true" className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
         <p className="font-bold">{message}</p>
         {detail && <p className="text-sm text-gray-300 mt-2">{detail}</p>}

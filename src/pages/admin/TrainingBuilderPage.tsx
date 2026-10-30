@@ -9,6 +9,7 @@ import ConfirmDialog from '../../components/ConfirmDialog'
 import MoveButtons from '../../components/MoveButtons'
 import VideoPreviewDialog from '../../components/VideoPreviewDialog'
 import NotAvailablePage from '../NotAvailablePage'
+import PageSkeleton from '../../components/PageSkeleton'
 
 // The catalog is shown this many videos at a time, so a long one is not one endless list.
 // The list itself is read in one go (it is small); thumbnails load only when they come into view.
@@ -68,7 +69,7 @@ export default function TrainingBuilderPage() {
       </div>
     )
   }
-  if (status === 'loading') return <p className="text-gray-400">{t('common.loading')}</p>
+  if (status === 'loading') return <PageSkeleton />
   if (status === 'notFound') return <NotAvailablePage kind="page" embedded />
 
   const videoById = new Map(catalog.videos.map((v) => [v.id, v]))

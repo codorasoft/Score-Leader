@@ -22,7 +22,7 @@ export default function BoardTextDialog({ color, initialText, onSubmit, onRemove
   const editing = initialText !== undefined
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-4" onClick={onClose}>
       <form
         role="dialog"
         aria-modal="true"

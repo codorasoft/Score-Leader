@@ -6,6 +6,8 @@ import { supabase } from '../../lib/supabase'
 import { serverErrorKey } from '../../lib/errorText'
 import { PositionBadge } from './PlayersPage'
 import type { Player, Session } from '../../lib/types'
+import PageSkeleton from '../../components/PageSkeleton'
+import { sessionDate } from '../../utils/sessionDate'
 
 interface AttendancePickerProps {
   players: Player[]
@@ -52,7 +54,7 @@ export default function AttendancePage() {
   const navigate = useNavigate()
   const league = useLeague()
   const adminPath = useAdminPath()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [session, setSession] = useState<Session | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -97,13 +99,13 @@ export default function AttendancePage() {
     navigate(adminPath(`/sessions/${sessionId}/teams`))
   }
 
-  if (!session) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!session) return <PageSkeleton />
 
   return (
     <div>
       <h1 className="text-xl font-bold mb-1">{t('session.attendeesTitle')}</h1>
       <p className="text-sm text-gray-300 mb-1">
-        {session.date} · {t('session.setup', { teams: t('session.teamsCount', { count: session.team_count }), players: t('session.playersCount', { count: session.team_size }) })}
+        {sessionDate(session.date, i18n.language)} · {t('session.setup', { teams: t('session.teamsCount', { count: session.team_count }), players: t('session.playersCount', { count: session.team_size }) })}
       </p>
       <p className="text-gray-400 text-sm mb-4">{t('session.attendeesHint')}</p>
       <AttendancePicker players={players} selected={selected} limit={limit} onToggle={togglePlayer} />

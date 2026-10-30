@@ -12,7 +12,7 @@ export function MatchConfirmDialog({ warning = false, title, body, confirmLabel,
 }) {
   const { t } = useTranslation()
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onCancel}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onCancel}>
       <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
         {warning && <div className="text-2xl mb-3">⚠️</div>}
         <h2 className="text-lg font-bold mb-2">{title}</h2>

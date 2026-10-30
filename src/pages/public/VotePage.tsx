@@ -6,6 +6,7 @@ import { getVoterId } from '../../utils/voterId'
 import { useFeature } from '../../contexts/LeagueContext'
 import { serverErrorKey } from '../../lib/errorText'
 import type { AwardVote, Player } from '../../lib/types'
+import PageSkeleton from '../../components/PageSkeleton'
 
 export default function VotePage() {
   const { voteToken } = useParams<{ voteToken: string }>()
@@ -72,7 +73,7 @@ export default function VotePage() {
     setSubmitted(true)
   }
 
-  if (loading) return <div className="p-4 text-gray-400 text-center">{t('common.loading')}</div>
+  if (loading) return <PageSkeleton />
   if (!vote) return <div className="p-4 text-red-400 text-center">{t('vote.notFound')}</div>
   if (vote.status === 'closed' || !votingOn) return <div className="p-4 text-center"><p className="text-gray-400">{t('vote.closed')}</p></div>
   if (alreadyVoted || submitted) return (

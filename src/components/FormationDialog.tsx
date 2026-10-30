@@ -48,7 +48,7 @@ export default function FormationDialog({ onPitch, current, onApply, onClose }: 
   const step = 'w-9 h-9 rounded-lg bg-gray-700 hover:bg-gray-600 font-bold disabled:opacity-40'
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
       <div
         ref={boxRef}
         role="dialog"

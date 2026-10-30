@@ -26,7 +26,7 @@ export function PlayerPicker({ title, players, onAdd, onAddGuest, onClose }: {
   })
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="picker-title"
         className="bg-gray-800 rounded-t-2xl sm:rounded-2xl p-4 w-full max-w-md max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <h2 id="picker-title" className="text-lg font-bold mb-3">{title}</h2>

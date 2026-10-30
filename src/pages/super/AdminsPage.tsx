@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchAdmins, fetchAllLeagues, type AdminProfile } from '../../lib/tenancy'
+import PageSkeleton from '../../components/PageSkeleton'
 
 export default function AdminsPage() {
   const { t } = useTranslation()
@@ -39,7 +40,7 @@ export default function AdminsPage() {
           <button onClick={load} className="px-4 py-2 bg-blue-600 rounded font-semibold hover:bg-blue-700">{t('common.retry')}</button>
         </div>
       ) : !admins ? (
-        <p className="text-gray-400">{t('common.loading')}</p>
+        <PageSkeleton />
       ) : admins.length === 0 ? (
         <p className="text-gray-400">{t('super.admins.empty')}</p>
       ) : (
