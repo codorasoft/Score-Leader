@@ -55,8 +55,26 @@ describe("the phone's bottom bar", () => {
     expect(more).toHaveAttribute('aria-expanded', 'false')
     await user.click(more)
     const menu = document.getElementById('more-menu')!
-    expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Training plan', 'Coach Board', "Coach's schedule", 'League settings'])
+    expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Training plan', 'Coach Board', "Coach's schedule", 'Leaderboard', 'League settings'])
     expect(within(menu).getByRole('link', { name: "Coach's schedule" })).toHaveAttribute('href', '/admin/eagles/schedule')
+    expect(within(menu).getByRole('link', { name: 'Leaderboard' })).toHaveAttribute('href', '/l/eagles/leaderboard')
+  })
+
+  it('always has More for the leaderboard, even with few tabs', async () => {
+    const user = userEvent.setup()
+    const bar = renderAt('/admin/eagles/home', ['leaderboard'])
+    expect(bar.getAllByRole('link').map((l) => l.textContent)).toEqual(['Home', 'Players', 'History'])
+    await user.click(bar.getByRole('button', { name: 'More' }))
+    const menu = document.getElementById('more-menu')!
+    expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Leaderboard', 'League settings'])
+  })
+
+  it('leaves the leaderboard out of More when the league has it off', async () => {
+    const user = userEvent.setup()
+    const bar = renderAt('/admin/eagles/home', FEATURES.filter((f) => f !== 'leaderboard'))
+    await user.click(bar.getByRole('button', { name: 'More' }))
+    const menu = document.getElementById('more-menu')!
+    expect(within(menu).queryByRole('link', { name: 'Leaderboard' })).not.toBeInTheDocument()
   })
 
   it('splits its full width between the tabs it has', () => {
