@@ -83,7 +83,8 @@ export function TeamSwapBoard({ teams, colors, onChange, strengthOf }: Props) {
                       <PositionBadge position={player.position} />
                       <span className={`text-sm flex-1 truncate transition-opacity ${isSelected ? '' : nameFade}`}>{player.name}</span>
                       <span className={`flex items-center gap-2 transition-opacity desktop:absolute desktop:inset-y-0 desktop:end-3 desktop:opacity-0 ${isSelected ? '' : statsShow}`}>
-                        <span className="text-xs text-yellow-400" aria-hidden="true">{'★'.repeat(player.skill_rating)}</span>
+                        {/* The rating as one star and a number: a row of up to ten stars left no room for the name on a phone */}
+                        <span className="text-xs text-yellow-400 font-semibold tabular-nums whitespace-nowrap" aria-hidden="true">★{player.skill_rating}</span>
                         {strengthOf && <span className="text-xs text-gray-300 font-mono w-9 text-end">⚡{strengthOf(player).toFixed(1)}</span>}
                       </span>
                       {isTarget && <span className="text-blue-300 desktop:hidden" aria-hidden="true">⇄</span>}

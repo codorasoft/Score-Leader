@@ -237,7 +237,7 @@ export default function TrainingBuilderPage() {
         )}
 
         {/* Stays in reach under a long catalog */}
-        <div className="sticky bottom-0 -mx-4 px-4 py-3 bg-gray-900/95 backdrop-blur border-t border-gray-800">
+        <div className="action-bar">
           <button type="button" onClick={save} disabled={saving || !date} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold disabled:opacity-50">
             {t('common.save')}
           </button>

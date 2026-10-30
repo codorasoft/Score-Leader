@@ -32,6 +32,8 @@
     "signingIn": "Signing in…"
   },
   "nav": {
+    "more": "More",
+    "tabs": "Main menu",
     "schedule": "Coach's schedule",
     "training": "Training plan",
     "players": "Players",
@@ -114,6 +116,9 @@
     "pickTwo": "Tap two teams, or leave it random. The others wait in this order."
   },
   "match": {
+    "tabMatch": "Match",
+    "views": "Match or session",
+    "backToSession": "Session",
     "finishFailed": "Could not save the result. Check your signal and try again.",
     "start": "▶ Start",
     "pause": "⏸ Pause",
@@ -799,6 +804,7 @@
     "firstBoard": "Create your first board"
   },
   "format": {
+    "customize": "Customize",
     "mode": "Match format",
     "quick": "Quick",
     "halves": "Halves",
@@ -958,5 +964,12 @@
   },
   "interception": {
     "who": "Interception — who won the ball?"
+  },
+  "setup": {
+    "title": "Session setup",
+    "format": "Format",
+    "players": "Players",
+    "teams": "Teams",
+    "kickoff": "Kick off"
   }
 }

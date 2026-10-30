@@ -14,6 +14,7 @@ import { createTeamsBoard } from '../../lib/teamsBoard'
 import { TEAM_COLORS } from '../../lib/teamColors'
 import { draftOf, restoreDraft } from '../../utils/teamEdit'
 import type { Match, MatchEvent, Player, Session, TeamColor, TeamPlayer } from '../../lib/types'
+import { SetupSteps } from '../../components/SetupSteps'
 
 const WEIGHT_KEY = 'balanceFormWeight'
 const SPLIT_DUOS_KEY = 'balanceSplitDuos'
@@ -210,6 +211,7 @@ export default function TeamBuilderPage() {
 
   return (
     <div>
+      <SetupSteps current="teams" sessionId={sessionId} />
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <h1 className="text-xl font-bold">{t('teamBuilder.title')}</h1>
         <div className="flex flex-wrap gap-2">
@@ -272,7 +274,7 @@ export default function TeamBuilderPage() {
       {colors.length > 2 && <FirstMatchPicker colors={colors} playing={firstPlaying} onChange={setFirstPlaying} />}
 
       {/* Pinned to the bottom of the screen, so the way on is always in reach */}
-      <div className="sticky bottom-0 z-30 -mx-4 mt-6 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-900/95 backdrop-blur border-t border-gray-800">
+      <div className="action-bar">
         <button
           onClick={handleConfirm}
           disabled={saving || teams.every((t) => t.length === 0)}

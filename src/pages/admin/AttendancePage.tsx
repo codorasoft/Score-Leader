@@ -9,6 +9,7 @@ import { PlayerAvatar } from '../../components/PlayerAvatar'
 import type { Player, Session } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
 import { sessionDate } from '../../utils/sessionDate'
+import { SetupSteps } from '../../components/SetupSteps'
 
 interface AttendancePickerProps {
   players: Player[]
@@ -150,6 +151,7 @@ export default function AttendancePage() {
 
   return (
     <div>
+      <SetupSteps current="players" />
       <h1 className="text-xl font-bold mb-1">{t('session.attendeesTitle')}</h1>
       <p className="text-sm text-gray-300 mb-1">
         {sessionDate(session.date, i18n.language)} · {t('session.setup', { teams: t('session.teamsCount', { count: session.team_count }), players: t('session.playersCount', { count: session.team_size }) })}
@@ -170,7 +172,7 @@ export default function AttendancePage() {
       <AttendancePicker players={players} selected={selected} limit={limit} onToggle={togglePlayer} />
 
       {/* Pinned to the bottom of the screen: how many are picked, and the way on */}
-      <div className="sticky bottom-0 z-30 -mx-4 mt-6 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-900/95 backdrop-blur border-t border-gray-800">
+      <div className="action-bar">
         {error && <p role="alert" className="text-red-400 text-sm mb-2">{error}</p>}
         <div className="flex items-center gap-3">
           <p className="flex-1 text-sm text-gray-300 font-semibold" aria-live="polite">{t('session.selectedCount', { count: selected.size, limit })}</p>

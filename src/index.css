@@ -92,6 +92,35 @@ body {
   }
 }
 
+/* The phone's bottom tab bar (AdminLayout): pages pin their main button just above it, and
+   toasts show above it too. Without the bar the pinned button keeps clear of the home indicator. */
+:root {
+  --bottom-bar: 0px;
+  --bar-safe: max(0.75rem, env(safe-area-inset-bottom));
+}
+@media (width < 64rem) {
+  .has-bottom-bar {
+    --bottom-bar: calc(3.75rem + env(safe-area-inset-bottom));
+    --bar-safe: 0.75rem;
+  }
+  .has-bottom-bar body {
+    padding-bottom: var(--bottom-bar);
+  }
+}
+
+/* A page's main button, pinned to the bottom of the screen so it is always in reach */
+.action-bar {
+  position: sticky;
+  bottom: var(--bottom-bar);
+  z-index: 30;
+  margin-inline: -1rem;
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem var(--bar-safe);
+  background-color: color-mix(in oklab, var(--color-gray-900) 95%, transparent);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--color-gray-800);
+}
+
 /* Popups fade in and their panel rises into place */
 .dialog-backdrop {
   animation: backdrop-in 160ms ease-out;

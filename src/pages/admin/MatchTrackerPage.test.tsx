@@ -651,3 +651,27 @@ describe('extra time after a one-period match', () => {
     expect(m1().period_seconds).toHaveLength(3)
   })
 })
+
+it("keeps the session's table in its own tab, out of the way of the match controls", async () => {
+  rows('matches').push(match('m0', { match_number: 0, status: 'completed', team1_score: 1, team2_score: 0, winner_team_id: 'tg' }))
+  const user = userEvent.setup()
+  renderPage()
+  const matchTab = await screen.findByRole('tab', { name: 'Match' })
+  expect(matchTab).toHaveAttribute('aria-selected', 'true')
+  expect(screen.queryByText('Team standings')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeVisible()
+
+  await user.click(screen.getByRole('tab', { name: 'Session so far' }))
+  expect(screen.getByText(/team standings/i)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '⚽ Goal', hidden: true })).not.toBeVisible()
+  expect(screen.queryByRole('button', { name: 'End Match' })).not.toBeInTheDocument()
+
+  await user.click(matchTab)
+  expect(screen.getByRole('button', { name: 'End Match' })).toBeInTheDocument()
+})
+
+it('has no tabs before any match of the session is finished', async () => {
+  renderPage()
+  await screen.findByRole('button', { name: '⚽ Goal' })
+  expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+})
