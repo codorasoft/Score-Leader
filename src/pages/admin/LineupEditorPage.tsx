@@ -16,6 +16,7 @@ import { drawBoardImage, shareCanvas } from '../../lib/shareImage'
 import { benchOrder, guestsForSaving, lineupChanges, makeGuest, parseGuests, spotForNewPlayer, swapWithSubstitute, type BoardPlayer, type BoardSpot, type Guest } from '../../utils/board'
 import { MAX_ON_PITCH, MIN_ON_PITCH, assignToFormation, fitsPitch, parseFormation } from '../../utils/formation'
 import type { Player, PlayerPosition } from '../../lib/types'
+import PageSkeleton from '../../components/PageSkeleton'
 
 // Anyone on the board, on the pitch or among the substitutes: a player, or a guest (a typed name,
 // with no position and no photo)
@@ -236,7 +237,7 @@ export default function LineupEditorPage() {
     if (!error) navigate(adminPath('/lineups'), { replace: true })
   }
 
-  if (!loaded) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!loaded) return <PageSkeleton />
 
   // Nobody is offered twice: not those on the pitch, not the substitutes
   const available = players.filter((p) => p.is_active && !board.some((b) => b.playerId === p.id))
@@ -363,7 +364,7 @@ export default function LineupEditorPage() {
       )}
 
       {confirmClear && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmClear(false)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmClear(false)}>
           <div role="dialog" aria-modal="true" className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <p className="font-bold mb-5">{t('board.confirmClear')}</p>
             <div className="flex gap-3">
@@ -375,7 +376,7 @@ export default function LineupEditorPage() {
       )}
 
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(false)}>
+        <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(false)}>
           <div role="dialog" aria-modal="true" className="bg-gray-800 rounded-xl p-6 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <p className="font-bold mb-5">{t('lineups.confirmDelete', { name })}</p>
             <div className="flex gap-3">

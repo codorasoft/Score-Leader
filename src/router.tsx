@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom'
 import { Suspense, type ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
 import NotAvailablePage from './pages/NotAvailablePage'
 import ErrorPage from './pages/ErrorPage'
 import PublicLeagueRoute from './routes/PublicLeagueRoute'
@@ -16,6 +15,7 @@ import LoginPage from './pages/LoginPage'
 import AdminHome from './routes/AdminHome'
 import AdminLeagueRoute from './routes/AdminLeagueRoute'
 import SuperLayout from './layouts/SuperLayout'
+import PageSkeleton from './components/PageSkeleton'
 
 const PlayersPage = lazyPage(() => import('./pages/admin/PlayersPage'))
 const AttendancePage = lazyPage(() => import('./pages/admin/AttendancePage'))
@@ -50,11 +50,7 @@ const LeagueHomePage = lazyPage(() => import('./pages/public/LeagueHomePage'))
 
 // Each page's code is fetched when it is first opened, so a player opening a vote or live link
 // doesn't download the admin app
-function PageLoading() {
-  const { t } = useTranslation()
-  return <div className="p-4 text-gray-400">{t('common.loading')}</div>
-}
-const page = (node: ReactNode) => <Suspense fallback={<PageLoading />}>{node}</Suspense>
+const page = (node: ReactNode) => <Suspense fallback={<PageSkeleton />}>{node}</Suspense>
 
 const legacyPublic = { element: <LegacyPublicRedirect /> }
 const legacyAdmin = { element: <LegacyAdminRedirect /> }

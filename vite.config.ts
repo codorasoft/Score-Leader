@@ -17,8 +17,8 @@ export default defineConfig({
         name: 'ScoreLeader',
         short_name: 'ScoreLeader',
         description: 'Weekly 5v5 football session manager',
-        theme_color: '#111827',
-        background_color: '#111827',
+        theme_color: '#0b1220',
+        background_color: '#0b1220',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

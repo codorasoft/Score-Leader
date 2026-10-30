@@ -34,7 +34,7 @@ it("redirects to history when the session belongs to another league", async () =
 it('shows the session when it belongs to the current league', async () => {
   resetDb(finishedLeague())
   renderPage()
-  expect(await screen.findByText('2026-09-20')).toBeInTheDocument()
+  expect(await screen.findByText(/20 Sep/)).toBeInTheDocument()
   expect(screen.queryByText('history page')).not.toBeInTheDocument()
 })
 
@@ -42,7 +42,7 @@ it('loads the session, teams, matches, goals, players and awards in one round', 
   resetDb(finishedLeague())
   // Voting off: the votes panel loads on its own and is not counted here
   renderPage(FEATURES.filter((f) => f !== 'voting'))
-  expect(await screen.findByText('2026-09-20')).toBeInTheDocument()
+  expect(await screen.findByText(/20 Sep/)).toBeInTheDocument()
   expect((await screen.findAllByText('Omar')).length).toBeGreaterThan(0)
   // The session with everything linked to it, and its awards, side by side
   expect(db.reads).toBe(2)
@@ -105,7 +105,7 @@ it('offers a retry instead of leaving the page when loading fails', async () => 
 
   delete db.errors.sessions
   await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-  expect(await screen.findByText('2026-09-20')).toBeInTheDocument()
+  expect(await screen.findByText(/20 Sep/)).toBeInTheDocument()
 })
 
 it('redirects to history when the session id in the URL is malformed', async () => {
@@ -169,14 +169,14 @@ describe('going back to picking teams', () => {
   it('is not offered once a goal has been recorded', async () => {
     resetDb({ ...finishedLeague(), sessions: [underWay], matches: [{ ...matchOne, status: 'active' }], match_events: [event('e1', 'm1', 'p2', 'tg', 'goal')] })
     renderPage()
-    expect(await screen.findByText('2026-09-20')).toBeInTheDocument()
+    expect(await screen.findByText(/20 Sep/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Back to picking teams' })).not.toBeInTheDocument()
   })
 
   it('is not offered for a finished session', async () => {
     resetDb(finishedLeague())
     renderPage()
-    expect(await screen.findByText('2026-09-20')).toBeInTheDocument()
+    expect(await screen.findByText(/20 Sep/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Back to picking teams' })).not.toBeInTheDocument()
   })
 })
@@ -196,7 +196,7 @@ describe('making a coach board from the confirmed teams', () => {
   it('is not offered before the teams are confirmed', async () => {
     resetDb({ players, sessions: [{ ...session, status: 'draft' }] })
     renderPage()
-    expect(await screen.findByText('2026-09-20')).toBeInTheDocument()
+    expect(await screen.findByText(/20 Sep/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Make coach board' })).not.toBeInTheDocument()
   })
 })

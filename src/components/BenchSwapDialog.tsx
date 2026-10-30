@@ -35,7 +35,7 @@ export default function BenchSwapDialog({ substitute, onPitch, onSwap, onPutOn, 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
       <div
         ref={boxRef}
         role="dialog"

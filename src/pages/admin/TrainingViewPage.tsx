@@ -6,6 +6,7 @@ import { fetchTraining, type TrainingDetail } from '../../lib/trainingApi'
 import { dayLabel } from '../../utils/trainingDays'
 import TrainingVideo from '../../components/TrainingVideo'
 import NotAvailablePage from '../NotAvailablePage'
+import PageSkeleton from '../../components/PageSkeleton'
 
 // One training as the coach shows it at the pitch: its videos in order, played in the page.
 export default function TrainingViewPage() {
@@ -41,7 +42,7 @@ export default function TrainingViewPage() {
       </div>
     )
   }
-  if (training === undefined) return <p className="text-gray-400">{t('common.loading')}</p>
+  if (training === undefined) return <PageSkeleton />
   if (training === null) return <NotAvailablePage kind="page" embedded />
 
   const day = dayLabel(training.training_date, i18n.language)

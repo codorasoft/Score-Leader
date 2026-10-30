@@ -35,6 +35,7 @@ import { outbox, newId } from '../../lib/pitchOutbox'
 import { serverNowIso } from '../../lib/serverClock'
 import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team } from '../../lib/types'
+import PageSkeleton from '../../components/PageSkeleton'
 
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
@@ -60,6 +61,7 @@ export default function MatchTrackerPage() {
   // Clock reading captured when Goal/Card is tapped, not after the scorer is picked
   const [eventClock, setEventClock] = useState(0)
   const [penaltyMode, setPenaltyMode] = useState(false)
+  const [view, setView] = useState<'match' | 'session'>('match')
   // Saving the result and setting up the next match takes two requests; a second tap meanwhile
   // would set up the next match twice. The ref blocks it at once, the state greys the buttons out.
   const finishingRef = useRef(false)
@@ -80,12 +82,12 @@ export default function MatchTrackerPage() {
   }
 
   if (missing) return <Navigate to={adminPath('/history')} replace />
-  if (!match || !screen) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!match || !screen) return <PageSkeleton />
 
   const team1 = teams.find((tm) => tm.id === match.team1_id)
   const team2 = teams.find((tm) => tm.id === match.team2_id)
 
-  if (!team1 || !team2) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!team1 || !team2) return <PageSkeleton />
 
   const { step, reachedEnd, matchOver, showPenalties, between, endsMatch, endsPeriodOnly, periodSeconds } = screen
 
@@ -325,8 +327,12 @@ export default function MatchTrackerPage() {
     if (!result) return
     setResult(null)
     setPenaltyMode(false)
+    setView('match')
     navigate(adminPath(`/sessions/${sessionId}/match/${result.nextMatchId}`))
   }
+
+  const hasSessionSoFar = sessionMatches.some((m) => m.status === 'completed')
+  const tile = 'min-h-[60px] rounded-xl font-bold text-base disabled:opacity-40 shadow-sm'
 
   const teamsWithPlayers = teams
     .filter((t) => t.session_id === sessionId)
@@ -340,6 +346,19 @@ export default function MatchTrackerPage() {
 
   return (
     <div>
+      {/* Live match mode: the match controls, and the session's table and scorers in a tab of their own */}
+      {hasSessionSoFar && (
+        <div role="tablist" aria-label={t('match.views')} className="grid grid-cols-2 gap-1 p-1 mb-5 rounded-xl bg-gray-800">
+          {(['match', 'session'] as const).map((v) => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)}
+              className={`min-h-[40px] rounded-lg text-sm font-semibold ${view === v ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+              {v === 'match' ? t('match.tabMatch') : t('timeline.sessionProgress')}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div hidden={view !== 'match'}>
       {/* Timer */}
       <div className="text-center mb-6">
         <div className="text-xs uppercase text-gray-400 mb-1">{periodName(match.period)}</div>
@@ -388,13 +407,13 @@ export default function MatchTrackerPage() {
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons: big tiles in two columns, Goal (the most used) the widest and first */}
       {!showPenalties && (
-        <div className="flex gap-3 mb-4">
-          <button onClick={() => openEventDialog('goal')} disabled={!inProgress} className="flex-1 py-3 bg-green-700 rounded font-semibold disabled:opacity-40">{t('match.goal')}</button>
-          {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className="flex-1 py-3 bg-yellow-700 rounded font-semibold disabled:opacity-40">{t('match.card')}</button>}
-          <button onClick={() => openEventDialog('interception')} disabled={!inProgress} className="flex-1 py-3 bg-sky-700 rounded font-semibold disabled:opacity-40">{t('match.interception')}</button>
-          {swaps && <button onClick={() => setDialog('swap')} className="flex-1 py-3 bg-gray-700 rounded font-semibold">{t('match.swap')}</button>}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <button onClick={() => openEventDialog('goal')} disabled={!inProgress} className={`${tile} col-span-2 min-h-[72px] text-xl bg-green-600 hover:bg-green-500`}>{t('match.goal')}</button>
+          {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className={`${tile} bg-yellow-600 hover:bg-yellow-500`}>{t('match.card')}</button>}
+          <button onClick={() => openEventDialog('interception')} disabled={!inProgress} className={`${tile} bg-sky-700 hover:bg-sky-600`}>{t('match.interception')}</button>
+          {swaps && <button onClick={() => setDialog('swap')} className={`${tile} bg-gray-700 hover:bg-gray-600 ${cards ? 'col-span-2' : ''}`}>{t('match.swap')}</button>}
         </div>
       )}
 
@@ -416,6 +435,7 @@ export default function MatchTrackerPage() {
         <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>
         <MatchTimeline events={events} teams={teams} players={players} format={session ?? undefined} />
       </section>
+      </div>
 
       {confirmUndo && lastEvent && (
         <MatchConfirmDialog
@@ -429,29 +449,35 @@ export default function MatchTrackerPage() {
 
       {showPenalties && <PenaltyShootout key={match.id} team1={team1} team2={team2} busy={finishing} onDecide={handlePenaltyDecide} />}
 
-      {/* Between periods the break card holds the button; the shoot-out has its own */}
-      {!between && !showPenalties && !matchOver && (
-        <button
-          onClick={handleStep}
-          disabled={finishing}
-          className={`w-full py-3 rounded-xl font-bold transition-colors disabled:opacity-50 ${
-            reachedEnd
-              ? 'bg-red-500 hover:bg-red-400 animate-pulse shadow-lg shadow-red-700/50'
-              : 'bg-red-700 hover:bg-red-600'
-          }`}
-        >
-          {stepLabel}
-        </button>
-      )}
-      {endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('offline.endBlocked')}</p>}
-      {finishFailed && !endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('match.finishFailed')}</p>}
 
-      {sessionMatches.some((m) => m.status === 'completed') && (
-        <div className="mt-8">
-          <h2 className="text-sm font-semibold mb-3">{t('timeline.sessionProgress')}</h2>
+      {hasSessionSoFar && view === 'session' && (
+        <div>
           <div className="mb-5"><SessionStandings teams={teams} matches={sessionMatches} /></div>
           <div className="mb-5"><SessionTopPlayers players={players} events={sessionEvents} matches={sessionMatches} /></div>
           <SessionMatchList matches={sessionMatches} events={sessionEvents} teams={teams} players={players} format={session ?? undefined} />
+        </div>
+      )}
+
+
+      {/* Between periods the break card holds the button; the shoot-out has its own. Pinned to the
+          bottom of the screen, so it never moves down as goals fill the timeline. */}
+      {view === 'match' && (endBlocked || finishFailed || (!between && !showPenalties && !matchOver)) && (
+        <div className="action-bar">
+          {!between && !showPenalties && !matchOver && (
+            <button
+              onClick={handleStep}
+              disabled={finishing}
+              className={`w-full min-h-[56px] rounded-xl font-bold text-lg disabled:opacity-50 ${
+                reachedEnd
+                  ? 'bg-red-500 hover:bg-red-400 animate-pulse shadow-lg shadow-red-700/50'
+                  : 'bg-red-700 hover:bg-red-600'
+              }`}
+            >
+              {stepLabel}
+            </button>
+          )}
+          {endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('offline.endBlocked')}</p>}
+          {finishFailed && !endBlocked && <p role="alert" className="mt-2 text-sm text-orange-300 text-center">{t('match.finishFailed')}</p>}
         </div>
       )}
 

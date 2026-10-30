@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" style="background-color: #101828; color-scheme: dark">
+<html lang="en" style="background-color: #0b1220; color-scheme: dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#101828" />
+    <meta name="theme-color" content="#0b1220" />
     <!-- The app's icons (scripts/makeIcons.ts), and what an iPhone needs to run it from the Home Screen -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -11,14 +11,14 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ScoreLeader" />
     <title>Score-Leader</title>
-    <!-- The Arabic font loads alongside the app instead of holding back its styles -->
+    <!-- The fonts (Inter, and Cairo for Arabic) load alongside the app instead of holding back its styles -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
   </head>
-  <body style="margin: 0; background-color: #101828">
+  <body style="margin: 0; background-color: #0b1220">
     <!-- Shown until the app draws its first screen: the same dark "Loading…" as the app's loading screen -->
-    <div id="root"><div id="boot" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #99a1af; font-family: system-ui, sans-serif">Loading…</div></div>
+    <div id="root"><div id="boot" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #a5b1c4; font-family: system-ui, sans-serif">Loading…</div></div>
     <script>
       try {
         if (localStorage.getItem('lang') === 'ar') {

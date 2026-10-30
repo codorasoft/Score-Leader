@@ -72,7 +72,7 @@ export function PhotoCropper({ src, onCancel, onDone }: Props) {
   const shown = size ? photoPlacement(size.w, size.h, VIEW, zoom, offset) : { left: 0, top: 0, width: VIEW, height: VIEW }
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={onCancel}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={onCancel}>
       <div role="dialog" aria-modal="true" aria-labelledby="crop-title" className="bg-gray-800 rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <h2 id="crop-title" className="text-lg font-bold mb-1">{t('photo.adjustTitle')}</h2>
         <p className="text-xs text-gray-400 mb-3">{t('photo.adjustHelp')}</p>

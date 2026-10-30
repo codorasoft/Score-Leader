@@ -18,6 +18,7 @@ import { serverNow } from '../../lib/serverClock'
 import { fetchToday } from '../../lib/scheduleApi'
 import { useLocalToday } from '../../hooks/useLocalToday'
 import type { TodayRow } from '../../utils/schedule'
+import PageSkeleton from '../../components/PageSkeleton'
 
 const colorDot = styleMap('dot')
 const AWARD_LABEL: Record<AwardVote['award_type'], string> = { mvp: 'awards.mvp', fair_play: 'awards.fairPlay', best_goalkeeper: 'awards.bestGk' }
@@ -33,7 +34,6 @@ interface VoteRow { id: string; award_type: AwardVote['award_type']; session_id:
 const todayString = () => format(new Date(), 'yyyy-MM-dd')
 
 export default function HomePage() {
-  const { t } = useTranslation()
   const league = useLeague()
   const voting = useFeature('voting')
   const photos = useFeature('photos')
@@ -92,7 +92,7 @@ export default function HomePage() {
     load()
   }, [league.id, voting, photos, coachBoard, schedule, training, day])
 
-  if (!data || data.leagueId !== league.id) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!data || data.leagueId !== league.id) return <PageSkeleton />
   const { live, teams, todo, board, today } = data.value
 
   return (

@@ -39,7 +39,7 @@ export default function ScheduleItemDialog({ initial, editing, weekStartsOn, bus
   const chip = (on: boolean) => `px-3 py-1.5 rounded-full text-sm border ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-900 border-gray-600 text-gray-300'}`
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
       <form
         role="dialog"
         aria-modal="true"

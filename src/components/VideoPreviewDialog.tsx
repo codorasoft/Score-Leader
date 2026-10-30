@@ -46,7 +46,7 @@ export default function VideoPreviewDialog({ video, typeName, position, onToggle
 
   const step = 'w-11 h-11 shrink-0 rounded-full bg-gray-700 hover:bg-gray-600 text-2xl leading-none flex items-center justify-center disabled:opacity-30 disabled:hover:bg-gray-700'
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4" onClick={onClose}>
       <div
         ref={boxRef}
         role="dialog"

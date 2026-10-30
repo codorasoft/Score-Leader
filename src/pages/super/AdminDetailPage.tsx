@@ -9,6 +9,7 @@ import type { FeatureKey } from '../../lib/features'
 import FeatureChecklist from '../../components/FeatureChecklist'
 import { LeagueLogo } from '../../components/LeagueLogo'
 import DeleteLeagueDialog from '../../components/DeleteLeagueDialog'
+import PageSkeleton from '../../components/PageSkeleton'
 
 type LeagueRow = League & { session_count: number }
 
@@ -95,7 +96,7 @@ export default function AdminDetailPage() {
     )
   }
   if (missing) return <div className="space-y-3"><p className="text-gray-400">{t('super.detail.notFound')}</p>{back}</div>
-  if (!admin) return <p className="text-gray-400">{t('common.loading')}</p>
+  if (!admin) return <PageSkeleton />
 
   return (
     <div className="space-y-6">

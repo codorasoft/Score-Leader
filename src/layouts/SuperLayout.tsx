@@ -30,7 +30,7 @@ export default function SuperLayout() {
           </div>
         </div>
       </header>
-      <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
+      <main className="page-enter flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
         <Outlet />
       </main>
     </div>

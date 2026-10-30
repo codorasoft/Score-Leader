@@ -13,6 +13,7 @@ import ScheduleItemDialog from '../../components/ScheduleItemDialog'
 import MorningPushDialog, { clockLabel } from '../../components/MorningPushDialog'
 import { readPushState, type PushState } from '../../lib/push'
 import TimeGrid from '../../components/TimeGrid'
+import PageSkeleton from '../../components/PageSkeleton'
 
 type View = 'month' | 'week' | 'day'
 const VIEWS: View[] = ['month', 'week', 'day']
@@ -175,7 +176,7 @@ export default function SchedulePage() {
           <button onClick={load} className="px-4 py-2 bg-blue-600 rounded font-semibold hover:bg-blue-700">{t('common.retry')}</button>
         </div>
       ) : !items ? (
-        <p className="text-gray-400">{t('common.loading')}</p>
+        <PageSkeleton />
       ) : view === 'month' ? (
         <>
           <MonthCalendar

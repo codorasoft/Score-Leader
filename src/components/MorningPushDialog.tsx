@@ -88,7 +88,7 @@ export default function MorningPushDialog({ state, onChange, onClose }: Props) {
   const picker = 'flex-1 min-w-0 px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-base text-white disabled:opacity-50'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+    <div className="dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div
         ref={boxRef}
         role="dialog"

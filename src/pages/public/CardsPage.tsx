@@ -7,6 +7,7 @@ import { cardsForLeague } from '../../utils/leagueCards'
 import { PlayerCardView } from '../../components/PlayerCardView'
 import type { Player } from '../../lib/types'
 import type { PlayerCard } from '../../utils/playerCard'
+import PageSkeleton from '../../components/PageSkeleton'
 
 export default function CardsPage() {
   const { t } = useTranslation()
@@ -32,7 +33,7 @@ export default function CardsPage() {
 
   const rows = loaded?.leagueId === league.id ? loaded.rows : null
 
-  if (!rows) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!rows) return <PageSkeleton />
 
   return (
     <div className="max-w-3xl mx-auto">

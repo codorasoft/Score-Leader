@@ -8,6 +8,7 @@ import { LeagueLogo } from '../../components/LeagueLogo'
 import { useLeague, usePublicPath } from '../../contexts/LeagueContext'
 import type { FeatureKey } from '../../lib/features'
 import type { Session } from '../../lib/types'
+import PageSkeleton from '../../components/PageSkeleton'
 
 const PAGES: { rest: string; key: string; feature: FeatureKey }[] = [
   { rest: '/leaderboard', key: 'nav.leaderboard', feature: 'leaderboard' },
@@ -54,7 +55,7 @@ export default function LeagueHomePage() {
       </div>
 
       {!data ? (
-        <p className="text-gray-400 text-center">{t('common.loading')}</p>
+        <PageSkeleton />
       ) : (
         <>
           {data.active && (

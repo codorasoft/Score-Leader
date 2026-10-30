@@ -6,6 +6,7 @@ import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueConte
 import { computeRecords, type LeagueRecord, type RecordHolder } from '../../utils/records'
 import { formatMatchClock } from '../../utils/matchClock'
 import { styleMap } from '../../lib/teamColors'
+import PageSkeleton from '../../components/PageSkeleton'
 
 const MAX_HOLDERS = 3
 
@@ -26,7 +27,7 @@ export default function RecordsPage() {
 
   const records = loaded?.leagueId === league.id ? loaded.records : null
 
-  if (!records) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (!records) return <PageSkeleton />
 
   const valueLabel = (r: LeagueRecord) => {
     switch (r.id) {

@@ -58,7 +58,7 @@ export default function PublicLayout() {
           </nav>
         )}
       </header>
-      <main className="px-4 py-6">
+      <main className="page-enter px-4 py-6">
         <Outlet />
       </main>
     </div>

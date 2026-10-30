@@ -7,6 +7,7 @@ import { serverErrorKey } from '../lib/errorText'
 import { useAdminPath, useLeague } from '../contexts/LeagueContext'
 import { DEFAULT_FORMAT, OPEN_EXTRA_TIME, PRESETS, presetName, type MatchFormat, type PresetName } from '../utils/matchFormat'
 import { MatchFormatLine } from './MatchFormatLine'
+import { SetupSteps } from './SetupSteps'
 
 export const TEAMS = { min: 2, max: 6 }
 export const PER_TEAM = { min: 3, max: 11 }
@@ -37,6 +38,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   const adminPath = useAdminPath()
   const navigate = useNavigate()
   const titleId = useId()
+  const detailsId = useId()
   const formRef = useRef<HTMLFormElement>(null)
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [teamCount, setTeamCount] = useState(3)
@@ -49,6 +51,9 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   const chooseSize = (n: number) => { touched.current = true; setTeamSize(n) }
   const [fmt, setFmt] = useState<MatchFormat>(DEFAULT_FORMAT)
   const chosen = presetName(fmt)
+  // The details stay folded under Customize: most sessions only pick a preset
+  const [customizing, setCustomizing] = useState(false)
+  const showDetails = customizing || chosen === 'custom'
   const extraStep = fmt.extra_time_minutes == null ? 0 : fmt.extra_time_minutes + 1
   const editFormat = (patch: Partial<MatchFormat>) => { touched.current = true; setFmt((f) => ({ ...f, ...patch })) }
   const choosePreset = (name: PresetName) => { touched.current = true; setFmt(PRESETS[name]) }
@@ -91,12 +96,12 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
   }
 
-  const chip = (on: boolean) => `px-1 py-2 rounded-lg text-xs sm:text-sm ${on ? 'bg-blue-600 font-semibold' : 'bg-gray-800'} disabled:opacity-40`
+  const chip = (on: boolean) => `px-1 min-h-[44px] rounded-lg text-xs sm:text-sm ${on ? 'bg-blue-600 font-semibold' : 'bg-gray-800'} disabled:opacity-40`
 
   // Fits a 360×640 phone without scrolling. On anything smaller (or with large text) only the middle
   // scrolls, so the title and the Create button always stay on screen.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
+    <div className="dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3">
       <form
         ref={formRef}
         role="dialog"
@@ -116,6 +121,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 space-y-3">
+          <SetupSteps current="format" />
           <div>
             <div className="grid grid-cols-2 gap-3">
               <Stepper label={t('session.teams')} value={teamCount} min={TEAMS.min} max={TEAMS.max}
@@ -136,6 +142,13 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
+            <button type="button" aria-expanded={showDetails} aria-controls={detailsId} disabled={chosen === 'custom'}
+              onClick={() => setCustomizing((open) => !open)}
+              className="w-full min-h-[40px] flex items-center justify-between gap-2 px-3 rounded-lg bg-gray-800 text-sm text-gray-200 disabled:opacity-60">
+              <span>{t('format.customize')}</span>
+              <span aria-hidden="true" className={`transition-transform ${showDetails ? 'rotate-180' : ''}`}>▾</span>
+            </button>
+            {showDetails && <div id={detailsId} className="space-y-3">
             <div className="grid grid-cols-2 gap-x-3 gap-y-2">
               <Stepper label={t('format.periods')} value={fmt.period_count} min={1} max={2}
                 less={t('format.fewerPeriods')} more={t('format.morePeriods')} onChange={(n) => editFormat({ period_count: n })} />
@@ -172,6 +185,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             </div>
+            </div>}
             <MatchFormatLine format={fmt} />
           </div>
         </div>

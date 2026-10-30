@@ -40,7 +40,7 @@ it('shows the day and results when no match is being played', async () => {
   resetDb(finishedLeague())
   renderPage()
   expect(await screen.findByText('No active match')).toBeInTheDocument()
-  expect(screen.getByRole('heading', { name: '2026-09-20' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: /20 Sep/ })).toBeInTheDocument()
   expect(screen.getAllByText('Omar').length).toBeGreaterThan(0)
 })
 

@@ -19,6 +19,7 @@ import { PlayerAvatar } from '../../components/PlayerAvatar'
 const PARTNER_MIN_MATCHES = 5
 import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
+import PageSkeleton from '../../components/PageSkeleton'
 
 const colorDot = styleMap('dot')
 
@@ -95,7 +96,7 @@ export default function PlayerProfilePage() {
     return () => { stale = true }
   }, [playerId, leagueInfo.id, key])
 
-  if (data === null) return <div className="p-4 text-gray-400">{t('common.loading')}</div>
+  if (data === null) return <PageSkeleton />
   if (data === 'missing') return <NotAvailablePage kind="page" embedded />
 
   const { player } = data

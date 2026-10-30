@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
+import PageSkeleton from '../../components/PageSkeleton'
 
 interface LineupRow { id: string; name: string; updated_at: string }
 
@@ -45,7 +46,7 @@ export default function LineupsPage() {
         </Link>
       </div>
 
-      {lineups === null && <p className="text-gray-400">{t('common.loading')}</p>}
+      {lineups === null && <PageSkeleton />}
       {lineups?.length === 0 && <p className="text-gray-500 text-center py-10">{t('lineups.empty')}</p>}
 
       <ul className="space-y-2">
