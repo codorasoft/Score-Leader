@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { LanguageToggle } from '../components/LanguageToggle'
 import { LeagueSwitcher } from '../components/LeagueSwitcher'
 import TodayReminder from '../components/TodayReminder'
-import { useAdminPath, useFeature, useLeague } from '../contexts/LeagueContext'
+import { useAdminPath, useFeature, useLeague, usePublicPath } from '../contexts/LeagueContext'
 import { useMyLeagues } from '../contexts/MyLeaguesContext'
 import { keepPushRight } from '../lib/push'
 
@@ -26,6 +26,8 @@ const ICONS = {
   // A calendar page
   schedule: icon('M5 5h14v15H5zM5 10h14M9 3v4M15 3v4'),
   signOut: icon('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9'),
+  // A podium: first in the middle, second and third either side
+  leaderboard: icon('M3 21h18M10 21V9h4v12M4 21v-7h6M14 21v-5h6'),
   // Three dots
   more: icon('M5 12h.01M12 12h.01M19 12h.01'),
   settings: icon('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'),
@@ -56,6 +58,8 @@ export default function AdminLayout() {
   const league = useLeague()
   const { leagues, profile } = useMyLeagues()
   const adminPath = useAdminPath()
+  const publicPath = usePublicPath()
+  const leaderboard = useFeature('leaderboard')
   const coachBoard = useFeature('coach_board')
   const training = useFeature('training')
   const schedule = useFeature('schedule')
@@ -136,7 +140,14 @@ export default function AdminLayout() {
         <Outlet />
       </main>
 
-      {showBar && <BottomBar nav={nav} current={current} settingsTo={owned ? adminPath('/settings') : null} />}
+      {showBar && (
+        <BottomBar
+          nav={nav}
+          current={current}
+          leaderboardTo={leaderboard ? publicPath('/leaderboard') : null}
+          settingsTo={owned ? adminPath('/settings') : null}
+        />
+      )}
 
       <TodayReminder />
     </div>
@@ -147,13 +158,17 @@ type NavItem = { key: keyof typeof ICONS; to: string; label: string }
 
 // The phone's tab bar, fixed to the bottom of the screen where the thumb is. With more tabs than
 // fit, the last ones and the league settings open from More, as a sheet rising from the bar.
-function BottomBar({ nav, current, settingsTo }: { nav: NavItem[]; current: string | null; settingsTo: string | null }) {
+// The leaderboard lives only under More, so with it there is always a More.
+function BottomBar({ nav, current, leaderboardTo, settingsTo }: {
+  nav: NavItem[]; current: string | null; leaderboardTo: string | null; settingsTo: string | null
+}) {
   const { t } = useTranslation()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
-  const overflow = nav.length > BAR_TABS
+  const overflow = nav.length > BAR_TABS || leaderboardTo !== null
   const shown = overflow ? nav.slice(0, BAR_TABS - 1) : nav
   const extra: NavItem[] = overflow ? nav.slice(BAR_TABS - 1) : []
+  if (leaderboardTo) extra.push({ key: 'leaderboard', to: leaderboardTo, label: t('nav.leaderboard') })
   if (overflow && settingsTo) extra.push({ key: 'settings', to: settingsTo, label: t('league.settings') })
   const moreCurrent = extra.some((item) => item.key === current || (item.key === 'settings' && location.pathname.endsWith('/settings')))
   const columns = shown.length + (overflow ? 1 : 0)
