@@ -34,7 +34,7 @@ it('Home is the first tab and is marked current on the home page', () => {
   renderAt('/admin/eagles/home')
   const links = desktop().getAllByRole('link')
   // No New Session tab: sessions start from Home
-  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Training plan', 'Coach Board', "Coach's schedule"])
+  expect(links.map((l) => l.textContent)).toEqual(['Home', 'Players', 'History', 'Coach evaluation', 'Training plan', 'Coach Board', "Coach's schedule"])
   expect(links[0]).toHaveAttribute('href', '/admin/eagles/home')
   expect(links[0]).toHaveAttribute('aria-current', 'page')
 })
@@ -43,6 +43,12 @@ it('History stays current inside a session', () => {
   const nav = renderAt('/admin/eagles/sessions/s1/players')
   expect(nav.getByRole('link', { name: 'History' })).toHaveAttribute('aria-current', 'page')
   expect(nav.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
+})
+
+it('Coach evaluation is a tab only with its feature, and is current on its pages', () => {
+  const nav = renderAt('/admin/eagles/coach/players/p1', ['coach_eval'])
+  expect(nav.getByRole('link', { name: 'Coach evaluation' })).toHaveAttribute('href', '/admin/eagles/coach')
+  expect(nav.getByRole('link', { name: 'Coach evaluation' })).toHaveAttribute('aria-current', 'page')
 })
 
 describe("the phone's bottom bar", () => {
@@ -55,7 +61,7 @@ describe("the phone's bottom bar", () => {
     expect(more).toHaveAttribute('aria-expanded', 'false')
     await user.click(more)
     const menu = document.getElementById('more-menu')!
-    expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Training plan', 'Coach Board', "Coach's schedule", 'Leaderboard', 'League settings'])
+    expect(within(menu).getAllByRole('link').map((l) => l.textContent)).toEqual(['Coach evaluation', 'Training plan', 'Coach Board', "Coach's schedule", 'Leaderboard', 'League settings'])
     expect(within(menu).getByRole('link', { name: "Coach's schedule" })).toHaveAttribute('href', '/admin/eagles/schedule')
     expect(within(menu).getByRole('link', { name: 'Leaderboard' })).toHaveAttribute('href', '/l/eagles/leaderboard')
   })

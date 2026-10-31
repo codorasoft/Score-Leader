@@ -18,7 +18,7 @@ describe('FeatureChecklist', () => {
     const onChange = vi.fn()
     render(<FeatureChecklist value={[]} onChange={onChange} />)
     fireEvent.click(screen.getByRole('button', { name: 'Select all' }))
-    expect(onChange.mock.calls[0][0]).toHaveLength(16)
+    expect(onChange.mock.calls[0][0]).toHaveLength(17)
   })
   it('lists Training', () => {
     render(<FeatureChecklist value={[]} onChange={vi.fn()} />)

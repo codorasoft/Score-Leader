@@ -43,7 +43,8 @@
     "records": "الأرقام القياسية",
     "cards": "البطاقات",
     "lineup": "لوحة المدرب",
-    "home": "الرئيسية"
+    "home": "الرئيسية",
+    "coach": "تقييم المدرب"
   },
   "players": {
     "title": "اللاعبون",
@@ -892,7 +893,8 @@
     "schedule": "الجدول",
     "needs": "يتطلب {{feature}}",
     "selectAll": "تحديد الكل",
-    "none": "لا شيء"
+    "none": "لا شيء",
+    "coach_eval": "تقييم المدرب (الحضور والتقييمات)"
   },
   "serverErrors": {
     "network": "تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.",
@@ -1116,5 +1118,141 @@
     "players": "اللاعبون",
     "teams": "الفرق",
     "kickoff": "البداية"
+  },
+  "coach": {
+    "title": "تقييم المدرب",
+    "newTraining": "تدريب",
+    "newMatch": "مباراة",
+    "ranking": "ترتيب المدرب",
+    "rankingHint": "ترتيبك أنت من الحضور والتقييمات التي تعطيها. لا يتأثر الترتيب العام ولا بطاقات اللاعبين.",
+    "filter": {
+      "all": "الكل",
+      "training": "التدريب",
+      "friendly": "ودية",
+      "official": "رسمية",
+      "league": "دوري"
+    },
+    "filterLabel": "عرض",
+    "period": {
+      "label": "الفترة",
+      "all": "كل الوقت",
+      "30": "آخر 30 يومًا",
+      "90": "آخر 90 يومًا"
+    },
+    "noData": "بيانات غير كافية",
+    "outOf": "من 100",
+    "summary": {
+      "attendance": "الحضور {{value}}٪",
+      "training": "التدريب {{value}}",
+      "match": "المباريات {{value}}"
+    },
+    "empty": "لا شيء بعد. سجّل الحضور في تدريبك القادم ليبدأ الترتيب.",
+    "rankEmpty": "لا يوجد لاعبون لديهم سجلات لهذا الاختيار.",
+    "formula": "تقييم المدرب: الحضور 20٪ · تقييمات التدريب 30٪ · تقييمات المباريات 40٪ (الودية والمشاركة كبديل تُحسب أقل) · الأساسي والأهداف والتمريرات الحاسمة 10٪. الأسابيع الأخيرة لها الوزن الأكبر، ويلزم 3 أيام مسجّلة على الأقل للدخول في الترتيب.",
+    "days": "التدريبات والمباريات",
+    "showAll": "عرض الكل",
+    "kind": {
+      "training": "تدريب",
+      "match": "مباراة"
+    },
+    "matchType": {
+      "friendly": "ودية",
+      "official": "رسمية",
+      "league": "دوري"
+    },
+    "vs": "ضد {{opponent}}",
+    "presentCount_zero": "{{count}} حاضر",
+    "presentCount_one": "حاضر واحد",
+    "presentCount_two": "حاضران",
+    "presentCount_few": "{{count}} حاضرين",
+    "presentCount_many": "{{count}} حاضرًا",
+    "presentCount_other": "{{count}} حاضر",
+    "squadCount_zero": "{{count}} في التشكيلة",
+    "squadCount_one": "لاعب واحد في التشكيلة",
+    "squadCount_two": "لاعبان في التشكيلة",
+    "squadCount_few": "{{count}} لاعبين في التشكيلة",
+    "squadCount_many": "{{count}} لاعبًا في التشكيلة",
+    "squadCount_other": "{{count}} لاعب في التشكيلة",
+    "newTrainingTitle": "تدريب جديد",
+    "newMatchTitle": "مباراة جديدة",
+    "editTraining": "التدريب",
+    "editMatch": "المباراة",
+    "date": "التاريخ",
+    "trainingName": "الاسم (اختياري)",
+    "opponent": "الخصم",
+    "type": "نوع المباراة",
+    "score": "النتيجة (اختياري)",
+    "ourScore": "أهدافنا",
+    "theirScore": "أهدافهم",
+    "fromBoard": "التشكيلة من لوحة المدرب",
+    "fromBoardNone": "اختر لوحة…",
+    "fromBoardHint": "يُملأ الأساسيون والبدلاء والمراكز من اللوحة، ويمكنك تعديلها بعد ذلك.",
+    "players": "اللاعبون",
+    "allPresent": "الكل حاضر",
+    "attendance": {
+      "present": "حاضر",
+      "late": "متأخر",
+      "excused": "معتذر",
+      "absent": "غائب"
+    },
+    "attendanceOf": "حضور {{name}}",
+    "role": {
+      "none": "خارج التشكيلة",
+      "starter": "أساسي",
+      "sub": "بديل",
+      "unused": "لم يشارك"
+    },
+    "roleOf": "دور {{name}}",
+    "position": {
+      "GK": "حارس مرمى",
+      "DEF": "مدافع",
+      "MID": "لاعب وسط",
+      "ATT": "مهاجم"
+    },
+    "positionOf": "مركز {{name}}",
+    "rating": "التقييم",
+    "ratingOf": "تقييم {{name}}",
+    "noRating": "–",
+    "goals": "الأهداف",
+    "goalsOf": "أهداف {{name}}",
+    "assists": "التمريرات الحاسمة",
+    "assistsShort": "صناعة",
+    "assistsOf": "تمريرات {{name}} الحاسمة",
+    "counts": {
+      "training": "حاضر {{present}} · متأخر {{late}} · معتذر {{excused}} · غائب {{absent}}",
+      "match": "أساسي {{starters}} · بديل {{subs}} · لم يشارك {{unused}}"
+    },
+    "problems": {
+      "opponent": "اكتب اسم الخصم",
+      "score": "اكتب النتيجتين أو اتركهما فارغتين",
+      "date": "اختر التاريخ"
+    },
+    "delete": "حذف",
+    "confirmDelete": "حذف هذا اليوم وتقييماته؟",
+    "noPlayers": "لا يوجد لاعبون بعد. أضف اللاعبين أولًا.",
+    "playerTitle": "تقييم المدرب",
+    "coachRating": "تقييم المدرب",
+    "parts": {
+      "attendance": "الحضور",
+      "training": "تقييمات التدريب",
+      "match": "تقييمات المباريات",
+      "involvement": "الأساسي والأهداف والتمريرات"
+    },
+    "weight": "{{value}}٪",
+    "attendanceTitle": "الحضور في التدريب",
+    "byType": "حسب نوع المباراة",
+    "byRole": "أساسي أو بديل",
+    "byPosition": "حسب المركز الذي لعب فيه",
+    "games_zero": "{{count}} مباراة",
+    "games_one": "مباراة واحدة",
+    "games_two": "مباراتان",
+    "games_few": "{{count}} مباريات",
+    "games_many": "{{count}} مباراة",
+    "games_other": "{{count}} مباراة",
+    "avg": "المعدل {{value}}",
+    "best": "الأفضل",
+    "history": "يومًا بيوم",
+    "nothing": "لا يوجد شيء مسجّل بعد.",
+    "goalsAssists": "{{goals}} هدف · {{assists}} تمريرة"
   }
 }
