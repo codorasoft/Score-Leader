@@ -33,9 +33,12 @@ const TABLES: Record<string, string[]> = {
   training_items: ['training_id', 'video_id'],
   // arrives with the schedule migration; skipped while absent
   schedule_items: ['id'],
+  // arrive with the coach evaluation migration; skipped while absent
+  coach_events: ['id'],
+  coach_event_players: ['event_id', 'player_id'],
 }
 
-const OPTIONAL = new Set(['admin_profiles', 'leagues', 'training_types', 'training_videos', 'trainings', 'training_items', 'schedule_items'])
+const OPTIONAL = new Set(['admin_profiles', 'leagues', 'training_types', 'training_videos', 'trainings', 'training_items', 'schedule_items', 'coach_events', 'coach_event_players'])
 
 function readEnvUrl(): string | undefined {
   try {

@@ -137,3 +137,35 @@ export interface TeamPlayer {
   team_id: string
   player_id: string
 }
+
+// ===== Coach evaluation (supabase/migrations/20261031000001_coach_evaluation.sql)
+
+export type CoachEventKind = 'training' | 'match'
+export type MatchType = 'friendly' | 'official' | 'league'
+export type Attendance = 'present' | 'late' | 'excused' | 'absent'
+export type MatchRole = 'starter' | 'sub' | 'unused'
+
+// A training or one of the team's real matches. title is the training's name or the opponent's.
+export interface CoachEvent {
+  id: string
+  league_id: string
+  kind: CoachEventKind
+  event_date: string
+  title: string | null
+  match_type: MatchType | null
+  our_score: number | null
+  their_score: number | null
+  lineup_id: string | null
+}
+
+// A player on a day: every marked player for a training, the squad for a match
+export interface CoachEntry {
+  event_id: string
+  player_id: string
+  attendance: Attendance
+  role: MatchRole | null
+  position: PlayerPosition | null
+  rating: number | null
+  goals: number
+  assists: number
+}

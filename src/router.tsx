@@ -39,6 +39,9 @@ const TrainingsPage = lazyPage(() => import('./pages/admin/TrainingsPage'))
 const TrainingViewPage = lazyPage(() => import('./pages/admin/TrainingViewPage'))
 const TrainingBuilderPage = lazyPage(() => import('./pages/admin/TrainingBuilderPage'))
 const SchedulePage = lazyPage(() => import('./pages/admin/SchedulePage'))
+const CoachPage = lazyPage(() => import('./pages/admin/CoachPage'))
+const CoachEventPage = lazyPage(() => import('./pages/admin/CoachEventPage'))
+const CoachPlayerPage = lazyPage(() => import('./pages/admin/CoachPlayerPage'))
 
 const LiveSessionPage = lazyPage(() => import('./pages/public/LiveSessionPage'))
 const VotePage = lazyPage(() => import('./pages/public/VotePage'))
@@ -56,6 +59,7 @@ const legacyPublic = { element: <LegacyPublicRedirect /> }
 const legacyAdmin = { element: <LegacyAdminRedirect /> }
 const coachBoard = (page: ReactNode) => <FeatureRoute name="coach_board" fallback="history">{page}</FeatureRoute>
 const training = (page: ReactNode) => <FeatureRoute name="training" fallback="history">{page}</FeatureRoute>
+const coachEval = (page: ReactNode) => <FeatureRoute name="coach_eval" fallback="history">{page}</FeatureRoute>
 
 export const routes: RouteObject[] = [
   {
@@ -118,6 +122,10 @@ export const routes: RouteObject[] = [
                   { path: 'trainings/:trainingId', element: training(page(<TrainingViewPage />)) },
                   { path: 'trainings/:trainingId/edit', element: training(page(<TrainingBuilderPage />)) },
                   { path: 'schedule', element: <FeatureRoute name="schedule" fallback="history">{page(<SchedulePage />)}</FeatureRoute> },
+                  { path: 'coach', element: coachEval(page(<CoachPage />)) },
+                  { path: 'coach/new/:kind', element: coachEval(page(<CoachEventPage />)) },
+                  { path: 'coach/days/:eventId', element: coachEval(page(<CoachEventPage />)) },
+                  { path: 'coach/players/:playerId', element: coachEval(page(<CoachPlayerPage />)) },
                   { path: 'lineups', element: coachBoard(page(<LineupsPage />)) },
                   { path: 'lineups/new', element: coachBoard(page(<LineupEditorPage />)) },
                   { path: 'lineups/:lineupId', element: coachBoard(page(<LineupEditorPage />)) },

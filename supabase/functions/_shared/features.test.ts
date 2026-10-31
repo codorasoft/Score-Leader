@@ -6,12 +6,13 @@ it('turning badges on adds profiles; potm on adds leaderboard', () => {
   expect(setFeature([], 'badges', true)).toEqual(['profiles', 'badges'])
   expect(setFeature([], 'potm', true)).toEqual(['leaderboard', 'potm'])
 })
-it('accepts all 16 keys', () => {
-  expect(FEATURES).toHaveLength(16)
+it('accepts all 17 keys', () => {
+  expect(FEATURES).toHaveLength(17)
   expect(isValidFeatureList([...FEATURES])).toBe(true)
 })
 it('training needs no other feature', () => expect(setFeature([], 'training', true)).toEqual(['training']))
 it('schedule needs no other feature', () => expect(setFeature([], 'schedule', true)).toEqual(['schedule']))
+it('coach evaluation needs no other feature', () => expect(setFeature([], 'coach_eval', true)).toEqual(['coach_eval']))
 it('rejects unknown keys, duplicates and broken dependencies', () => {
   expect(isValidFeatureList(['cards', 'nope'])).toBe(false)
   expect(isValidFeatureList(['cards', 'cards'])).toBe(false)

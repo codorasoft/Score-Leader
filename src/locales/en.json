@@ -43,7 +43,8 @@
     "records": "Records",
     "cards": "Cards",
     "lineup": "Coach Board",
-    "home": "Home"
+    "home": "Home",
+    "coach": "Coach evaluation"
   },
   "players": {
     "title": "Players",
@@ -763,7 +764,8 @@
     "schedule": "Schedule",
     "needs": "Needs {{feature}}",
     "selectAll": "Select all",
-    "none": "None"
+    "none": "None",
+    "coach_eval": "Coach evaluation (attendance & ratings)"
   },
   "serverErrors": {
     "network": "Could not reach the server. Check your internet and try again.",
@@ -971,5 +973,129 @@
     "players": "Players",
     "teams": "Teams",
     "kickoff": "Kick off"
+  },
+  "coach": {
+    "title": "Coach evaluation",
+    "newTraining": "Training",
+    "newMatch": "Match",
+    "ranking": "Coach ranking",
+    "rankingHint": "Your own ranking from attendance and the ratings you give. The leaderboard and player cards are not affected.",
+    "filter": {
+      "all": "All",
+      "training": "Training",
+      "friendly": "Friendly",
+      "official": "Official",
+      "league": "League"
+    },
+    "filterLabel": "Show",
+    "period": {
+      "label": "Period",
+      "all": "All time",
+      "30": "Last 30 days",
+      "90": "Last 90 days"
+    },
+    "noData": "Not enough data",
+    "outOf": "out of 100",
+    "summary": {
+      "attendance": "Attendance {{value}}%",
+      "training": "Training {{value}}",
+      "match": "Matches {{value}}"
+    },
+    "empty": "Nothing yet. Mark attendance at your next training to start the ranking.",
+    "rankEmpty": "No players with records for this choice.",
+    "formula": "Coach Rating: attendance 20% · training ratings 30% · match ratings 40% (friendlies and sub appearances count less) · starts, goals and assists 10%. Recent weeks count most; at least 3 days on record to be ranked.",
+    "days": "Trainings and matches",
+    "showAll": "Show all",
+    "kind": {
+      "training": "Training",
+      "match": "Match"
+    },
+    "matchType": {
+      "friendly": "Friendly",
+      "official": "Official",
+      "league": "League"
+    },
+    "vs": "vs {{opponent}}",
+    "presentCount_one": "{{count}} present",
+    "presentCount_other": "{{count}} present",
+    "squadCount_one": "{{count}} in squad",
+    "squadCount_other": "{{count}} in squad",
+    "newTrainingTitle": "New training",
+    "newMatchTitle": "New match",
+    "editTraining": "Training",
+    "editMatch": "Match",
+    "date": "Date",
+    "trainingName": "Name (optional)",
+    "opponent": "Opponent",
+    "type": "Match type",
+    "score": "Score (optional)",
+    "ourScore": "Our goals",
+    "theirScore": "Their goals",
+    "fromBoard": "Line up from a coach board",
+    "fromBoardNone": "Choose a board…",
+    "fromBoardHint": "Starters, substitutes and positions are filled in from the board. You can change them after.",
+    "players": "Players",
+    "allPresent": "All present",
+    "attendance": {
+      "present": "Present",
+      "late": "Late",
+      "excused": "Excused",
+      "absent": "Absent"
+    },
+    "attendanceOf": "Attendance of {{name}}",
+    "role": {
+      "none": "Not in squad",
+      "starter": "Starter",
+      "sub": "Substitute",
+      "unused": "Did not play"
+    },
+    "roleOf": "Role of {{name}}",
+    "position": {
+      "GK": "Goalkeeper",
+      "DEF": "Defender",
+      "MID": "Midfielder",
+      "ATT": "Attacker"
+    },
+    "positionOf": "Position of {{name}}",
+    "rating": "Rating",
+    "ratingOf": "Rating of {{name}}",
+    "noRating": "–",
+    "goals": "Goals",
+    "goalsOf": "Goals of {{name}}",
+    "assists": "Assists",
+    "assistsShort": "Assists",
+    "assistsOf": "Assists of {{name}}",
+    "counts": {
+      "training": "Present {{present}} · Late {{late}} · Excused {{excused}} · Absent {{absent}}",
+      "match": "Starters {{starters}} · Substitutes {{subs}} · Did not play {{unused}}"
+    },
+    "problems": {
+      "opponent": "Enter the opponent",
+      "score": "Enter both scores, or leave both empty",
+      "date": "Choose a date"
+    },
+    "delete": "Delete",
+    "confirmDelete": "Delete this day and its ratings?",
+    "noPlayers": "No players yet. Add players first.",
+    "playerTitle": "Coach evaluation",
+    "coachRating": "Coach Rating",
+    "parts": {
+      "attendance": "Attendance",
+      "training": "Training ratings",
+      "match": "Match ratings",
+      "involvement": "Starts, goals & assists"
+    },
+    "weight": "{{value}}%",
+    "attendanceTitle": "Training attendance",
+    "byType": "By match type",
+    "byRole": "Starter or substitute",
+    "byPosition": "By position played",
+    "games_one": "{{count}} game",
+    "games_other": "{{count}} games",
+    "avg": "Avg {{value}}",
+    "best": "Best",
+    "history": "Day by day",
+    "nothing": "Nothing on record yet.",
+    "goalsAssists": "{{goals}} G · {{assists}} A"
   }
 }

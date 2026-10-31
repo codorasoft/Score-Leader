@@ -14,7 +14,8 @@
 --          ...0012 coach board. S only has ...0001, plus the catalog it owns:
 --          ...0013 training type, ...0014 / ...0015 its videos. ...0016 training (league Z only;
 --          A's training gets a generated id, kept in the setting test.a_training).
---          ...0017 schedule item (repeating), ...0018 schedule item (a task).
+--          ...0017 schedule item (repeating), ...0018 schedule item (a task). A's coach evaluation
+--          day gets a generated id, kept in the setting test.a_coach_day.
 --          Push devices have no fixed ids; they are told apart by their address
 --          (https://push.test/a1, a2, ...).
 -- Acting as a user: SELECT pg_temp.act_as('<user id>'); ... RESET role;
@@ -76,7 +77,8 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items'
+    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items',
+    'coach_events', 'coach_event_players'
   ] LOOP
     EXECUTE format('SELECT count(*) FILTER (WHERE league_id IS NULL) FROM public.%I', t) INTO nulls;
     PERFORM pg_temp.expect(nulls = 0, t || ': no NULL league_id');
@@ -885,6 +887,133 @@ SELECT pg_temp.expect_count($sql$DELETE FROM public.schedule_items$sql$, 0);
 RESET role;
 UPDATE public.admin_profiles SET features = array_append(features, 'schedule') WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001';
 
+-- ===== Coach evaluation: owner only, and only with coach_eval; never public
+-- A's day gets a generated id, kept in the setting test.a_coach_day.
+
+SELECT pg_temp.expect(public.valid_features('{coach_eval}'), 'coach_eval is a valid feature on its own');
+
+-- Without the feature: nothing
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-30', NULL, NULL, NULL, NULL, NULL, '[]')$sql$,
+  'row-level security');
+RESET role;
+UPDATE public.admin_profiles SET features = array_append(features, 'coach_eval')
+WHERE user_id IN ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000001');
+
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+-- A match lined up on A's coach board, with one starter rated and one who did not play
+SELECT set_config('test.a_coach_day', public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'match', '2026-10-30',
+  '  Rivals FC ', 'league', 2, 1, 'aaaaaaaa-0000-4000-8000-000000000012',
+  '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000003", "role": "starter", "position": "MID", "rating": 8, "goals": 1},
+    {"player_id": "aaaaaaaa-0000-4000-8000-000000000004", "role": "unused"}]')::text, true);
+SELECT pg_temp.expect(
+  (SELECT title = 'Rivals FC' AND match_type = 'league' AND our_score = 2 AND lineup_id = 'aaaaaaaa-0000-4000-8000-000000000012'
+   FROM public.coach_events WHERE id = current_setting('test.a_coach_day')::uuid)
+  AND (SELECT count(*) = 2 FROM public.coach_event_players
+       WHERE event_id = current_setting('test.a_coach_day')::uuid AND league_id = 'aaaaaaaa-0000-4000-8000-000000000002')
+  AND (SELECT attendance = 'present' AND rating = 8 AND goals = 1 FROM public.coach_event_players
+       WHERE event_id = current_setting('test.a_coach_day')::uuid AND player_id = 'aaaaaaaa-0000-4000-8000-000000000003'),
+  'A saves a match with its squad; rows take the league and default to present');
+
+-- Saving again replaces the players
+SELECT public.save_coach_event(current_setting('test.a_coach_day')::uuid, NULL, NULL, '2026-10-31', 'Rivals FC', 'official', NULL, NULL, NULL,
+  '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000004", "role": "starter", "position": "GK", "rating": 7}]');
+SELECT pg_temp.expect(
+  (SELECT kind = 'match' AND match_type = 'official' AND our_score IS NULL AND event_date = '2026-10-31' AND lineup_id IS NULL
+   FROM public.coach_events WHERE id = current_setting('test.a_coach_day')::uuid)
+  AND (SELECT array_agg(player_id) = ARRAY['aaaaaaaa-0000-4000-8000-000000000004'::uuid] FROM public.coach_event_players
+       WHERE event_id = current_setting('test.a_coach_day')::uuid),
+  'saving again keeps the kind and replaces the squad');
+
+-- A training records absences too
+SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-29', '', NULL, NULL, NULL, NULL,
+  '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000003", "attendance": "late", "rating": 6},
+    {"player_id": "aaaaaaaa-0000-4000-8000-000000000004", "attendance": "absent"}]');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 2 FROM public.coach_event_players p JOIN public.coach_events e ON e.id = p.event_id
+   WHERE e.kind = 'training' AND e.title IS NULL),
+  'a training keeps its absent players, and a blank name is none');
+
+-- The rules on a day and its players
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-29', NULL, 'league', NULL, NULL, NULL, '[]')$sql$,
+  'coach_events_match_type_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'match', '2026-10-29', 'X', 'cup', NULL, NULL, NULL, '[]')$sql$,
+  'coach_events_match_type_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'match', '2026-10-29', 'X', 'friendly', 1, NULL, NULL, '[]')$sql$,
+  'coach_events_score_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-29', NULL, NULL, NULL, NULL, NULL,
+         '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000003", "attendance": "absent", "rating": 5}]')$sql$,
+  'coach_event_players_rating_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'match', '2026-10-29', 'X', 'friendly', NULL, NULL, NULL,
+         '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000003", "role": "unused", "rating": 5}]')$sql$,
+  'coach_event_players_rating_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-29', NULL, NULL, NULL, NULL, NULL,
+         '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000003", "rating": 11}]')$sql$,
+  'coach_event_players_rating_check');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-29', NULL, NULL, NULL, NULL, NULL,
+         '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000003", "position": "ST"}]')$sql$,
+  'coach_event_players_position_check');
+-- Another league's player or coach board is refused
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-29', NULL, NULL, NULL, NULL, NULL,
+         '[{"player_id": "bbbbbbbb-0000-4000-8000-000000000003"}]')$sql$,
+  'player belongs to another league');
+RESET role;
+INSERT INTO public.lineups (id, league_id, name) VALUES ('bbbbbbbb-0000-4000-8000-000000000012', 'bbbbbbbb-0000-4000-8000-000000000002', 'B Board');
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'match', '2026-10-29', 'X', 'friendly', NULL, NULL,
+         'bbbbbbbb-0000-4000-8000-000000000012', '[]')$sql$,
+  'lineup not found');
+RESET role;
+
+-- B cannot read, change or add to A's days
+SELECT pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000001');
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.coach_events) AND (SELECT count(*) = 0 FROM public.coach_event_players),
+  'B sees none of A''s days');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(current_setting('test.a_coach_day')::uuid, NULL, NULL, '2026-10-31', 'Hijack', 'friendly', NULL, NULL, NULL, '[]')$sql$,
+  'coach event not found');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-31', NULL, NULL, NULL, NULL, NULL, '[]')$sql$,
+  'row-level security');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.coach_events$sql$, 0);
+RESET role;
+
+-- Visitors get nothing
+SELECT pg_temp.act_as(NULL);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 0 FROM public.coach_events) AND (SELECT count(*) = 0 FROM public.coach_event_players),
+  'visitors read no coach evaluation');
+SELECT pg_temp.expect_error(
+  $sql$SELECT public.save_coach_event(NULL, 'aaaaaaaa-0000-4000-8000-000000000002', 'training', '2026-10-31', NULL, NULL, NULL, NULL, NULL, '[]')$sql$,
+  'permission denied');
+RESET role;
+
+-- Deleting a day takes its players with it; deleting the board keeps the day
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT public.save_coach_event(current_setting('test.a_coach_day')::uuid, NULL, NULL, '2026-10-31', 'Rivals FC', 'official', NULL, NULL,
+  'aaaaaaaa-0000-4000-8000-000000000012', '[{"player_id": "aaaaaaaa-0000-4000-8000-000000000004", "role": "starter"}]');
+RESET role;
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM public.coach_events WHERE lineup_id = 'aaaaaaaa-0000-4000-8000-000000000012'),
+  'the match is linked to the board');
+SELECT pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+SELECT pg_temp.expect_count($sql$DELETE FROM public.coach_events WHERE kind = 'training'$sql$, 1);
+SELECT pg_temp.expect(
+  (SELECT count(*) = 1 FROM public.coach_event_players), 'the training''s players went with it');
+RESET role;
+DELETE FROM public.lineups WHERE id = 'bbbbbbbb-0000-4000-8000-000000000012';
+
 -- ===== Morning push: a coach's devices (push_subscriptions) are written only by
 -- save_push_subscription, read and deleted only by their own coach; the job that calls the
 -- server function stays quiet until there is a device and its two Vault values
@@ -1235,6 +1364,10 @@ INSERT INTO public.training_items (training_id, video_id, position) VALUES
   ('99999999-0000-4000-8000-000000000016', 'cccccccc-0000-4000-8000-000000000015', 0);
 INSERT INTO public.schedule_items (id, league_id, kind, title, item_date) VALUES
   ('99999999-0000-4000-8000-000000000017', '99999999-0000-4000-8000-000000000002', 'other', 'Z item', '2026-10-12');
+INSERT INTO public.coach_events (id, league_id, kind, event_date) VALUES
+  ('99999999-0000-4000-8000-000000000021', '99999999-0000-4000-8000-000000000002', 'training', '2026-10-30');
+INSERT INTO public.coach_event_players (event_id, player_id, attendance) VALUES
+  ('99999999-0000-4000-8000-000000000021', '99999999-0000-4000-8000-000000000003', 'absent');
 
 DO $$
 DECLARE
@@ -1245,7 +1378,8 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items'
+    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items',
+    'coach_events', 'coach_event_players'
   ] LOOP
     EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
     PERFORM pg_temp.expect(n > 0, t || ': fixture league has rows before delete');
@@ -1256,7 +1390,8 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'players', 'sessions', 'session_players', 'teams', 'team_players', 'matches', 'match_events',
     'award_votes', 'award_vote_nominations', 'award_vote_entries', 'session_awards',
-    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items'
+    'lineups', 'lineup_players', 'trainings', 'training_items', 'schedule_items',
+    'coach_events', 'coach_event_players'
   ] LOOP
     EXECUTE format('SELECT count(*) FROM public.%I WHERE league_id = $1', t) INTO n USING z;
     PERFORM pg_temp.expect(n = 0, t || ': no rows left after the league is deleted');
