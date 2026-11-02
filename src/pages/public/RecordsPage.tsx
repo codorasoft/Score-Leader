@@ -7,6 +7,7 @@ import { computeRecords, type LeagueRecord, type RecordHolder } from '../../util
 import { formatMatchClock } from '../../utils/matchClock'
 import { styleMap } from '../../lib/teamColors'
 import PageSkeleton from '../../components/PageSkeleton'
+import { backTo } from '../../components/BackLink'
 
 const MAX_HOLDERS = 3
 
@@ -49,7 +50,7 @@ export default function RecordsPage() {
       return (
         <li key={i} className="flex items-center justify-between gap-2 text-sm">
           {profiles
-            ? <Link to={publicPath(`/players/${h.playerId}`)} className="font-semibold hover:underline truncate">{h.name}</Link>
+            ? <Link to={publicPath(`/players/${h.playerId}`)} state={backTo({ to: publicPath('/records'), labelKey: 'nav.records' })} className="font-semibold hover:underline truncate">{h.name}</Link>
             : <span className="font-semibold truncate">{h.name}</span>}
           {h.date && <span className="text-xs text-gray-400 shrink-0" dir="ltr">{h.date}</span>}
         </li>

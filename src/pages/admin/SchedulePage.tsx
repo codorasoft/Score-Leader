@@ -14,6 +14,7 @@ import MorningPushDialog, { clockLabel } from '../../components/MorningPushDialo
 import { readPushState, type PushState } from '../../lib/push'
 import TimeGrid from '../../components/TimeGrid'
 import PageSkeleton from '../../components/PageSkeleton'
+import { backTo } from '../../components/BackLink'
 
 type View = 'month' | 'week' | 'day'
 const VIEWS: View[] = ['month', 'week', 'day']
@@ -226,7 +227,7 @@ export default function SchedulePage() {
             })}
             {daySessions.map((s) => (
               <li key={s.id}>
-                <Link to={adminPath(`/sessions/${s.id}`)} className={`${row} hover:bg-gray-700`}>
+                <Link to={adminPath(`/sessions/${s.id}`)} state={backTo({ to: adminPath('/schedule'), labelKey: 'nav.schedule' })} className={`${row} hover:bg-gray-700`}>
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${DOT_COLOR.session}`} aria-hidden="true" />
                   <span className="flex-1 min-w-0 font-semibold">{t('schedule.session')}</span>
                   <span className="text-gray-500" aria-hidden="true">›</span>

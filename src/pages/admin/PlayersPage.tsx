@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
-import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
+import { useAdminPath, useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { PhotoCropper } from '../../components/PhotoCropper'
 import { deletePlayerPhoto, uploadPlayerPhoto } from '../../lib/playerPhoto'
 import type { Player, PlayerPosition } from '../../lib/types'
+import { backTo } from '../../components/BackLink'
 
 const positionColors: Record<PlayerPosition, string> = {
   GK: 'bg-yellow-600 text-yellow-100',
@@ -48,6 +49,7 @@ export default function PlayersPage() {
   const photosOn = useFeature('photos')
   const profilesOn = useFeature('profiles')
   const publicPath = usePublicPath()
+  const adminPath = useAdminPath()
   const [players, setPlayers] = useState<Player[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
@@ -156,7 +158,7 @@ export default function PlayersPage() {
             <PlayerAvatar player={p} size="sm" />
             <div className="flex-1 min-w-0">
               {profilesOn ? (
-                <Link to={publicPath(`/players/${p.id}`)} className="text-sm font-semibold truncate block hover:underline">{p.name}</Link>
+                <Link to={publicPath(`/players/${p.id}`)} state={backTo({ to: adminPath('/players'), labelKey: 'nav.players' })} className="text-sm font-semibold truncate block hover:underline">{p.name}</Link>
               ) : (
                 <span className="text-sm font-semibold truncate block">{p.name}</span>
               )}

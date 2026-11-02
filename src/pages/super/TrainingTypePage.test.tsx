@@ -48,8 +48,8 @@ describe('TrainingTypePage', () => {
     expect(titles).toEqual([expect.stringContaining('Rondo'), expect.stringContaining('Wall pass')])
     expect(screen.queryByText('Volleys')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Training types/ })).toHaveAttribute('href', '/super/training')
-    // ‹ and › turn round by themselves in Arabic; flipping them again would point them the wrong way
-    expect(document.querySelector('[class*="scale-x"]')).toBeNull()
+    // ‹ and › turn round by themselves in Arabic, so only the back link's ← is flipped
+    expect([...document.querySelectorAll('[class*="scale-x"]')].map((el) => el.textContent)).toEqual(['←'])
   })
 
   it('says so when the type has no videos', async () => {

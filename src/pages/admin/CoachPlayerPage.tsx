@@ -9,6 +9,7 @@ import { dayLabel, localToday } from '../../utils/trainingDays'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import PageSkeleton from '../../components/PageSkeleton'
 import NotAvailablePage from '../NotAvailablePage'
+import { BackLink, backTo } from '../../components/BackLink'
 
 const PARTS = Object.keys(COACH_WEIGHTS) as CoachPart[]
 
@@ -62,9 +63,7 @@ export default function CoachPlayerPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <Link to={adminPath('/coach')} className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true">‹</span> {t('coach.title')}
-      </Link>
+      <BackLink to={adminPath('/coach')} labelKey="coach.title" className="text-sm text-blue-400 hover:underline" />
 
       <div className="flex items-center gap-4 mt-3 mb-5">
         <PlayerAvatar player={player} size="lg" />
@@ -141,7 +140,7 @@ export default function CoachPlayerPage() {
                   ].filter(Boolean).join(' · ')
                 return (
                   <li key={ev.id}>
-                    <Link to={adminPath(`/coach/days/${ev.id}`)} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800">
+                    <Link to={adminPath(`/coach/days/${ev.id}`)} state={backTo({ to: adminPath(`/coach/players/${player.id}`), label: player.name })} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800">
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-medium truncate" dir="auto">{dayTitle(ev, t)}</span>
                         <span className="block text-xs text-gray-400 truncate">{dayLabel(ev.event_date, i18n.language)} · {detail}</span>

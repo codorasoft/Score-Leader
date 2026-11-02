@@ -41,5 +41,5 @@ it('does not show a player from another league', async () => {
 
 it('links back to the league home when the leaderboard is off', async () => {
   renderPage('p2', FEATURES.filter((f) => f !== 'leaderboard' && f !== 'potm'))
-  expect(await screen.findByRole('link', { name: /Leaderboard/ })).toHaveAttribute('href', '/l/eagles')
+  expect(await screen.findByRole('link', { name: /Home/ })).toHaveAttribute('href', '/l/eagles')
 })

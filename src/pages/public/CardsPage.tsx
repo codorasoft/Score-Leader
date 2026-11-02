@@ -8,6 +8,7 @@ import { PlayerCardView } from '../../components/PlayerCardView'
 import type { Player } from '../../lib/types'
 import type { PlayerCard } from '../../utils/playerCard'
 import PageSkeleton from '../../components/PageSkeleton'
+import { backTo } from '../../components/BackLink'
 
 export default function CardsPage() {
   const { t } = useTranslation()
@@ -42,7 +43,7 @@ export default function CardsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 justify-items-center">
         {rows.map(({ player, card }) => (
           profiles ? (
-            <Link key={player.id} to={publicPath(`/players/${player.id}`)} className="transition-transform hover:-translate-y-1">
+            <Link key={player.id} to={publicPath(`/players/${player.id}`)} state={backTo({ to: publicPath('/cards'), labelKey: 'nav.cards' })} className="transition-transform hover:-translate-y-1">
               <PlayerCardView player={player} card={card} size="sm" />
             </Link>
           ) : (

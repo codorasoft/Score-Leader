@@ -19,6 +19,7 @@ import { fetchToday } from '../../lib/scheduleApi'
 import { useLocalToday } from '../../hooks/useLocalToday'
 import type { TodayRow } from '../../utils/schedule'
 import PageSkeleton from '../../components/PageSkeleton'
+import { backTo } from '../../components/BackLink'
 
 const colorDot = styleMap('dot')
 const AWARD_LABEL: Record<AwardVote['award_type'], string> = { mvp: 'awards.mvp', fair_play: 'awards.fairPlay', best_goalkeeper: 'awards.bestGk' }
@@ -267,14 +268,14 @@ function TodoBlock({ items }: { items: TodoItem[] }) {
           {items.map((item) => (
             <li key={item.kind === 'vote' ? item.vote.id : item.kind === 'stale' ? item.session.id : 'photos'}>
               {item.kind === 'vote' && (
-                <Link to={adminPath(`/sessions/${item.vote.sessionId}`)} className={row}>
+                <Link to={adminPath(`/sessions/${item.vote.sessionId}`)} state={backTo({ to: adminPath('/home'), labelKey: 'nav.home' })} className={row}>
                   <span aria-hidden="true">🗳️</span>
                   <span className="min-w-0">{t('home.todoVote', { award: t(AWARD_LABEL[item.vote.awardType]), date: day(item.vote.sessionDate), votes: t('awards.votesCount', { count: item.vote.votes }) })}</span>
                   <Chevron />
                 </Link>
               )}
               {item.kind === 'stale' && (
-                <Link to={adminPath(`/sessions/${item.session.id}`)} className={row}>
+                <Link to={adminPath(`/sessions/${item.session.id}`)} state={backTo({ to: adminPath('/home'), labelKey: 'nav.home' })} className={row}>
                   <span aria-hidden="true">⏱️</span>
                   <span className="min-w-0">{t('home.todoStale', { date: day(item.session.date) })}</span>
                   <Chevron />
@@ -305,7 +306,7 @@ function BoardBlock({ board }: { board: Board | null }) {
       <h2 className={heading}>{t('nav.lineup')}</h2>
       {board ? (
         <div className="flex items-stretch gap-2">
-          <Link to={adminPath(`/lineups/${board.id}`)} className="flex-1 min-w-0 flex items-center gap-2 rounded-lg bg-gray-700/60 hover:bg-gray-700 px-3 py-2">
+          <Link to={adminPath(`/lineups/${board.id}`)} state={backTo({ to: adminPath('/home'), labelKey: 'nav.home' })} className="flex-1 min-w-0 flex items-center gap-2 rounded-lg bg-gray-700/60 hover:bg-gray-700 px-3 py-2">
             <span className="min-w-0">
               <span className="block text-[13px] font-semibold truncate">{board.name}</span>
               <span className="block text-[11px] text-gray-400">{t('home.boardEdited', { date: edited(board.updated_at) })}</span>

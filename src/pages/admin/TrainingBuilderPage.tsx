@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
 import { deleteTraining, fetchCatalog, fetchTraining, saveTraining, type Catalog } from '../../lib/trainingApi'
@@ -10,6 +10,7 @@ import MoveButtons from '../../components/MoveButtons'
 import VideoPreviewDialog from '../../components/VideoPreviewDialog'
 import NotAvailablePage from '../NotAvailablePage'
 import PageSkeleton from '../../components/PageSkeleton'
+import { BackLink } from '../../components/BackLink'
 
 // The catalog is shown this many videos at a time, so a long one is not one endless list.
 // The list itself is read in one go (it is small); thumbnails load only when they come into view.
@@ -126,9 +127,7 @@ export default function TrainingBuilderPage() {
   const field = 'block mt-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-base text-white'
   return (
     <div className="max-w-lg mx-auto">
-      <Link to={adminPath(trainingId ? `/trainings/${trainingId}` : '/trainings')} className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true">‹</span> {t('training.title')}
-      </Link>
+      <BackLink to={adminPath(trainingId ? `/trainings/${trainingId}` : '/trainings')} labelKey="training.title" className="text-sm text-blue-400 hover:underline" />
       <h1 className="text-xl font-bold mt-2 mb-4">{trainingId ? t('common.edit') : t('training.new')}</h1>
 
       {/* Not a form: Enter in the title (the phone keyboard's Go key) must not save a half-built training */}

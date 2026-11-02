@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   addVideo, countTrainingsUsing, deleteType, deleteVideo, fetchCatalog, nextSortOrder, renameType, swapOrder, updateVideo,
@@ -11,6 +11,7 @@ import TrainingVideo from '../../components/TrainingVideo'
 import TrainingVideoForm from '../../components/TrainingVideoForm'
 import NotAvailablePage from '../NotAvailablePage'
 import PageSkeleton from '../../components/PageSkeleton'
+import { BackLink } from '../../components/BackLink'
 
 // One training type of the catalog and its videos.
 export default function TrainingTypePage() {
@@ -95,9 +96,7 @@ export default function TrainingTypePage() {
 
   return (
     <div>
-      <Link to="/super/training" className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true">‹</span> {t('super.training.typesTitle')}
-      </Link>
+      <BackLink to="/super/training" labelKey="super.training.typesTitle" className="text-sm text-blue-400 hover:underline" />
 
       {newName === null ? (
         <div className="flex items-center gap-2 mt-2 mb-4">

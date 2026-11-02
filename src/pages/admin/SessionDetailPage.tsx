@@ -23,6 +23,7 @@ import { MatchFormatLine } from '../../components/MatchFormatLine'
 import { DEFAULT_FORMAT, periodLength } from '../../utils/matchFormat'
 import { resultLabel } from '../../utils/resultLabel'
 import { sessionDate } from '../../utils/sessionDate'
+import { BackLink, backTo } from '../../components/BackLink'
 
 const colorDot = styleMap('dot')
 
@@ -191,7 +192,7 @@ export default function SessionDetailPage() {
     setMakingBoard(true)
     const name = t('teamBuilder.boardName', { date: session.date, teams: orderedTeams.map((tm) => t(`common.teamColor.${tm.color}`)).join(' / ') })
     const id = await createTeamsBoard(league.id, name, orderedTeams.map((tm) => ({ color: tm.color, label: teamLabel(tm), playerIds: playerIdsOf(tm) })))
-    if (id) { navigate(adminPath(`/lineups/${id}`)); return }
+    if (id) { navigate(adminPath(`/lineups/${id}`), { state: backTo({ to: adminPath(`/sessions/${sessionId}`), labelKey: 'match.backToSession' }) }); return }
     setMakingBoard(false)
   }
 
@@ -222,7 +223,7 @@ export default function SessionDetailPage() {
   return (
     <div className="max-w-lg mx-auto p-4">
       <div className="flex items-center gap-3 mb-5">
-        <Link to={adminPath()} className="text-gray-400 hover:text-white text-sm">← {t('sessionDetail.back')}</Link>
+        <BackLink to={adminPath('/history')} labelKey="sessionDetail.back" />
         <h1 className="text-xl font-bold">{session ? sessionDate(session.date, i18n.language) : '…'}</h1>
       </div>
       {session && <MatchFormatLine format={session} />}

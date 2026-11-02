@@ -8,6 +8,7 @@ import { matchRosters } from '../../utils/playerMatches'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { VoteLinks, type CreatedVote } from '../../components/VoteLinks'
 import type { Player, Match, MatchEvent, TeamPlayer, SessionAward } from '../../lib/types'
+import { BackLink } from '../../components/BackLink'
 
 // Best goalkeeper is worked out from goals conceded, like the top scorer, so it is not chosen here
 type ChosenAward = 'mvp' | 'fair_play' | 'best_goal' | 'best_defender'
@@ -137,7 +138,10 @@ export default function AwardsPage() {
 
   return (
     <div className="max-w-lg mx-auto p-4 space-y-6">
-      <h1 className="text-xl font-bold">{t('awards.title')}</h1>
+      <div className="flex items-center gap-3">
+        <BackLink to={adminPath('/history')} labelKey="nav.history" />
+        <h1 className="text-xl font-bold">{t('awards.title')}</h1>
+      </div>
 
       <section className="bg-gray-800 rounded-xl p-4 space-y-3">
         <h2 className="font-semibold text-sm uppercase text-gray-400">{t('awards.autoCalc')}</h2>
