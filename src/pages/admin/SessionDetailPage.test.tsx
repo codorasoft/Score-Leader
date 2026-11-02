@@ -200,3 +200,13 @@ describe('making a coach board from the confirmed teams', () => {
     expect(screen.queryByRole('button', { name: 'Make coach board' })).not.toBeInTheDocument()
   })
 })
+
+it('leads back to the History list, not Home', async () => {
+  resetDb(finishedLeague())
+  renderPage()
+  await screen.findByText(/20 Sep/)
+  const back = screen.getByRole('link', { name: /History/ })
+  expect(back).toHaveAttribute('href', '/admin/eagles/history')
+  await userEvent.click(back)
+  expect(await screen.findByText('history page')).toBeInTheDocument()
+})

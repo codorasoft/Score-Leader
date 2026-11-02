@@ -15,6 +15,7 @@ import { TEAM_COLORS } from '../../lib/teamColors'
 import { draftOf, restoreDraft } from '../../utils/teamEdit'
 import type { Match, MatchEvent, Player, Session, TeamColor, TeamPlayer } from '../../lib/types'
 import { SetupSteps } from '../../components/SetupSteps'
+import { backTo } from '../../components/BackLink'
 
 const WEIGHT_KEY = 'balanceFormWeight'
 const SPLIT_DUOS_KEY = 'balanceSplitDuos'
@@ -203,7 +204,7 @@ export default function TeamBuilderPage() {
     const id = await createTeamsBoard(league.id, name, colors.map((c, i) => ({
       color: c, label: t('common.teamName', { color: t(`common.teamColor.${c}`) }), playerIds: rows[i] ?? [],
     })))
-    if (id) { navigate(adminPath(`/lineups/${id}`)); return }
+    if (id) { navigate(adminPath(`/lineups/${id}`), { state: backTo({ to: adminPath(`/sessions/${sessionId}/teams`), labelKey: 'teamBuilder.title' }) }); return }
     setMakingBoard(false)
   }
 

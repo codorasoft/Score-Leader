@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAdminPath, useFeature, useLeague } from '../../contexts/LeagueContext'
@@ -17,6 +17,7 @@ import { benchOrder, guestsForSaving, lineupChanges, makeGuest, parseGuests, spo
 import { MAX_ON_PITCH, MIN_ON_PITCH, assignToFormation, fitsPitch, parseFormation } from '../../utils/formation'
 import type { Player, PlayerPosition } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
+import { BackLink, useBackState } from '../../components/BackLink'
 
 // Anyone on the board, on the pitch or among the substitutes: a player, or a guest (a typed name,
 // with no position and no photo)
@@ -26,6 +27,7 @@ export default function LineupEditorPage() {
   const { lineupId } = useParams<{ lineupId: string }>()
   const isNew = !lineupId
   const navigate = useNavigate()
+  const backState = useBackState()
   const { t, i18n } = useTranslation()
   const league = useLeague()
   const photosOn = useFeature('photos')
@@ -205,7 +207,7 @@ export default function LineupEditorPage() {
       if (!saved.error) {
         setSavedIds(board.map((b) => b.playerId))
         setDirty(false)
-        if (isNew) navigate(adminPath(`/lineups/${id}`), { replace: true })
+        if (isNew) navigate(adminPath(`/lineups/${id}`), { replace: true, state: backState })
       }
     }
     setSaving(false)
@@ -246,7 +248,7 @@ export default function LineupEditorPage() {
 
   return (
     <div className="max-w-md mx-auto">
-      <Link to={adminPath('/lineups')} className="text-gray-400 hover:text-white text-sm">← {t('lineups.title')}</Link>
+      <BackLink to={adminPath('/lineups')} labelKey="lineups.title" />
 
       <input
         value={name}

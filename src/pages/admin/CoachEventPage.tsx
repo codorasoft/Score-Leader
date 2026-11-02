@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
@@ -14,6 +14,7 @@ import { PlayerAvatar } from '../../components/PlayerAvatar'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import PageSkeleton from '../../components/PageSkeleton'
 import NotAvailablePage from '../NotAvailablePage'
+import { BackLink } from '../../components/BackLink'
 
 const ATTENDANCE: readonly Attendance[] = ['present', 'late', 'excused', 'absent']
 const ROLES: readonly (MatchRole | 'none')[] = ['none', 'starter', 'sub', 'unused']
@@ -224,9 +225,7 @@ export default function CoachEventPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <Link to={adminPath('/coach')} className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true">‹</span> {t('coach.title')}
-      </Link>
+      <BackLink to={adminPath('/coach')} labelKey="coach.title" className="text-sm text-blue-400 hover:underline" />
       <h1 className="text-xl font-bold mt-2 mb-4">{heading}</h1>
 
       {/* Not a form: Enter in a field (the phone keyboard's Go key) must not save a half-filled day */}

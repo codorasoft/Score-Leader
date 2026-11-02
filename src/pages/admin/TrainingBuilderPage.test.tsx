@@ -90,8 +90,8 @@ describe('TrainingBuilderPage, new training', () => {
     expect(screen.getByRole('link', { name: /Training plan/ })).toHaveAttribute('href', '/admin/eagles/trainings')
     // Picking is not playing
     expect(document.querySelector('iframe')).toBeNull()
-    // ‹ and › turn round by themselves in Arabic; flipping them again would point them the wrong way
-    expect(document.querySelector('[class*="scale-x"]')).toBeNull()
+    // ‹ and › turn round by themselves in Arabic, so only the back link's ← is flipped
+    expect([...document.querySelectorAll('[class*="scale-x"]')].map((el) => el.textContent)).toEqual(['←'])
   })
 
   it('the title and the date share one row', async () => {

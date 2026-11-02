@@ -20,6 +20,7 @@ const PARTNER_MIN_MATCHES = 5
 import type { AwardType, Match, MatchEvent, Player, Session, SessionAward, Team } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 import PageSkeleton from '../../components/PageSkeleton'
+import { BackLink, backTo, type BackTarget } from '../../components/BackLink'
 
 const colorDot = styleMap('dot')
 
@@ -121,10 +122,12 @@ export default function PlayerProfilePage() {
       ? { label: t(player.position === 'DEF' ? 'profile.cleanDefences' : 'profile.cleanSheets'), value: totals.cleanSheets }
       : { label: t('profile.cards'), value: `🟨${totals.yellowCards} 🟥${totals.redCards}` },
   ]
+  // A partner's profile opened from here leads back to this one
+  const back: BackTarget = { to: publicPath(`/players/${player.id}`), label: player.name }
 
   return (
     <div className="max-w-lg mx-auto">
-      <Link to={hasLeaderboard ? publicPath('/leaderboard') : publicPath()} className="text-gray-400 hover:text-white text-sm">← {t('profile.back')}</Link>
+      <BackLink to={hasLeaderboard ? publicPath('/leaderboard') : publicPath()} labelKey={hasLeaderboard ? 'profile.back' : 'nav.home'} />
 
       <h1 className="sr-only">{player.name}</h1>
       <div className="flex flex-col items-center gap-3 mt-4 mb-6">
@@ -178,8 +181,8 @@ export default function PlayerProfilePage() {
               <p className="text-sm text-gray-500">{t('partners.none', { count: PARTNER_MIN_MATCHES })}</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <PartnerList title={t('partners.best')} rows={partners.best} nameOf={nameOf} good />
-                <PartnerList title={t('partners.worst')} rows={partners.worst} nameOf={nameOf} />
+                <PartnerList title={t('partners.best')} rows={partners.best} nameOf={nameOf} back={back} good />
+                <PartnerList title={t('partners.worst')} rows={partners.worst} nameOf={nameOf} back={back} />
               </div>
             )}
           </section>
@@ -235,7 +238,7 @@ export default function PlayerProfilePage() {
   )
 }
 
-function PartnerList({ title, rows, nameOf, good = false }: { title: string; rows: Partner[]; nameOf: (id: string) => string; good?: boolean }) {
+function PartnerList({ title, rows, nameOf, back, good = false }: { title: string; rows: Partner[]; nameOf: (id: string) => string; back: BackTarget; good?: boolean }) {
   const { t } = useTranslation()
   const publicPath = usePublicPath()
   return (
@@ -244,7 +247,7 @@ function PartnerList({ title, rows, nameOf, good = false }: { title: string; row
       <ul className="space-y-1.5">
         {rows.map((r) => (
           <li key={r.partnerId} className="flex items-center justify-between gap-2 text-sm">
-            <Link to={publicPath(`/players/${r.partnerId}`)} className="font-semibold truncate hover:underline">{nameOf(r.partnerId)}</Link>
+            <Link to={publicPath(`/players/${r.partnerId}`)} state={backTo(back)} className="font-semibold truncate hover:underline">{nameOf(r.partnerId)}</Link>
             <span className="shrink-0 text-xs text-gray-400">
               {t('partners.record', { wins: r.wins, matches: r.matches })}
               <span className={`ms-2 font-bold ${good ? 'text-green-400' : 'text-red-300'}`}>{Math.round(r.winRate * 100)}%</span>

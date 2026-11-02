@@ -7,6 +7,7 @@ import { dayLabel } from '../../utils/trainingDays'
 import TrainingVideo from '../../components/TrainingVideo'
 import NotAvailablePage from '../NotAvailablePage'
 import PageSkeleton from '../../components/PageSkeleton'
+import { BackLink } from '../../components/BackLink'
 
 // One training as the coach shows it at the pitch: its videos in order, played in the page.
 export default function TrainingViewPage() {
@@ -48,9 +49,7 @@ export default function TrainingViewPage() {
   const day = dayLabel(training.training_date, i18n.language)
   return (
     <div className="max-w-lg mx-auto">
-      <Link to={adminPath('/trainings')} className="text-sm text-blue-400 hover:underline">
-        <span aria-hidden="true">‹</span> {t('training.title')}
-      </Link>
+      <BackLink to={adminPath('/trainings')} labelKey="training.title" className="text-sm text-blue-400 hover:underline" />
 
       <div className="flex items-start gap-3 mt-2 mb-4">
         <div className="flex-1 min-w-0">
