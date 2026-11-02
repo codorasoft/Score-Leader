@@ -107,12 +107,13 @@ export default function AdminLayout() {
             </Link>
           )}
           {owned && (
-            <div className={`min-w-0 ${inMatch ? 'hidden lg:block' : ''}`}>
+            <div className={`flex-1 lg:flex-none min-w-0 ${inMatch ? 'hidden lg:block' : ''}`}>
               <LeagueSwitcher current={owned} leagues={leagues} maxLeagues={profile.max_leagues} />
             </div>
           )}
 
-          <nav className="hidden lg:flex items-center gap-1 text-sm flex-1 min-w-0">
+          {/* With many tabs or a long league name the tabs scroll sideways instead of running under the buttons */}
+          <nav className="hidden lg:flex items-center gap-1 text-sm flex-1 min-w-0 overflow-x-auto [scrollbar-width:thin]">
             {nav.map(({ key, to, label }) => (
               <Link
                 key={key}
