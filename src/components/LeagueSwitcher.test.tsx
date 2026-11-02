@@ -77,8 +77,11 @@ it('puts a long league name on a second line instead of cutting it off, in eithe
       <LeagueSwitcher current={leagues[0]} leagues={leagues} maxLeagues={3} />
     </MemoryRouter>,
   )
-  const name = screen.getByText('EAGLES')
+  const name = screen.getByRole('button', { name: /EAGLES/ }).querySelector('[dir="auto"]')!
+  expect(name).toHaveTextContent('EAGLES')
   expect(name).toHaveClass('line-clamp-2')
+  // It fills the room left in the header, not a box sized to the text that Safari can make too narrow
+  expect(name).toHaveClass('flex-1')
   expect(name).not.toHaveClass('truncate')
   expect(name).toHaveAttribute('dir', 'auto')
 })

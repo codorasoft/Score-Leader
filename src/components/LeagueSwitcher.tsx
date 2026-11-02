@@ -49,13 +49,19 @@ export function LeagueSwitcher({ current, leagues, maxLeagues }: { current: Leag
         aria-expanded={open}
         aria-label={`${current.name} - ${t('league.switch')}`}
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 min-w-0 max-w-full min-h-10 py-0.5 px-1 rounded-lg text-start hover:bg-gray-800"
+        className="flex items-center gap-2 w-full min-h-10 py-0.5 px-1 rounded-lg text-start hover:bg-gray-800"
       >
         <LeagueLogo league={current} size="sm" />
-        {/* A long name goes onto a second line instead of being cut off with "…". dir="auto" lays an
-            English name out left to right inside the Arabic page, so it reads and fits the same in both */}
-        <span dir="auto" className="min-w-0 font-bold text-base sm:text-lg leading-tight line-clamp-2 break-words">{current.name}</span>
-        <span aria-hidden="true" className="shrink-0 text-gray-400 text-xs">▾</span>
+        {/* The name takes all the room the header has left rather than a box sized to the text: Safari
+            (iPhone) can size that box a hair narrower than the text it draws, which cut a name with "…"
+            or split "Eagles" into "Eagle / s". A long name goes onto a second line instead of being cut.
+            dir="auto" lays an English name out left to right inside the Arabic page, while the alignment follows the page,
+            so it stays beside the logo. On a wide screen the
+            tabs need the room, so there the name keeps to one line and is never clipped. */}
+        <span dir="auto" className="flex-1 min-w-0 text-left [[dir=rtl]_&]:text-right font-bold text-base sm:text-lg leading-tight line-clamp-2 break-words lg:line-clamp-none lg:whitespace-nowrap">
+          {current.name}
+          <span aria-hidden="true" className="ms-2 align-middle text-gray-400 text-xs font-normal">▾</span>
+        </span>
       </button>
 
       {open && (

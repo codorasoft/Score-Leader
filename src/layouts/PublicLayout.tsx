@@ -30,10 +30,12 @@ export default function PublicLayout() {
     <div className="min-h-dvh bg-gray-900 text-white">
       <header className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur border-b border-gray-800">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-4">
-          <Link to={publicPath()} className="flex items-center gap-2 font-bold text-base sm:text-lg tracking-tight min-w-0">
+          <Link to={publicPath()} className="flex-1 sm:flex-none flex items-center gap-2 font-bold text-base sm:text-lg tracking-tight min-w-0">
             <LeagueLogo league={league} size="sm" />
-            {/* Same as the admin header: a second line rather than "…", in either language */}
-            <span dir="auto" className="min-w-0 leading-tight line-clamp-2 break-words">{league.name}</span>
+            {/* Same as the admin header: the name fills the free room (not a box sized to the text, which
+                Safari can make too narrow) and goes onto a second line rather than "…", in either language.
+                Beside the tabs on a wider screen it keeps to one line and is never clipped */}
+            <span dir="auto" className="flex-1 min-w-0 text-left [[dir=rtl]_&]:text-right leading-tight line-clamp-2 break-words sm:line-clamp-none sm:whitespace-nowrap">{league.name}</span>
           </Link>
           <nav className="hidden sm:flex items-center gap-1 text-sm flex-1">
             {items.map(({ to, key }) => (
