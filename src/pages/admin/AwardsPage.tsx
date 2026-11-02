@@ -69,7 +69,8 @@ export default function AwardsPage() {
       const playerIds = (spData ?? []).map((r: { player_id: string }) => r.player_id)
       if (playerIds.length > 0) {
         const { data: pData } = await supabase.from('players').select('*').in('id', playerIds)
-        setPlayers(((pData ?? []) as Player[]).sort((a, b) => a.name.localeCompare(b.name)))
+        // Awards go to squad players only, never to a booking's guests
+        setPlayers(((pData ?? []) as Player[]).filter((p) => !p.is_guest).sort((a, b) => a.name.localeCompare(b.name)))
       }
 
       setMatches((matchData ?? []) as Match[])

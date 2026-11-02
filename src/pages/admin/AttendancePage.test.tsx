@@ -112,3 +112,64 @@ it('picks the same players as the last session in one tap', async () => {
   await user.click(screen.getByRole('button', { name: 'Clear' }))
   expect(screen.getByText('0 of 6 picked')).toBeInTheDocument()
 })
+
+it('adds a guest by name, who is picked and saved as a guest player', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByText('Ali'))
+  await user.click(screen.getByRole('button', { name: '+ Add guest' }))
+  await user.type(screen.getByRole('textbox', { name: 'Guest name' }), '  Khalid  ')
+  await user.click(screen.getByRole('button', { name: 'Add' }))
+  expect(screen.getByText('Khalid')).toBeInTheDocument()
+  expect(screen.getByText('Guest')).toBeInTheDocument()
+  expect(screen.getByText('2 of 6 picked')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Confirm Attendance' }))
+  await waitFor(() => expect(screen.getByText('team builder')).toBeInTheDocument())
+  const guest = rows('players').find((p) => p.name === 'Khalid')!
+  expect(guest).toMatchObject({ league_id: 'L1', is_guest: true, position: 'MID', skill_rating: 3 })
+  expect(rows('session_players').map((r) => r.player_id).sort()).toEqual([guest.id, 'p1'].sort())
+})
+
+it('drops a guest added by mistake when they are unticked', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: '+ Add guest' }))
+  await user.type(screen.getByRole('textbox', { name: 'Guest name' }), 'Khalid{Enter}')
+  await user.click(screen.getByText('Khalid'))
+  expect(screen.queryByText('Khalid')).not.toBeInTheDocument()
+  expect(screen.getByText('0 of 6 picked')).toBeInTheDocument()
+})
+
+it("shows only this booking's guests, and removes one who is no longer coming", async () => {
+  rows('players').push(
+    { ...players[0], id: 'g1', name: 'Khalid', is_guest: true },
+    { ...players[0], id: 'g2', name: 'Other guest', is_guest: true },
+  )
+  rows('session_players').push({ league_id: 'L1', session_id: 's9', player_id: 'p1' }, { league_id: 'L1', session_id: 's9', player_id: 'g1' }, { league_id: 'L1', session_id: 's9', player_id: 'p2' })
+  const user = userEvent.setup()
+  renderPage()
+  expect(await screen.findByText('3 of 6 picked')).toBeInTheDocument()
+  expect(screen.getByText('Khalid')).toBeInTheDocument()
+  expect(screen.queryByText('Other guest')).not.toBeInTheDocument()
+  await user.click(screen.getByText('Khalid'))
+  await user.click(screen.getByRole('button', { name: 'Confirm Attendance' }))
+  await waitFor(() => expect(screen.getByText('team builder')).toBeInTheDocument())
+  expect(rows('players').some((p) => p.id === 'g1')).toBe(false)
+  expect(rows('players').some((p) => p.id === 'g2')).toBe(true)
+})
+
+it('cannot add a guest once the booking is full', async () => {
+  rows('sessions')[0].team_size = 3
+  const user = userEvent.setup()
+  renderPage()
+  for (const name of ['Ali', 'Omar', 'Sami', 'Zaid', 'Hadi', 'Nour']) await user.click(await screen.findByText(name))
+  expect(screen.getByRole('button', { name: '+ Add guest' })).toBeDisabled()
+})
+
+it('offers to add a guest in Arabic', async () => {
+  const { inArabic } = await import('../../test/arabic')
+  await inArabic(async () => {
+    renderPage()
+    expect(await screen.findByRole('button', { name: '+ إضافة ضيف' })).toBeInTheDocument()
+  })
+})

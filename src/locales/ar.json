@@ -61,6 +61,11 @@
     "choosePhoto": "اختر صورة",
     "changePhoto": "تغيير الصورة",
     "removePhoto": "إزالة الصورة",
+    "guest": "ضيف",
+    "guestsTitle": "الضيوف ({{count}})",
+    "guestsHint": "الضيوف لعبوا في حجز دون أن يكونوا في قائمتك. أهدافهم لا تُحسب في الترتيب حتى تضيفهم إلى قائمة اللاعبين.",
+    "addToSquad": "أضف للقائمة",
+    "addToSquadNamed": "أضف {{name}} إلى قائمة اللاعبين",
     "saving": "جارٍ الحفظ…"
   },
   "session": {
@@ -70,6 +75,10 @@
     "searchPlayers": "ابحث عن لاعب",
     "noPlayerFound": "لا يوجد لاعب بهذا الاسم",
     "sameAsLast": "نفس لاعبي الحجز السابق ({{count}})",
+    "addGuest": "+ إضافة ضيف",
+    "guestName": "اسم الضيف",
+    "guestNameHint": "شخص ليس في قائمة لاعبيك. يمكنه اللعب والتسجيل في هذا الحجز فقط.",
+    "addGuestConfirm": "إضافة",
     "clearPicks": "مسح",
     "selectedCount": "{{count}} من {{limit}} مختار",
     "newTitle": "حجز جديد",

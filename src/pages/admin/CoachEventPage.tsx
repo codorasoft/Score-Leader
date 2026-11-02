@@ -112,7 +112,7 @@ export default function CoachEventPage() {
       const dayKind: CoachEventKind = found ? found.event.kind : newKind === 'match' ? 'match' : 'training'
       const saved = new Map((found?.entries ?? []).map((e) => [e.player_id, e]))
       // Active players, and anyone no longer active who is on this day
-      const shown = all.filter((p) => p.is_active || saved.has(p.id))
+      const shown = all.filter((p) => !p.is_guest && (p.is_active || saved.has(p.id)))
       const next: Record<string, Line> = {}
       for (const p of shown) {
         const e = saved.get(p.id)

@@ -23,6 +23,12 @@ export function PositionBadge({ position }: { position: PlayerPosition }) {
   )
 }
 
+// Marks someone who joined a booking without being in the Players list
+export function GuestBadge() {
+  const { t } = useTranslation()
+  return <span className="text-[10px] font-semibold uppercase text-gray-200 bg-gray-600 rounded px-1.5 py-0.5">{t('players.guest')}</span>
+}
+
 const icon = (d: string) => (
   <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d={d} />
@@ -49,6 +55,9 @@ export default function PlayersPage() {
   const profilesOn = useFeature('profiles')
   const publicPath = usePublicPath()
   const [players, setPlayers] = useState<Player[]>([])
+  // People who played a booking as a guest; folded away below the squad
+  const [guests, setGuests] = useState<Player[]>([])
+  const [guestsOpen, setGuestsOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [form, setForm] = useState<PlayerFormData>(defaultForm)
@@ -76,12 +85,15 @@ export default function PlayersPage() {
       .eq('league_id', league.id)
       .eq('is_active', true)
       .order('name')
-    if (data && forLeague === currentLeague.current) setPlayers(data as Player[])
+    if (!data || forLeague !== currentLeague.current) return
+    setPlayers((data as Player[]).filter((p) => !p.is_guest))
+    setGuests((data as Player[]).filter((p) => p.is_guest))
   }
 
   useEffect(() => {
     // A different league: drop the previous league's players and any open dialog
     setPlayers([])
+    setGuests([])
     setDialogOpen(false)
     setEditingPlayer(null)
     setConfirmRemove(null)
@@ -131,6 +143,12 @@ export default function PlayersPage() {
     setSaving(false)
     if (error) return
     setDialogOpen(false)
+    fetchPlayers()
+  }
+
+  // A guest who keeps coming joins the squad: their earlier goals start counting too
+  const handleAddToSquad = async (id: string) => {
+    await supabase.from('players').update({ is_guest: false }).eq('id', id)
     fetchPlayers()
   }
 
@@ -187,6 +205,36 @@ export default function PlayersPage() {
           </div>
         ))}
       </div>
+
+      {guests.length > 0 && (
+        <section className="mt-6">
+          <button type="button" aria-expanded={guestsOpen} onClick={() => setGuestsOpen((open) => !open)}
+            className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 rounded-lg bg-gray-800/60 text-sm font-semibold text-gray-200">
+            <span>{t('players.guestsTitle', { count: guests.length })}</span>
+            <span aria-hidden="true" className={`transition-transform ${guestsOpen ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {guestsOpen && (
+            <div className="mt-2">
+              <p className="text-xs text-gray-400 mb-2">{t('players.guestsHint')}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {guests.map((g) => (
+                  <div key={g.id} className="bg-gray-800 rounded-lg px-3 py-2 flex items-center gap-2.5">
+                    <PlayerAvatar player={g} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <span dir="auto" className="text-sm font-semibold truncate block">{g.name}</span>
+                      <span className="inline-block mt-0.5"><GuestBadge /></span>
+                    </div>
+                    <button onClick={() => handleAddToSquad(g.id)} aria-label={t('players.addToSquadNamed', { name: g.name })}
+                      className="shrink-0 min-h-[36px] px-3 rounded-lg bg-blue-600 text-xs font-semibold hover:bg-blue-700">
+                      {t('players.addToSquad')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {photosOn && cropSrc && (
         <PhotoCropper

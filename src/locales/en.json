@@ -61,6 +61,11 @@
     "choosePhoto": "Choose photo",
     "changePhoto": "Change photo",
     "removePhoto": "Remove photo",
+    "guest": "Guest",
+    "guestsTitle": "Guests ({{count}})",
+    "guestsHint": "Guests played in a booking without being on your list. Their goals don't count on the leaderboard until you add them to the squad.",
+    "addToSquad": "Add to squad",
+    "addToSquadNamed": "Add {{name}} to the squad",
     "saving": "Saving…"
   },
   "session": {
@@ -70,6 +75,10 @@
     "searchPlayers": "Search players",
     "noPlayerFound": "No player with that name",
     "sameAsLast": "Same players as last booking ({{count}})",
+    "addGuest": "+ Add guest",
+    "guestName": "Guest name",
+    "guestNameHint": "Someone who isn't on your players list. They can play and score in this booking only.",
+    "addGuestConfirm": "Add",
     "clearPicks": "Clear",
     "selectedCount": "{{count}} of {{limit}} picked",
     "newTitle": "New booking",
