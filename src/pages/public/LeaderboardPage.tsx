@@ -62,7 +62,9 @@ export default function LeaderboardPage() {
   const periods = availablePeriods(data.sessions)
   const requested = searchParams.get('period')
   const period: PeriodKey = requested && periods.includes(requested) ? requested : defaultPeriod(periods)
-  const choose = (p: PeriodKey) => setSearchParams(p === 'all' ? {} : { period: p }, { replace: true })
+  // The opening period keeps a clean URL; any other choice is written out, 'all' included,
+  // since an empty URL means the opening period (this month, when it has bookings)
+  const choose = (p: PeriodKey) => setSearchParams(p === defaultPeriod(periods) ? {} : { period: p }, { replace: true })
 
   const label = (p: PeriodKey) => {
     if (p === 'all') return t('leaderboard.allTime')
@@ -116,7 +118,7 @@ export default function LeaderboardPage() {
             aria-selected={p === period}
             onClick={() => choose(p)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${
-              p === period ? 'bg-blue-600 text-white' : p.length === 4 ? 'bg-gray-700 text-gray-100 font-semibold' : 'bg-gray-800 text-gray-300'
+              p === period ? 'bg-blue-600 text-white' : p.length !== 7 ? 'bg-gray-700 text-gray-100 font-semibold' : 'bg-gray-800 text-gray-300'
             }`}
           >
             {label(p)}

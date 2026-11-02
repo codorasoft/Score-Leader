@@ -60,6 +60,24 @@ it('offers the periods that have sessions and keeps the choice in the URL', asyn
   expect(season).toHaveAttribute('aria-selected', 'true')
 })
 
+it('switches to all time while the current month is shown first', async () => {
+  // The fixture's booking is in September 2026, so that month opens by default
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-25T12:00:00'))
+  try {
+    resetDb(finishedLeague())
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('link', { name: /Omar/ })
+    expect(screen.getByRole('tab', { name: 'September 2026' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('tab', { name: 'All time' }))
+    expect(screen.getByRole('tab', { name: 'All time' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'September 2026' })).toHaveAttribute('aria-selected', 'false')
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
 it('shows rows without links when profiles are off', async () => {
   resetDb(finishedLeague())
   renderPage(FEATURES.filter((f) => f !== 'profiles' && f !== 'badges'))
