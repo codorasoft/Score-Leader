@@ -100,7 +100,7 @@ body {
 }
 @media (width < 64rem) {
   .has-bottom-bar {
-    --bottom-bar: calc(3.75rem + env(safe-area-inset-bottom));
+    --bottom-bar: calc(3.75rem + max(0.25rem, env(safe-area-inset-bottom)));
     --bar-safe: 0.75rem;
   }
 }
