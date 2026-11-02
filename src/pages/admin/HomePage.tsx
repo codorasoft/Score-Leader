@@ -22,8 +22,22 @@ import PageSkeleton from '../../components/PageSkeleton'
 
 const colorDot = styleMap('dot')
 const AWARD_LABEL: Record<AwardVote['award_type'], string> = { mvp: 'awards.mvp', fair_play: 'awards.fairPlay', best_goalkeeper: 'awards.bestGk' }
-const card = 'bg-gray-800 rounded-xl p-4'
-const bigButton = 'min-h-[52px] rounded-xl font-bold text-base flex items-center justify-center gap-2 px-4'
+const card = 'bg-gray-800 rounded-xl p-3.5'
+const bigButton = 'min-h-[48px] rounded-xl font-bold text-[15px] flex items-center justify-center gap-2 px-4'
+const heading = 'text-sm font-bold text-gray-200 mb-2.5'
+
+// A white plus, so it reads on the blue button (the ➕ emoji draws dark grey on some phones)
+const PlusIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" aria-hidden="true">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+)
+// Points to the trailing side: right in English, left in Arabic
+const Chevron = () => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 ms-auto text-gray-500 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M9 6l6 6-6 6" />
+  </svg>
+)
 
 interface Board { id: string; name: string; updated_at: string }
 interface HomeData { live: LiveState; teams: Team[]; todo: TodoItem[]; board: Board | null; today: TodayRow[] }
@@ -96,7 +110,7 @@ export default function HomePage() {
   const { live, teams, todo, board, today } = data.value
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <LiveBlock live={live} teams={teams} />
       {today.length > 0 && <TodayBlock rows={today} />}
       <TodoBlock items={todo} />
@@ -142,8 +156,8 @@ function LiveCard({ live, teams, onStart, startRef }: {
   const adminPath = useAdminPath()
   const { day, ago } = useDateLabels()
   const startAnother = (
-    <button type="button" ref={startRef} onClick={onStart} className="mt-3 w-full min-h-[44px] rounded-xl text-sm font-semibold text-blue-300 border border-blue-800/60 hover:bg-blue-900/30">
-      <span aria-hidden="true">➕</span> {t('home.start')}
+    <button type="button" ref={startRef} onClick={onStart} className="mt-2 w-full min-h-[40px] rounded-xl text-[13px] font-semibold text-blue-300 border border-blue-800/60 hover:bg-blue-900/30 flex items-center justify-center gap-1.5">
+      <PlusIcon className="w-3.5 h-3.5" /> {t('home.start')}
     </button>
   )
 
@@ -179,7 +193,7 @@ function LiveCard({ live, teams, onStart, startRef }: {
       : `/sessions/${live.session.id}`
     return (
       <section className={card}>
-        <p className="font-semibold mb-3">
+        <p className="text-sm font-semibold mb-2.5">
           {t(live.kind === 'setup' ? 'home.setupTitle' : 'home.openTitle', { date: day(live.session.date) })}
         </p>
         <Link to={adminPath(to)} className={`${bigButton} bg-blue-600 hover:bg-blue-500`}>{t('home.continue')}</Link>
@@ -191,9 +205,9 @@ function LiveCard({ live, teams, onStart, startRef }: {
   return (
     <section className={card}>
       <button type="button" ref={startRef} onClick={onStart} className={`${bigButton} w-full bg-blue-600 hover:bg-blue-500`}>
-        <span aria-hidden="true">➕</span> {t('home.start')}
+        <PlusIcon /> {t('home.start')}
       </button>
-      <p className="text-sm text-gray-400 text-center mt-3">
+      <p className="text-xs text-gray-400 text-center mt-2">
         {live.lastPlayed ? t('home.lastPlayed', { when: ago(live.lastPlayed) }) : t('home.neverPlayed')}
       </p>
     </section>
@@ -226,8 +240,8 @@ function TodayBlock({ rows }: { rows: TodayRow[] }) {
 
   return (
     <section className={card} aria-label={t('today.title')}>
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-bold">
+      <div className="flex items-baseline justify-between gap-3 mb-2.5">
+        <h2 className="text-sm font-bold text-gray-200">
           <Link to={adminPath('/schedule')} className="hover:underline">{t('today.title')}</Link>
         </h2>
         <span className="text-xs text-gray-400">{t('today.count', { count: rows.length })}</span>
@@ -241,33 +255,36 @@ function TodoBlock({ items }: { items: TodoItem[] }) {
   const { t } = useTranslation()
   const adminPath = useAdminPath()
   const { day } = useDateLabels()
-  const row = 'flex items-center gap-3 rounded-lg bg-gray-700/60 hover:bg-gray-700 px-3 py-3 text-sm'
+  const row = 'flex items-center gap-2.5 min-h-[44px] rounded-lg bg-gray-700/60 hover:bg-gray-700 px-3 py-2 text-[13px]'
 
   return (
     <section className={card}>
-      <h2 className="font-bold mb-3">{t('home.todo')}</h2>
+      <h2 className={heading}>{t('home.todo')}</h2>
       {items.length === 0 ? (
         <p className="text-sm text-green-400">{t('home.allDone')}</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-1.5">
           {items.map((item) => (
             <li key={item.kind === 'vote' ? item.vote.id : item.kind === 'stale' ? item.session.id : 'photos'}>
               {item.kind === 'vote' && (
                 <Link to={adminPath(`/sessions/${item.vote.sessionId}`)} className={row}>
                   <span aria-hidden="true">🗳️</span>
-                  {t('home.todoVote', { award: t(AWARD_LABEL[item.vote.awardType]), date: day(item.vote.sessionDate), votes: t('awards.votesCount', { count: item.vote.votes }) })}
+                  <span className="min-w-0">{t('home.todoVote', { award: t(AWARD_LABEL[item.vote.awardType]), date: day(item.vote.sessionDate), votes: t('awards.votesCount', { count: item.vote.votes }) })}</span>
+                  <Chevron />
                 </Link>
               )}
               {item.kind === 'stale' && (
                 <Link to={adminPath(`/sessions/${item.session.id}`)} className={row}>
                   <span aria-hidden="true">⏱️</span>
-                  {t('home.todoStale', { date: day(item.session.date) })}
+                  <span className="min-w-0">{t('home.todoStale', { date: day(item.session.date) })}</span>
+                  <Chevron />
                 </Link>
               )}
               {item.kind === 'photos' && (
                 <Link to={adminPath('/players')} className={row}>
                   <span aria-hidden="true">📷</span>
-                  {t('home.todoPhotos', { count: item.count })}
+                  <span className="min-w-0">{t('home.todoPhotos', { count: item.count })}</span>
+                  <Chevron />
                 </Link>
               )}
             </li>
@@ -285,19 +302,22 @@ function BoardBlock({ board }: { board: Board | null }) {
 
   return (
     <section className={card}>
-      <h2 className="font-bold mb-3">{t('nav.lineup')}</h2>
+      <h2 className={heading}>{t('nav.lineup')}</h2>
       {board ? (
-        <div className="flex items-center gap-2">
-          <Link to={adminPath(`/lineups/${board.id}`)} className="flex-1 min-w-0 rounded-lg bg-gray-700/60 hover:bg-gray-700 px-3 py-3">
-            <span className="block font-semibold truncate">{board.name}</span>
-            <span className="block text-xs text-gray-400">{t('home.boardEdited', { date: edited(board.updated_at) })}</span>
+        <div className="flex items-stretch gap-2">
+          <Link to={adminPath(`/lineups/${board.id}`)} className="flex-1 min-w-0 flex items-center gap-2 rounded-lg bg-gray-700/60 hover:bg-gray-700 px-3 py-2">
+            <span className="min-w-0">
+              <span className="block text-[13px] font-semibold truncate">{board.name}</span>
+              <span className="block text-[11px] text-gray-400">{t('home.boardEdited', { date: edited(board.updated_at) })}</span>
+            </span>
+            <Chevron />
           </Link>
-          <Link to={adminPath('/lineups/new')} className="shrink-0 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-3 text-sm font-semibold">
+          <Link to={adminPath('/lineups/new')} className="shrink-0 flex items-center rounded-lg bg-blue-600 hover:bg-blue-500 px-3 text-[13px] font-semibold whitespace-nowrap">
             {t('home.newBoard')}
           </Link>
         </div>
       ) : (
-        <Link to={adminPath('/lineups/new')} className={`${bigButton} bg-gray-700 hover:bg-gray-600 text-sm`}>{t('home.firstBoard')}</Link>
+        <Link to={adminPath('/lineups/new')} className={`${bigButton} bg-gray-700 hover:bg-gray-600 text-[13px]!`}>{t('home.firstBoard')}</Link>
       )}
     </section>
   )

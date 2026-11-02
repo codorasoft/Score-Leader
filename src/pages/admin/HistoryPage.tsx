@@ -6,7 +6,16 @@ import { supabase } from '../../lib/supabase'
 import type { Session } from '../../lib/types'
 import { sessionDate } from '../../utils/sessionDate'
 
-const tile = 'min-h-[56px] rounded-lg bg-gray-700 hover:bg-gray-600 text-[11px] leading-tight font-semibold flex flex-col items-center justify-center gap-0.5 px-1 text-center'
+const icon = (d: string) => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={d} />
+  </svg>
+)
+const MATCHES_ICON = icon('M9 5h10M9 12h10M9 19h10M4 5h.01M4 12h.01M4 19h.01')
+const LINK_ICON = icon('M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1')
+const EDIT_ICON = icon('M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z')
+const DELETE_ICON = icon('M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6')
+const iconButton = 'w-9 h-9 shrink-0 rounded-lg flex items-center justify-center bg-gray-700 text-gray-200 hover:bg-gray-600'
 
 export default function HistoryPage() {
   const { t, i18n } = useTranslation()
@@ -76,82 +85,84 @@ export default function HistoryPage() {
     load()
   }
 
+  // The layout already pads the sides on phones; more would squeeze the date beside the buttons
   return (
-    <div className="max-w-lg mx-auto p-4">
+    <div className="max-w-lg mx-auto py-4 sm:p-4">
       <h1 className="text-xl font-bold mb-4">{t('history.title')}</h1>
       {sessions.length === 0 && <p className="text-gray-500 text-center py-8">{t('history.noSessions')}</p>}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {sessions.map((s) => (
-          <div key={s.id} className="bg-gray-800 rounded-xl p-4 space-y-3">
+          <div key={s.id} className="bg-gray-800 rounded-xl px-3 py-2.5">
             {editingId === s.id ? (
               <div className="flex items-center gap-2 flex-wrap">
                 <input
                   type="date"
                   value={editDate}
                   onChange={(e) => setEditDate(e.target.value)}
-                  className="bg-gray-700 border border-gray-500 rounded px-2 py-1.5 text-sm text-white"
+                  className="h-9 bg-gray-700 border border-gray-500 rounded-lg px-2 text-sm text-white"
                 />
-                <button onClick={saveEdit} className="px-3 py-1.5 bg-blue-600 rounded text-sm font-semibold hover:bg-blue-500">
+                <button onClick={saveEdit} className="h-9 px-3 bg-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-500">
                   {t('common.save')}
                 </button>
-                <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-gray-700 rounded text-sm hover:bg-gray-600">
+                <button onClick={() => setEditingId(null)} className="h-9 px-3 bg-gray-700 rounded-lg text-sm hover:bg-gray-600">
                   {t('common.cancel')}
                 </button>
               </div>
             ) : (
               <>
-                {/* Row 1: date and status */}
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-lg">{sessionDate(s.date, i18n.language)}</span>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    s.status === 'completed' ? 'bg-green-900/50 text-green-300'
-                      : s.status === 'active' ? 'bg-yellow-900/50 text-yellow-300'
-                      : 'bg-gray-700 text-gray-300'
-                  }`}>
-                    {t(`history.status.${s.status}` as const)}
-                  </span>
+                {/* One line: date and status, then icon buttons on the trailing side (right in English, left in Arabic) */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold leading-snug">{sessionDate(s.date, i18n.language)}</div>
+                    <span className={`inline-block mt-0.5 text-[10px] leading-4 font-semibold px-1.5 rounded-full ${
+                      s.status === 'completed' ? 'bg-green-900/50 text-green-300'
+                        : s.status === 'active' ? 'bg-yellow-900/50 text-yellow-300'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}>
+                      {t(`history.status.${s.status}` as const)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Link to={adminPath(`/sessions/${s.id}`)} aria-label={t('history.matches')} title={t('history.matches')} className={iconButton}>
+                      {MATCHES_ICON}
+                    </Link>
+                    <Link to={`/s/${s.share_token}`} target="_blank" aria-label={t('history.publicLink')} title={t('history.publicLink')} className={iconButton}>
+                      {LINK_ICON}
+                    </Link>
+                    <button onClick={() => startEdit(s)} aria-label={t('history.editDate')} title={t('history.editDate')} className={iconButton}>
+                      {EDIT_ICON}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(s.id)}
+                      aria-label={t('history.deleteSession')}
+                      title={t('history.deleteSession')}
+                      className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center bg-red-900/40 border border-red-700/60 text-red-300 hover:bg-red-900/70"
+                    >
+                      {DELETE_ICON}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Live-session actions get their own prominent row */}
+                {/* Live-booking actions get their own row */}
                 {s.status === 'active' && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 mt-2">
                     {activeMatchMap[s.id] ? (
-                      <Link to={adminPath(`/sessions/${s.id}/match/${activeMatchMap[s.id]}`)} className="min-h-[44px] rounded-lg bg-green-600 hover:bg-green-500 text-sm font-semibold flex items-center justify-center gap-2">
+                      <Link to={adminPath(`/sessions/${s.id}/match/${activeMatchMap[s.id]}`)} className="min-h-[40px] rounded-lg bg-green-600 hover:bg-green-500 text-[13px] font-semibold flex items-center justify-center gap-1.5">
                         <span aria-hidden="true">▶</span> {t('history.resume')}
                       </Link>
                     ) : <span />}
                     {awardsOn ? (
-                      <Link to={adminPath(`/sessions/${s.id}/awards`)} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
+                      <Link to={adminPath(`/sessions/${s.id}/awards`)} className="min-h-[40px] rounded-lg bg-blue-600 hover:bg-blue-500 text-[13px] font-semibold flex items-center justify-center gap-1.5">
                         <span aria-hidden="true">🏆</span> {t('history.awards')}
                       </Link>
                     ) : (
-                      <button onClick={() => finishSession(s.id)} className="min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-semibold flex items-center justify-center gap-2">
+                      <button onClick={() => finishSession(s.id)} className="min-h-[40px] rounded-lg bg-blue-600 hover:bg-blue-500 text-[13px] font-semibold flex items-center justify-center gap-1.5">
                         {t('awards.finishSession')}
                       </button>
                     )}
                   </div>
                 )}
-
-                {/* Row 2: the four session buttons */}
-                <div className="grid grid-cols-4 gap-2">
-                  <Link to={adminPath(`/sessions/${s.id}`)} className={tile}>
-                    <span className="text-lg" aria-hidden="true">📋</span>{t('history.matches')}
-                  </Link>
-                  <Link to={`/s/${s.share_token}`} target="_blank" className={tile}>
-                    <span className="text-lg" aria-hidden="true">🔗</span>{t('history.publicLink')}
-                  </Link>
-                  <button onClick={() => startEdit(s)} className={tile}>
-                    <span className="text-lg" aria-hidden="true">✏️</span>{t('history.editDate')}
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteId(s.id)}
-                    aria-label={t('history.deleteSession')}
-                    className={`${tile} !bg-red-900/40 border border-red-700/60 text-red-200 hover:!bg-red-900/70`}
-                  >
-                    <span className="text-lg" aria-hidden="true">🗑️</span>{t('history.deleteShort')}
-                  </button>
-                </div>
               </>
             )}
           </div>
