@@ -150,5 +150,5 @@ describe('the morning notification', () => {
 
 it('the match screen leads back to its session', () => {
   renderAt('/admin/eagles/sessions/s1/match/m1')
-  expect(screen.getByRole('link', { name: /Session/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1')
+  expect(screen.getByRole('link', { name: /Booking/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1')
 })

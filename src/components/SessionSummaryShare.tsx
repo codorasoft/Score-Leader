@@ -22,7 +22,7 @@ export function SessionSummaryShare({ parts }: { parts: SummaryParts }) {
       title: parts.title, subtitle: parts.totals, rtl: i18n.dir() === 'rtl',
       sections: parts.sections, footer: 'ScoreLeader',
     }),
-    'scoreleader-session.png',
+    'scoreleader-booking.png',
     parts.title,
   )
 

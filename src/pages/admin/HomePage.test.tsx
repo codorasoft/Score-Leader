@@ -51,19 +51,19 @@ describe('live / start block', () => {
   it('nothing open: start button and when the league last played', async () => {
     h.rows.sessions = [session('s0', '2026-09-01', 'completed')]
     renderHome()
-    expect(await screen.findByRole('button', { name: /Start new session/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Start new booking/ })).toBeInTheDocument()
     expect(screen.getByText(/Last played:/)).toBeInTheDocument()
   })
   it('start new session opens the new-session popup', async () => {
     h.rows.sessions = [session('s0', '2026-09-01', 'completed')]
     renderHome()
-    fireEvent.click(await screen.findByRole('button', { name: /Start new session/ }))
-    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: /Start new booking/ }))
+    expect(await screen.findByRole('dialog', { name: 'New booking' })).toBeInTheDocument()
   })
   it('opens the popup straight away when asked to by the link', async () => {
     h.rows.sessions = [session('s0', '2026-09-01', 'completed')]
     renderHome(FEATURES, '/admin/eagles/home?new=1')
-    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'New booking' })).toBeInTheDocument()
   })
   it('a running match: score, clock and resume', async () => {
     h.rows.sessions = [session('s1', today, 'active')]
@@ -109,19 +109,19 @@ describe('starting a session while another is unfinished', () => {
     h.rows.matches = [match('pending')]
     renderHome()
     expect(await screen.findByText('Live now')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /Start new session/ }))
-    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Start new booking/ }))
+    expect(await screen.findByRole('dialog', { name: 'New booking' })).toBeInTheDocument()
   })
   it('an open or half-set-up session still offers it too', async () => {
     h.rows.sessions = [session('s1', '2026-09-27', 'draft')]
     renderHome()
     expect(await screen.findByRole('link', { name: 'Continue' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Start new session/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Start new booking/ })).toBeInTheDocument()
   })
   it('the old new-session link opens the popup even with a session open', async () => {
     h.rows.sessions = [session('s1', '2026-09-27', 'active')]
     renderHome(FEATURES, '/admin/eagles/home?new=1')
-    expect(await screen.findByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'New booking' })).toBeInTheDocument()
   })
 })
 

@@ -101,7 +101,7 @@ describe('buildMessage', () => {
       row({ kind: 'plan', dot: 'plan', title: null }),
     ])])).toEqual({
       title: 'Today: 5 items',
-      body: '08:00 – 09:30 Gym\nBook the pitch\nMatch session\nTraining plan: Passing day\nTraining plan',
+      body: '08:00 – 09:30 Gym\nBook the pitch\nMatch booking\nTraining plan: Passing day\nTraining plan',
       url: '/admin/eagles/schedule', tag: 'today-2026-10-13', lang: 'en', dir: 'ltr',
     })
   })
@@ -118,7 +118,7 @@ describe('buildMessage', () => {
       { name: 'Lions', slug: 'lions', rows: [] },
       { name: 'Owls', slug: 'owls', rows: [row({ kind: 'session', dot: 'session', title: null })] },
     ])
-    expect(message?.body).toBe('Eagles · Gym\nOwls · Match session')
+    expect(message?.body).toBe('Eagles · Gym\nOwls · Match booking')
     expect(message?.url).toBe('/admin')
     expect(message?.title).toBe('Today: 2 items')
   })
@@ -148,7 +148,7 @@ describe('buildMessage', () => {
       row({ time: '08:00', title: 'تمرين' }), row({ kind: 'session', dot: 'session', title: null }), row({ kind: 'plan', dot: 'plan', title: 'تمرير' }),
     ])])!
     expect(message).toMatchObject({ lang: 'ar', dir: 'rtl', title: 'اليوم: 3 عناصر' })
-    expect(message.body).toBe('08:00 تمرين\nجلسة مباريات\nخطة تدريب: تمرير')
+    expect(message.body).toBe('08:00 تمرين\nحجز مباريات\nخطة تدريب: تمرير')
     expect(buildMessage('ar', '2026-10-13', [eagles([row({})])])?.title).toBe('اليوم: عنصر واحد')
     expect(buildMessage('ar', '2026-10-13', [eagles([row({}), row({})])])?.title).toBe('اليوم: عنصران')
     const eleven = Array.from({ length: 11 }, () => row({}))

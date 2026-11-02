@@ -42,7 +42,7 @@ it('builds a plain-text summary with standings, top players, awards and the link
     '🎯 Top assists',
     '🥇 Omar — 1',
     '',
-    '🏅 Session Awards',
+    '🏅 Booking Awards',
     '⭐ MVP: Ali',
     '⚽ Best Goalscorer: Ali',
     '🎯 Best Assister: Omar',

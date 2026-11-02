@@ -83,7 +83,7 @@ it('a confirm that cannot be saved says so, saves nothing and can be tapped agai
   await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(3))
   await user.click(screen.getByRole('button', { name: 'Confirm Teams & Start' }))
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not start the session')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not start the booking')
   expect(rows('teams').filter((t) => t.session_id === 's2')).toEqual([])
   expect(rows('sessions').find((s) => s.id === 's2')?.status).toBe('draft')
   expect(screen.queryByText(/^match page/)).toBeNull()

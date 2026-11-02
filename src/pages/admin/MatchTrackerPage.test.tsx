@@ -661,7 +661,7 @@ it("keeps the session's table in its own tab, out of the way of the match contro
   expect(screen.queryByText('Team standings')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeVisible()
 
-  await user.click(screen.getByRole('tab', { name: 'Session so far' }))
+  await user.click(screen.getByRole('tab', { name: 'Booking so far' }))
   expect(screen.getByText(/team standings/i)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: '⚽ Goal', hidden: true })).not.toBeVisible()
   expect(screen.queryByRole('button', { name: 'End Match' })).not.toBeInTheDocument()
