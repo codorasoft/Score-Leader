@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAdminPath, useLeague } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
 import { serverErrorKey } from '../../lib/errorText'
-import { PositionBadge } from './PlayersPage'
+import { GuestBadge, PositionBadge } from './PlayersPage'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import type { Player, Session } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
@@ -61,7 +61,7 @@ export function AttendancePicker({ players, selected, limit, onToggle }: Attenda
               <span className="flex-1 min-w-0">
                 <span className="block font-medium text-sm leading-tight line-clamp-2 break-words">{p.name}</span>
                 <span className="flex items-center gap-1 mt-1">
-                  <PositionBadge position={p.position} />
+                  {p.is_guest ? <GuestBadge /> : <PositionBadge position={p.position} />}
                 </span>
               </span>
               <span aria-hidden="true" className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center text-xs font-bold ${
@@ -76,7 +76,53 @@ export function AttendancePicker({ players, selected, limit, onToggle }: Attenda
   )
 }
 
+interface GuestFormProps { full: boolean; onAdd: (name: string) => void }
+
+// A name only: someone who isn't on the Players list joins this booking as a guest
+function GuestForm({ full, onAdd }: GuestFormProps) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const hintId = useId()
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} disabled={full}
+        className="w-full min-h-[44px] mb-4 px-3 rounded-xl border border-dashed border-gray-600 text-sm font-semibold text-gray-200 hover:border-gray-400 disabled:opacity-40">
+        {t('session.addGuest')}
+      </button>
+    )
+  }
+  const add = () => {
+    const trimmed = name.trim()
+    if (!trimmed || full) return
+    onAdd(trimmed)
+    setName('')
+    setOpen(false)
+  }
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); add() }} className="mb-4 p-3 rounded-xl bg-gray-800 border border-gray-700">
+      <div className="flex gap-2">
+        <label className="flex-1 min-w-0">
+          <span className="sr-only">{t('session.guestName')}</span>
+          <input autoFocus dir="auto" value={name} maxLength={40} onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setName(''); setOpen(false) } }}
+            placeholder={t('session.guestName')} aria-describedby={hintId}
+            className="w-full min-h-[44px] px-3 rounded-lg bg-gray-900 border border-gray-700 text-white placeholder:text-gray-500" />
+        </label>
+        <button type="submit" disabled={!name.trim() || full} className="min-h-[44px] px-4 rounded-lg bg-blue-600 text-sm font-semibold disabled:opacity-50">
+          {t('session.addGuestConfirm')}
+        </button>
+        <button type="button" onClick={() => { setName(''); setOpen(false) }} className="min-h-[44px] px-3 rounded-lg bg-gray-700 text-sm">
+          {t('common.cancel')}
+        </button>
+      </div>
+      <p id={hintId} className="mt-2 text-xs text-gray-400">{t('session.guestNameHint')}</p>
+    </form>
+  )
+}
+
 // Who is coming: up to teams × players per team, at least one player per team.
+// Guests are added by name; they are saved as players marked is_guest when attendance is confirmed.
 export default function AttendancePage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
@@ -85,6 +131,9 @@ export default function AttendancePage() {
   const { t, i18n } = useTranslation()
   const [session, setSession] = useState<Session | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
+  // This booking's guests: the ones saved earlier and any added now
+  const [guests, setGuests] = useState<Player[]>([])
+  const [savedGuests, setSavedGuests] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -96,11 +145,20 @@ export default function AttendancePage() {
         if (!data && !loadError) { navigate(adminPath('/history'), { replace: true }); return }
         if (data) setSession(data as Session)
       })
-    // Coming back to change attendance: start from what was saved
-    supabase.from('session_players').select('player_id').eq('session_id', sessionId)
-      .then(({ data }) => { if (data?.length) setSelected(new Set((data as { player_id: string }[]).map((r) => r.player_id))) })
-    supabase.from('players').select('*').eq('league_id', league.id).eq('is_active', true).order('name')
-      .then(({ data }) => { if (data) setPlayers(data as Player[]) })
+    // Coming back to change attendance: start from what was saved, including this booking's guests
+    Promise.all([
+      supabase.from('session_players').select('player_id').eq('session_id', sessionId),
+      supabase.from('players').select('*').eq('league_id', league.id).eq('is_active', true).order('name'),
+    ]).then(([{ data: picked }, { data }]) => {
+      const saved = new Set(((picked ?? []) as { player_id: string }[]).map((r) => r.player_id))
+      if (saved.size) setSelected(saved)
+      if (!data) return
+      const all = data as Player[]
+      const ownGuests = all.filter((p) => p.is_guest && saved.has(p.id))
+      setPlayers(all.filter((p) => !p.is_guest))
+      setGuests(ownGuests)
+      setSavedGuests(new Set(ownGuests.map((p) => p.id)))
+    })
   }, [sessionId, league.id, navigate, adminPath])
 
   const limit = session ? session.team_count * session.team_size : 0
@@ -126,6 +184,10 @@ export default function AttendancePage() {
   const useLast = () => setSelected(new Set(lastAvailable))
 
   const togglePlayer = (id: string) => {
+    // A guest added just now and unticked again is dropped, as if never added
+    if (selected.has(id) && guests.some((g) => g.id === id) && !savedGuests.has(id)) {
+      setGuests((prev) => prev.filter((g) => g.id !== id))
+    }
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -134,16 +196,35 @@ export default function AttendancePage() {
     })
   }
 
+  const addGuest = (name: string) => {
+    if (selected.size >= limit) return
+    const guest: Player = {
+      id: crypto.randomUUID(), league_id: league.id, name, position: 'MID', skill_rating: 3,
+      photo_url: null, is_active: true, is_guest: true, created_at: new Date().toISOString(),
+    }
+    setGuests((prev) => [...prev, guest])
+    setSelected((prev) => new Set(prev).add(guest.id))
+  }
+
   const handleConfirm = async () => {
     if (!sessionId || saving) return
     setSaving(true)
     setError('')
+    // New guests first, so attendance can point at them. Upsert: a retry after a failed save is safe.
+    const newGuests = guests.filter((g) => selected.has(g.id) && !savedGuests.has(g.id))
+      .map(({ id, name, position, skill_rating }) => ({ id, league_id: league.id, name, position, skill_rating, is_guest: true }))
+    const { error: guestError } = newGuests.length ? await supabase.from('players').upsert(newGuests) : { error: null }
+    if (guestError) { setSaving(false); setError(t(serverErrorKey(guestError.message))); return }
+    setSavedGuests((prev) => new Set([...prev, ...newGuests.map((g) => g.id)]))
     // Replace any attendance saved earlier, so going back and changing it works
     const rows = Array.from(selected).map((playerId) => ({ session_id: sessionId, player_id: playerId }))
     const { error: clearError } = await supabase.from('session_players').delete().eq('session_id', sessionId)
     const { error: saveError } = clearError ? { error: clearError } : await supabase.from('session_players').insert(rows)
+    if (saveError) { setSaving(false); setError(t(serverErrorKey(saveError.message))); return }
+    // A guest of this booking who is no longer coming belongs nowhere else: remove them
+    const dropped = [...savedGuests].filter((id) => !selected.has(id))
+    if (dropped.length) await supabase.from('players').delete().in('id', dropped).eq('is_guest', true)
     setSaving(false)
-    if (saveError) { setError(t(serverErrorKey(saveError.message))); return }
     navigate(adminPath(`/sessions/${sessionId}/teams`))
   }
 
@@ -169,7 +250,8 @@ export default function AttendancePage() {
           )}
         </div>
       )}
-      <AttendancePicker players={players} selected={selected} limit={limit} onToggle={togglePlayer} />
+      <GuestForm full={selected.size >= limit} onAdd={addGuest} />
+      <AttendancePicker players={[...guests, ...players]} selected={selected} limit={limit} onToggle={togglePlayer} />
 
       {/* Pinned to the bottom of the screen: how many are picked, and the way on */}
       <div className="action-bar">

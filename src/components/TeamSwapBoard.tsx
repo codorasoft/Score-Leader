@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Player, TeamColor } from '../lib/types'
-import { PositionBadge } from '../pages/admin/PlayersPage'
+import { GuestBadge, PositionBadge } from '../pages/admin/PlayersPage'
 import { movePlayer, swapPlayers, teamStars, type Teams } from '../utils/teamEdit'
 import { styleMap } from '../lib/teamColors'
 
@@ -80,7 +80,7 @@ export function TeamSwapBoard({ teams, colors, onChange, strengthOf }: Props) {
                           : isTarget ? 'bg-gray-700 hover:bg-gray-600 ring-1 ring-blue-400/50' : 'bg-gray-700 hover:bg-gray-600'
                       }`}
                     >
-                      <PositionBadge position={player.position} />
+                      {player.is_guest ? <GuestBadge /> : <PositionBadge position={player.position} />}
                       <span className={`text-sm flex-1 truncate transition-opacity ${isSelected ? '' : nameFade}`}>{player.name}</span>
                       <span className={`flex items-center gap-2 transition-opacity desktop:absolute desktop:inset-y-0 desktop:end-3 desktop:opacity-0 ${isSelected ? '' : statsShow}`}>
                         {/* The rating as one star and a number: a row of up to ten stars left no room for the name on a phone */}

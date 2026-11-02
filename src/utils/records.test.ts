@@ -93,3 +93,11 @@ it('times the fastest goal from kick-off, adding the periods already played', ()
   const fastest = computeRecords({ ...league, matches: halves, events: goals }).find((r) => r.id === 'fastest_goal')
   expect(fastest).toMatchObject({ value: 30, holders: [{ kind: 'player', playerId: 'sami' }] })
 })
+
+it("leaves a booking's guests out of the records: their goals are not in league.players", () => {
+  const withGuest = { ...league, events: [...events, ...Array.from({ length: 9 }, () => ev('m2', 'guest', 'goal', 5))] }
+  const guestRecords = computeRecords(withGuest)
+  const holders = guestRecords.flatMap((r) => r.holders)
+  expect(holders.some((h) => h.kind === 'player' && h.playerId === 'guest')).toBe(false)
+  expect(guestRecords.find((r) => r.id === 'session_goals')!.value).toBe(records.find((r) => r.id === 'session_goals')!.value)
+})

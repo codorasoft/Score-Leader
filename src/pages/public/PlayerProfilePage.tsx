@@ -108,7 +108,9 @@ export default function PlayerProfilePage() {
   const potmMonths = monthsWonBy(data.league, player.id)
   const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length, player.position))
   const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
-  const partners = partnersOf(partnerships(data.league), player.id, PARTNER_MIN_MATCHES)
+  // Partners from the squad only, not a booking's guests
+  const squad = new Set(data.league.players.map((p) => p.id))
+  const partners = partnersOf(partnerships(data.league).filter((d) => squad.has(d.a) && squad.has(d.b)), player.id, PARTNER_MIN_MATCHES)
   const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
   const shareCard = async () => shareCanvas(await drawPlayerCard(photosOn ? player : { ...player, photo_url: null }, card), `${player.name}-card.png`, player.name)
 

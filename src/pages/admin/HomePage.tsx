@@ -75,7 +75,7 @@ export default function HomePage() {
           ? supabase.from('award_votes').select('id, award_type, session_id, award_vote_entries(count)').eq('league_id', forLeague).eq('status', 'open')
           : Promise.resolve({ data: [] }),
         photos
-          ? supabase.from('players').select('id', { count: 'exact', head: true }).eq('league_id', forLeague).eq('is_active', true).is('photo_url', null)
+          ? supabase.from('players').select('id', { count: 'exact', head: true }).eq('league_id', forLeague).eq('is_active', true).eq('is_guest', false).is('photo_url', null)
           : Promise.resolve({ count: 0 }),
         coachBoard
           ? supabase.from('lineups').select('id, name, updated_at').eq('league_id', forLeague).order('updated_at', { ascending: false }).limit(1)

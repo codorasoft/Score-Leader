@@ -38,6 +38,8 @@ export function computeRecords(league: Pick<FullLeague, 'players' | 'sessions' |
   const matchById = new Map(completed.map((m) => [m.id, m]))
   const sessionDate = new Map(league.sessions.map((s) => [s.id, s.date]))
   const colorOf = new Map(league.teams.map((t) => [t.id, t.color]))
+  // Only the squad holds records: events of guests (not in league.players) are left out
+  const squad = new Set(league.players.map((p) => p.id))
   const name = (id: string) => league.players.find((p) => p.id === id)?.name ?? '?'
   const player = (playerId: string, date?: string): RecordHolder => ({ kind: 'player', playerId, name: name(playerId), ...(date ? { date } : {}) })
   const matchHolder = (m: Match): RecordHolder => {
@@ -68,7 +70,7 @@ export function computeRecords(league: Pick<FullLeague, 'players' | 'sessions' |
   // Fastest goal: only goals logged with an exact clock time. The clock restarts each period, so a
   // goal's time from kick-off adds the periods played before it (a shoot-out has no clock of its own).
   const timedGoals = league.events.filter((e) =>
-    matchById.has(e.match_id) && (e.event_type === 'goal' || e.event_type === 'penalty_goal') && e.elapsed_seconds != null)
+    matchById.has(e.match_id) && squad.has(e.player_id) && (e.event_type === 'goal' || e.event_type === 'penalty_goal') && e.elapsed_seconds != null)
   const fromKickOff = (e: (typeof timedGoals)[number]) => {
     const period = e.period ?? 1
     if (period >= 5) return e.elapsed_seconds!
@@ -88,7 +90,7 @@ export function computeRecords(league: Pick<FullLeague, 'players' | 'sessions' |
   const tally = new Map<string, { playerId: string; date: string; goals: number; assists: number }>()
   for (const e of league.events) {
     const m = matchById.get(e.match_id)
-    if (!m) continue
+    if (!m || !squad.has(e.player_id)) continue
     const isGoal = e.event_type === 'goal' || e.event_type === 'penalty_goal'
     if (!isGoal && e.event_type !== 'assist') continue
     const key = `${e.player_id}|${m.session_id}`
@@ -122,7 +124,7 @@ export function computeRecords(league: Pick<FullLeague, 'players' | 'sessions' |
   push('session_clean_sheets', '🧱', best(gkSessions))
 
   // Best duo: highest win rate together, then more matches
-  const duos = partnerships(league).filter((d) => d.matches >= DUO_MIN_MATCHES)
+  const duos = partnerships(league).filter((d) => d.matches >= DUO_MIN_MATCHES && squad.has(d.a) && squad.has(d.b))
   if (duos.length > 0) {
     const top = [...duos].sort((x, y) => y.wins / y.matches - x.wins / x.matches || y.matches - x.matches)[0]
     const rate = top.wins / top.matches

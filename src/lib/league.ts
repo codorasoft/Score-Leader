@@ -23,6 +23,7 @@ export function loadLeague(leagueId: string): Promise<FullLeague> {
       selectAll<Team>((a, b) => supabase.from('teams').select('*').eq('league_id', leagueId).range(a, b), failed),
       selectAll<SessionAward>((a, b) => supabase.from('session_awards').select('*').eq('league_id', leagueId).range(a, b), failed),
     ])
-    return { value: { players, sessions, matches, events, teamPlayers, teams, awards }, complete }
+    // Guests play in a booking without joining the league's tables: their goals stay off the leaderboard
+    return { value: { players: players.filter((p) => !p.is_guest), sessions, matches, events, teamPlayers, teams, awards }, complete }
   })
 }

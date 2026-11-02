@@ -36,6 +36,7 @@ export const db = {
 
 // Columns the database fills in itself, by table: generated columns and column defaults.
 const GENERATED: Record<string, (row: Row) => Row> = {
+  players: (row) => ({ is_guest: row.is_guest ?? false }),
   // repeats is generated; the other four have column defaults
   schedule_items: (row) => ({
     skipped_dates: row.skipped_dates ?? [],

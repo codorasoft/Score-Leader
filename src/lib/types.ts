@@ -15,6 +15,8 @@ export interface Player {
   skill_rating: number
   photo_url: string | null
   is_active: boolean
+  // Joined a booking without being in the Players list: kept off the list, the leaderboard and awards
+  is_guest?: boolean
   created_at: string
 }
 

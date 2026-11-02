@@ -21,7 +21,8 @@ export async function fetchCoachData(leagueId: string): Promise<CoachData> {
       supabase.from('coach_event_players').select(ENTRY_COLUMNS).eq('league_id', leagueId)
         .order('event_id').order('player_id').range(from, to)),
   ])
-  return { players, events, entries }
+  // The coach follows the squad: a booking's guests are left out
+  return { players: players.filter((p) => !p.is_guest), events, entries }
 }
 
 // Throws when a request fails; null means this league has no such day.

@@ -67,7 +67,8 @@ export default function LineupEditorPage() {
       // Inactive players stay visible on boards they were already placed on
       const { data: pData } = await supabase.from('players').select('*').eq('league_id', league.id).order('name')
       if (forLeague !== currentLeague.current) return
-      setPlayers((pData ?? []) as Player[])
+      // A booking's guests are not in the squad; the board has its own guests
+      setPlayers(((pData ?? []) as Player[]).filter((p) => !p.is_guest))
       if (lineupId) {
         const [{ data: lineup }, { data: spots }] = await Promise.all([
           supabase.from('lineups').select('*').eq('id', lineupId).eq('league_id', league.id).single(),
