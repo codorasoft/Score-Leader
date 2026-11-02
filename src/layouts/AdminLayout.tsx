@@ -182,10 +182,10 @@ function BottomBar({ nav, current, leaderboardTo, settingsTo }: {
   // Leaving for another page closes the sheet
   useEffect(() => { setMoreOpen(false) }, [location.pathname])
 
-  const tab = (on: boolean) => `flex flex-col items-center justify-center gap-0.5 min-h-[56px] px-1 text-[11px] font-medium ${
-    on ? 'text-white' : 'text-gray-400'
+  const tab = (on: boolean) => `flex flex-col items-center justify-center gap-0.5 min-h-[56px] px-1 text-xs font-semibold ${
+    on ? 'text-white' : 'text-gray-300'
   }`
-  const mark = (on: boolean) => `flex items-center justify-center w-12 h-7 rounded-full ${on ? 'bg-blue-600/25 text-blue-300' : ''}`
+  const mark = (on: boolean) => `flex items-center justify-center w-12 h-7 rounded-full ${on ? 'bg-blue-600/30 text-blue-200' : 'text-gray-200'}`
 
   return (
     <>
@@ -215,7 +215,7 @@ function BottomBar({ nav, current, leaderboardTo, settingsTo }: {
       )}
       <nav
         aria-label={t('nav.tabs')}
-        className="lg:hidden fixed inset-x-0 bottom-0 z-40 grid bg-gray-900/95 backdrop-blur border-t border-gray-800 pb-[env(safe-area-inset-bottom)]"
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 grid bg-gray-900/95 backdrop-blur border-t border-gray-700 pb-[max(0.25rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       >
         {shown.map(({ key, to, label }) => (
