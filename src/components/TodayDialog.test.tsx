@@ -29,7 +29,7 @@ it('names the day and lists the rows as links to their pages', () => {
     '/admin/eagles/schedule', '/admin/eagles/schedule', '/admin/eagles/sessions/s1', '/admin/eagles/trainings/p1', '/admin/eagles/trainings/p2',
   ])
   expect(links(dialog).map((l) => l.textContent)).toEqual([
-    '08:00 – 09:30Gym', 'All dayحجز الملعب', 'All dayMatch session', 'Training planPassing day', 'Training plan',
+    '08:00 – 09:30Gym', 'All dayحجز الملعب', 'All dayMatch booking', 'Training planPassing day', 'Training plan',
   ])
   expect(within(dialog).getByRole('link', { name: 'Open schedule' })).toHaveAttribute('href', '/admin/eagles/schedule')
 })

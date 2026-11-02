@@ -37,7 +37,7 @@ it('saves the awards and closes the session in one call, then goes to History', 
   renderPage()
   await screen.findAllByText('Omar')
   await user.click(within(mvp()).getByRole('button', { name: /Omar/ }))
-  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+  await user.click(screen.getByRole('button', { name: 'Finish Booking' }))
 
   expect(await screen.findByText('history page')).toBeInTheDocument()
   expect(db.rpcs.map((c) => c.fn)).toEqual(['finish_awards'])
@@ -52,7 +52,7 @@ it('shows the links of the votes it opened', async () => {
   await user.click(within(mvp()).getByRole('button', { name: 'Open vote' }))
   await user.click(within(mvp()).getByRole('button', { name: /Omar/ }))
   await user.click(within(mvp()).getByRole('button', { name: /Sami/ }))
-  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+  await user.click(screen.getByRole('button', { name: 'Finish Booking' }))
 
   const token = rows('award_votes')[0].vote_token as string
   expect(await screen.findByText(new RegExp(`/s/vote/${token}$`))).toBeInTheDocument()
@@ -64,14 +64,14 @@ it('a finish that cannot be saved says so, keeps the session open and can be tap
   const user = userEvent.setup()
   renderPage()
   await screen.findAllByText('Omar')
-  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+  await user.click(screen.getByRole('button', { name: 'Finish Booking' }))
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not finish the session')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not finish the booking')
   expect(rows('sessions')[0].status).toBe('active')
   expect(screen.queryByText('history page')).toBeNull()
 
   delete db.rpcResults.finish_awards
-  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+  await user.click(screen.getByRole('button', { name: 'Finish Booking' }))
   expect(await screen.findByText('history page')).toBeInTheDocument()
   await waitFor(() => expect(rows('sessions')[0].status).toBe('completed'))
 })
@@ -90,7 +90,7 @@ it('gives best goalkeeper to the keeper who let in the fewest goals per match, w
 
   expect(await screen.findByText('Ali · Conceded 1 · Matches 2')).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Best Goalkeeper' })).toBeNull()
-  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+  await user.click(screen.getByRole('button', { name: 'Finish Booking' }))
 
   expect(await screen.findByText('history page')).toBeInTheDocument()
   expect(rows('session_awards').filter((a) => a.award_type === 'best_goalkeeper'))
@@ -109,7 +109,7 @@ it('best goal and best defender are picked by the admin, with no vote, and saved
   }
   await user.click(within(section('Best Goal')).getByRole('button', { name: /Sami/ }))
   await user.click(within(section('Best Defender')).getByRole('button', { name: /Zaid/ }))
-  await user.click(screen.getByRole('button', { name: 'Finish Session' }))
+  await user.click(screen.getByRole('button', { name: 'Finish Booking' }))
 
   expect(await screen.findByText('history page')).toBeInTheDocument()
   expect(rows('session_awards')).toMatchObject([

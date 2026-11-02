@@ -38,7 +38,7 @@ export interface PushMessage { title: string; body: string; url: string; tag: st
 export const WORDS: Record<PushLanguage, { today: string; session: string; plan: string; more: string; sample: string; count: Record<string, string> }> = {
   en: {
     today: 'Today',
-    session: 'Match session',
+    session: 'Match booking',
     plan: 'Training plan',
     more: '+{{count}} more',
     sample: 'Nothing on your schedule today. Your morning notification will appear here.',
@@ -46,7 +46,7 @@ export const WORDS: Record<PushLanguage, { today: string; session: string; plan:
   },
   ar: {
     today: 'اليوم',
-    session: 'جلسة مباريات',
+    session: 'حجز مباريات',
     plan: 'خطة تدريب',
     more: '+{{count}} أخرى',
     sample: 'لا شيء في جدولك اليوم. هنا سيظهر إشعار الصباح.',

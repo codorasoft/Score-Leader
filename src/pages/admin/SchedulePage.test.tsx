@@ -81,10 +81,10 @@ describe('SchedulePage, the calendar', () => {
     expect(listed()).toEqual([
       expect.stringMatching(/08:00.*Gym/),
       expect.stringMatching(/All day.*Book the pitch/),
-      expect.stringMatching(/Match session/),
+      expect.stringMatching(/Match booking/),
       expect.stringMatching(/Training plan.*Passing day/),
     ])
-    expect(dayList().getByRole('link', { name: /Match session/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1')
+    expect(dayList().getByRole('link', { name: /Match booking/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1')
     expect(dayList().getByRole('link', { name: /Passing day/ })).toHaveAttribute('href', '/admin/eagles/trainings/p1')
     expect(screen.queryByText('Not ours')).not.toBeInTheDocument()
   })
@@ -139,7 +139,7 @@ describe('SchedulePage, the calendar', () => {
     renderPage(['schedule'])
     await ready()
     expect(screen.queryByText(/Passing day/)).not.toBeInTheDocument()
-    expect(dayList().getByRole('link', { name: /Match session/ })).toBeInTheDocument()
+    expect(dayList().getByRole('link', { name: /Match booking/ })).toBeInTheDocument()
   })
 
   it('offers a retry when the schedule cannot be loaded', async () => {
@@ -414,7 +414,7 @@ describe('SchedulePage, the week and day views', () => {
 
     // What has no time sits in the all-day row of its day
     expect(allDay('2026-10-12').getByRole('button', { name: /Book the pitch/ })).toBeInTheDocument()
-    expect(allDay('2026-10-12').getByRole('link', { name: /Match session/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1')
+    expect(allDay('2026-10-12').getByRole('link', { name: /Match booking/ })).toHaveAttribute('href', '/admin/eagles/sessions/s1')
     expect(allDay('2026-10-12').getByRole('link', { name: /Passing day/ })).toHaveAttribute('href', '/admin/eagles/trainings/p1')
     expect(allDay('2026-10-13').queryByRole('button')).not.toBeInTheDocument()
   })

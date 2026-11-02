@@ -36,7 +36,7 @@ it('ranks active players by points and links to their profiles', async () => {
   expect(screen.getByRole('link', { name: /Omar/ })).toHaveAttribute('href', '/l/eagles/players/p2')
   expect(screen.queryByText('Retired')).not.toBeInTheDocument()
   expect(screen.queryByText('Stranger')).not.toBeInTheDocument()
-  expect(screen.getByText(/1 session · 2 matches/)).toBeInTheDocument()
+  expect(screen.getByText(/1 booking · 2 matches/)).toBeInTheDocument()
 })
 
 it('re-sorts by the chosen stat', async () => {

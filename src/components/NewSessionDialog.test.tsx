@@ -35,7 +35,7 @@ const perTeamValue = () => screen.getByLabelText('Players per team')
 it('is a named dialog that starts on today with 3 teams of 5 for a new league', async () => {
   resetDb()
   renderDialog()
-  expect(screen.getByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+  expect(screen.getByRole('dialog', { name: 'New booking' })).toBeInTheDocument()
   expect(screen.getByLabelText('Date')).toHaveValue(format(new Date(), 'yyyy-MM-dd'))
   await waitFor(() => expect(teamsValue()).toHaveTextContent('3'))
   expect(perTeamValue()).toHaveTextContent('5')
@@ -102,7 +102,7 @@ it('stays open with the error when the session cannot be saved', async () => {
   db.errors.sessions = { message: 'Failed to fetch' }
   await user.click(screen.getByRole('button', { name: 'Create' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
-  expect(screen.getByRole('dialog', { name: 'New session' })).toBeInTheDocument()
+  expect(screen.getByRole('dialog', { name: 'New booking' })).toBeInTheDocument()
   expect(onClose).not.toHaveBeenCalled()
 })
 

@@ -25,7 +25,7 @@ const renderPage = (features: Parameters<typeof InLeague>[0]['features']) =>
 
 it('with awards off, Finish session completes the session', async () => {
   renderPage(['cards'])
-  fireEvent.click(await screen.findByRole('button', { name: /Finish Session/ }))
+  fireEvent.click(await screen.findByRole('button', { name: /Finish Booking/ }))
   await waitFor(() => expect(update).toHaveBeenCalledWith({ status: 'completed' }))
   expect(eq).toHaveBeenCalledWith('id', 'S1')
 })
@@ -33,5 +33,5 @@ it('with awards off, Finish session completes the session', async () => {
 it('with awards on, shows the Awards link instead', async () => {
   renderPage(['awards'])
   expect(await screen.findByRole('link', { name: /Awards/ })).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /Finish Session/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Finish Booking/ })).not.toBeInTheDocument()
 })

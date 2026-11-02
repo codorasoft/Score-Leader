@@ -107,7 +107,7 @@ it('picks the same players as the last session in one tap', async () => {
   )
   const user = userEvent.setup()
   renderPage()
-  await user.click(await screen.findByRole('button', { name: 'Same players as last session (3)' }))
+  await user.click(await screen.findByRole('button', { name: 'Same players as last booking (3)' }))
   expect(screen.getByText('3 of 6 picked')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Clear' }))
   expect(screen.getByText('0 of 6 picked')).toBeInTheDocument()

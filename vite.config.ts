@@ -16,7 +16,7 @@ export default defineConfig({
       manifest: {
         name: 'ScoreLeader',
         short_name: 'ScoreLeader',
-        description: 'Weekly 5v5 football session manager',
+        description: 'Weekly 5v5 football booking manager',
         theme_color: '#0b1220',
         background_color: '#0b1220',
         display: 'standalone',
