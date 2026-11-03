@@ -101,3 +101,10 @@ it("leaves a booking's guests out of the records: their goals are not in league.
   expect(holders.some((h) => h.kind === 'player' && h.playerId === 'guest')).toBe(false)
   expect(guestRecords.find((r) => r.id === 'session_goals')!.value).toBe(records.find((r) => r.id === 'session_goals')!.value)
 })
+
+it('counts clean sheets separately for two bookings on the same date', () => {
+  const sameDay = sessions.map((s) => ({ ...s, date: sessions[0].date }))
+  const shutouts = [m('one', 's1', 1, 'A', 'B', 0, 1), m('two', 's2', 1, 'C', 'D', 0, 1)]
+  const result = computeRecords({ ...league, sessions: sameDay, matches: shutouts, events: [] })
+  expect(result.find((r) => r.id === 'session_clean_sheets')).toMatchObject({ value: 1 })
+})

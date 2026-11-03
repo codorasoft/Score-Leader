@@ -8,6 +8,7 @@ import { matchRosters } from '../../utils/playerMatches'
 import { SessionTopPlayers } from '../../components/SessionTopPlayers'
 import { VoteLinks, type CreatedVote } from '../../components/VoteLinks'
 import type { Player, Match, MatchEvent, TeamPlayer, SessionAward } from '../../lib/types'
+import LoadFailed from '../../components/LoadFailed'
 import { BackLink } from '../../components/BackLink'
 
 // Best goalkeeper is worked out from goals conceded, like the top scorer, so it is not chosen here
@@ -32,6 +33,13 @@ const MIN_NOMINEES = 2
 
 export default function AwardsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  return sessionId ? <SessionAwards key={sessionId} sessionId={sessionId} /> : null
+}
+
+function SessionAwards({ sessionId }: { sessionId: string }) {
+  const [ready, setReady] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const navigate = useNavigate()
   const adminPath = useAdminPath()
   const voting = useFeature('voting')
@@ -53,34 +61,42 @@ export default function AwardsPage() {
   })
 
   useEffect(() => {
+    let current = true
     const load = async () => {
-      const [{ data: spData }, { data: matchData }, { data: teamData }] = await Promise.all([
+      const [{ data: spData, error: spError }, { data: matchData, error: matchError }, { data: teamData, error: teamError }] = await Promise.all([
         supabase.from('session_players').select('player_id').eq('session_id', sessionId),
         supabase.from('matches').select('*').eq('session_id', sessionId),
         supabase.from('teams').select('id').eq('session_id', sessionId),
       ])
+      if (spError || matchError || teamError) throw spError || matchError || teamError
       // Awards are per session: only this session's events and team assignments count
       const matchIds = (matchData ?? []).map((m: { id: string }) => m.id)
       const teamIds = (teamData ?? []).map((tm: { id: string }) => tm.id)
-      const [{ data: evData }, { data: tpData }] = await Promise.all([
-        matchIds.length ? supabase.from('match_events').select('*').in('match_id', matchIds) : Promise.resolve({ data: [] }),
-        teamIds.length ? supabase.from('team_players').select('*').in('team_id', teamIds) : Promise.resolve({ data: [] }),
+      const [{ data: evData, error: evError }, { data: tpData, error: tpError }] = await Promise.all([
+        matchIds.length ? supabase.from('match_events').select('*').in('match_id', matchIds) : Promise.resolve({ data: [], error: null }),
+        teamIds.length ? supabase.from('team_players').select('*').in('team_id', teamIds) : Promise.resolve({ data: [], error: null }),
       ])
 
+      if (evError || tpError) throw evError || tpError
       const playerIds = (spData ?? []).map((r: { player_id: string }) => r.player_id)
       if (playerIds.length > 0) {
-        const { data: pData } = await supabase.from('players').select('*').in('id', playerIds)
+        const { data: pData, error: playerError } = await supabase.from('players').select('*').in('id', playerIds)
+        if (playerError) throw playerError
+        if (!current) return
         // Awards go to squad players only, never to a booking's guests
         setPlayers(((pData ?? []) as Player[]).filter((p) => !p.is_guest).sort((a, b) => a.name.localeCompare(b.name)))
       }
 
+      if (!current) return
       setMatches((matchData ?? []) as Match[])
       setEvents((evData ?? []) as MatchEvent[])
 
       setTeamPlayers((tpData ?? []) as TeamPlayer[])
+      setReady(true)
     }
-    load()
-  }, [sessionId])
+    load().catch(() => { if (current) setLoadFailed(true) })
+    return () => { current = false }
+  }, [sessionId, attempt])
 
   const stats = computePlayerStats(players, events, matches, matchRosters({ matches, teamPlayers, events }))
   const bestScorer = getAutoAwardWinner(stats, 'best_goalscorer')
@@ -93,7 +109,7 @@ export default function AwardsPage() {
     choices[type].decision === 'vote' && choices[type].nominees.length < MIN_NOMINEES)
 
   const handleSave = async () => {
-    if (!sessionId || notEnoughNominees || saving) return
+    if (!ready || notEnoughNominees || saving) return
     setSaving(true)
     setSaveFailed(false)
     const awards: Omit<SessionAward, 'id' | 'league_id' | 'session_id'>[] = []
@@ -135,6 +151,7 @@ export default function AwardsPage() {
     else navigate(adminPath('/history'))
   }
 
+  if (loadFailed) return <LoadFailed onRetry={() => { setLoadFailed(false); setAttempt((n) => n + 1) }} />
   if (createdVotes) return <VoteLinks votes={createdVotes} onDone={() => navigate(adminPath(`/sessions/${sessionId}`))} />
 
   return (
@@ -173,7 +190,7 @@ export default function AwardsPage() {
 
       <button
         onClick={handleSave}
-        disabled={saving || notEnoughNominees}
+        disabled={!ready || saving || notEnoughNominees}
         className="w-full py-3 bg-green-600 rounded-xl font-bold disabled:opacity-50"
       >
         {saving ? t('awards.saving') : t('awards.finishSession')}

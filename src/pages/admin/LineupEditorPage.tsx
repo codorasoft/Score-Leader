@@ -25,7 +25,14 @@ interface Person { id: string; name: string; photo_url: string | null; position:
 
 export default function LineupEditorPage() {
   const { lineupId } = useParams<{ lineupId: string }>()
+  const league = useLeague()
+  return <LineupEditor key={league.id + '/' + (lineupId ?? 'new')} lineupId={lineupId} />
+}
+
+function LineupEditor({ lineupId }: { lineupId?: string }) {
   const isNew = !lineupId
+  const [id] = useState(() => lineupId ?? crypto.randomUUID())
+  const [saveFailed, setSaveFailed] = useState(false)
   const navigate = useNavigate()
   const backState = useBackState()
   const { t, i18n } = useTranslation()
@@ -67,8 +74,7 @@ export default function LineupEditorPage() {
       // Inactive players stay visible on boards they were already placed on
       const { data: pData } = await supabase.from('players').select('*').eq('league_id', league.id).order('name')
       if (forLeague !== currentLeague.current) return
-      // A booking's guests are not in the squad; the board has its own guests
-      setPlayers(((pData ?? []) as Player[]).filter((p) => !p.is_guest))
+      setPlayers((pData ?? []) as Player[])
       if (lineupId) {
         const [{ data: lineup }, { data: spots }] = await Promise.all([
           supabase.from('lineups').select('*').eq('id', lineupId).eq('league_id', league.id).single(),
@@ -101,7 +107,7 @@ export default function LineupEditorPage() {
   const everyone: Person[] = [
     ...board.flatMap((b) => {
       const player = byId.get(b.playerId)
-      return player ? [{ id: player.id, name: player.name, photo_url: player.photo_url, position: player.position, x: b.x, y: b.y, guest: false }] : []
+      return player ? [{ id: player.id, name: player.name, photo_url: player.photo_url, position: player.position, x: b.x, y: b.y, guest: Boolean(player.is_guest) }] : []
     }),
     ...guests.map((g) => ({ id: g.id, name: g.name, photo_url: null, position: null, x: g.x, y: g.y, guest: true })),
   ]
@@ -190,26 +196,29 @@ export default function LineupEditorPage() {
     const trimmed = name.trim()
     if (!trimmed) return
     setSaving(true)
-    const id = lineupId ?? crypto.randomUUID()
+    setSaveFailed(false)
     // Only those still on the board hold a place among the substitutes
     const places = subs.map((s) => s.id)
     const stored = { name: trimmed, drawings, guests: guestsForSaving(guests, places), formation }
+    const { remove: gone, upsert } = lineupChanges(id, savedIds, board, places)
     const { error } = isNew
-      ? await supabase.from('lineups').insert({ id, league_id: league.id, ...stored })
+      ? await supabase.rpc('create_lineup', { p_id: id, p_league_id: league.id, p_board: stored, p_spots: upsert })
       : await supabase.from('lineups').update({ ...stored, updated_at: new Date().toISOString() }).eq('id', id)
-    if (!error) {
-      const { remove: gone, upsert } = lineupChanges(id, savedIds, board, places)
+    let failed = Boolean(error)
+    if (!error && !isNew) {
       const removed = gone.length
         ? await supabase.from('lineup_players').delete().eq('lineup_id', id).in('player_id', gone)
         : { error: null }
       const saved = upsert.length && !removed.error
         ? await supabase.from('lineup_players').upsert(upsert, { onConflict: 'lineup_id,player_id' })
         : { error: removed.error }
-      if (!saved.error) {
-        setSavedIds(board.map((b) => b.playerId))
-        setDirty(false)
-        if (isNew) navigate(adminPath(`/lineups/${id}`), { replace: true, state: backState })
-      }
+      failed = Boolean(saved.error)
+    }
+    setSaveFailed(failed)
+    if (!failed) {
+      setSavedIds(board.map((b) => b.playerId))
+      setDirty(false)
+      if (isNew) navigate(adminPath(`/lineups/${id}`), { replace: true, state: backState })
     }
     setSaving(false)
   }
@@ -243,7 +252,7 @@ export default function LineupEditorPage() {
   if (!loaded) return <PageSkeleton />
 
   // Nobody is offered twice: not those on the pitch, not the substitutes
-  const available = players.filter((p) => p.is_active && !board.some((b) => b.playerId === p.id))
+  const available = players.filter((p) => p.is_active && !p.is_guest && !board.some((b) => b.playerId === p.id))
   // The button's wording around the formation's name, which is always written left to right
   const [beforeName, afterName] = t('formation.buttonNamed', { name: '\u0000' }).split('\u0000')
 
@@ -333,6 +342,7 @@ export default function LineupEditorPage() {
           📤 {t('lineups.share')}
         </button>
       </div>
+      {saveFailed && <p role="alert" className="text-sm text-orange-300">{t('serverErrors.generic')}</p>}
       {!name.trim() && <p className="text-xs text-yellow-300 mt-2">{t('lineups.nameNeeded')}</p>}
       {dirty && !isNew && name.trim() && <p className="text-xs text-orange-300 mt-2">{t('lineups.unsaved')}</p>}
 

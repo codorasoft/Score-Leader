@@ -118,8 +118,10 @@ export function computeRecords(league: Pick<FullLeague, 'players' | 'sessions' |
     .filter(({ p }) => p.position === 'GK')
     .flatMap(({ p, list }) => {
       const bySession = new Map<string, number>()
-      for (const x of list) if (x.goalsAgainst === 0) bySession.set(x.sessionDate, (bySession.get(x.sessionDate) ?? 0) + 1)
-      return [...bySession].map(([date, value]) => ({ value, item: player(p.id, date) }))
+      for (const { goalsAgainst, match } of list) {
+        if (goalsAgainst === 0) bySession.set(match.session_id, (bySession.get(match.session_id) ?? 0) + 1)
+      }
+      return [...bySession].map(([id, value]) => ({ value, item: player(p.id, sessionDate.get(id)) }))
     })
   push('session_clean_sheets', '🧱', best(gkSessions))
 

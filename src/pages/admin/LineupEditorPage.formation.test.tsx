@@ -111,9 +111,10 @@ describe('formations', () => {
     expect(formationButton()).toHaveAccessibleName('Formation: 1-1')
 
     saveAs('Friday')
-    await waitFor(() => expect(writes('lineup_players', 'upsert')).toHaveLength(1))
-    expect(writes('lineups', 'insert')[0].values).toEqual(expect.objectContaining({ name: 'Friday', formation: '1-1' }))
-    expect(writes('lineup_players', 'upsert')[0].values).toEqual(expect.arrayContaining([
+    await waitFor(() => expect(db.rpcs[0]?.fn).toBe('create_lineup'))
+    const request = db.rpcs[0].args as { p_board: unknown; p_spots: unknown }
+    expect(request.p_board).toEqual(expect.objectContaining({ name: 'Friday', formation: '1-1' }))
+    expect(request.p_spots).toEqual(expect.arrayContaining([
       expect.objectContaining({ player_id: 'omar', x: 0.5, y: 0.92, bench_order: null }),
       expect.objectContaining({ player_id: 'sami', x: 0.5, y: 0.74, bench_order: null }),
       expect.objectContaining({ player_id: 'ali', x: 0.5, y: 0.2, bench_order: null }),
@@ -234,8 +235,8 @@ describe('substitutes', () => {
     expect(screen.queryByRole('button', { name: 'Khalil (guest)' })).not.toBeInTheDocument()
 
     saveAs('With a guest')
-    await waitFor(() => expect(writes('lineups', 'insert')).toHaveLength(1))
-    expect((writes('lineups', 'insert')[0].values as { guests: unknown }).guests).toEqual([expect.objectContaining({ name: 'Khalil', bench: 0 })])
+    await waitFor(() => expect(db.rpcs[0]?.fn).toBe('create_lineup'))
+    expect((db.rpcs[0].args as { p_board: { guests: unknown } }).p_board.guests).toEqual([expect.objectContaining({ name: 'Khalil', bench: 0 })])
   })
 
   it('opens a saved board as it was, and saves it back the same', async () => {
@@ -292,4 +293,30 @@ it('is in Arabic when the app is', async () => {
     expect(await screen.findByRole('button', { name: 'التشكيلة' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /أضف بدلاء/ })).toBeInTheDocument()
   })
+})
+
+it('reuses the new board ID when retrying a failed save', async () => {
+  db.rpcResults.create_lineup = { data: null, error: { message: 'Failed to fetch' } }
+  await open()
+  saveAs('Friday')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong')
+  fireEvent.click(button(/Save/))
+  await waitFor(() => expect(db.rpcs).toHaveLength(2))
+  expect(db.rpcs[1]).toEqual(db.rpcs[0])
+})
+
+it('shows booking guests on saved boards and shared images, and excludes them from the picker', async () => {
+  const existing = saved({}, [spot('guest', 0.2, 0.5)])
+  resetDb({ ...existing, players: [...players,
+    { ...player('guest', 'Guest Jo', 'MID'), is_guest: true },
+    { ...player('other', 'Other guest', 'MID'), is_guest: true },
+  ] })
+  await open('/admin/eagles/lineups/b1')
+  expect(button('Guest Jo (guest)')).toBeInTheDocument()
+  expect(offered(/Add players/, 'Other guest')).toBe(false)
+  fireEvent.click(button(/Share image/))
+  await waitFor(() => expect(drawBoardImage).toHaveBeenCalled())
+  expect(vi.mocked(drawBoardImage).mock.calls[0][0].players).toContainEqual(
+    expect.objectContaining({ name: 'Guest Jo', guest: true, x: 0.2, y: 0.5 }),
+  )
 })

@@ -71,7 +71,7 @@ it('says so and stays when the players cannot be saved', async () => {
   renderPage()
   await user.click(await screen.findByText('Ali'))
   await user.click(screen.getByText('Hadi'))
-  db.errors.session_players = { message: 'Failed to fetch' }
+  db.rpcResults.save_attendance = { data: null, error: { message: 'Failed to fetch' } }
   await user.click(screen.getByRole('button', { name: 'Confirm Attendance' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
   expect(screen.queryByText('team builder')).not.toBeInTheDocument()
@@ -154,7 +154,7 @@ it("shows only this booking's guests, and removes one who is no longer coming", 
   await user.click(screen.getByText('Khalid'))
   await user.click(screen.getByRole('button', { name: 'Confirm Attendance' }))
   await waitFor(() => expect(screen.getByText('team builder')).toBeInTheDocument())
-  expect(rows('players').some((p) => p.id === 'g1')).toBe(false)
+  expect(rows('players').find((p) => p.id === 'g1')).toMatchObject({ is_active: false })
   expect(rows('players').some((p) => p.id === 'g2')).toBe(true)
 })
 

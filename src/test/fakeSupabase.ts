@@ -230,6 +230,23 @@ function query(table: string) {
 // (supabase/migrations/20261014000001_atomic_match_steps.sql). A result in db.rpcResults wins.
 type Args = Record<string, unknown>
 const DB_FUNCTIONS: Record<string, (a: Args) => unknown> = {
+  save_attendance: (a) => {
+    const session = rows('sessions').find((s) => s.id === a.p_session_id)
+    if (!session) throw { message: 'session not found' }
+    const picked = a.p_players as string[]
+    const previous = rows('session_players').filter((r) => r.session_id === session.id)
+    for (const g of a.p_guests as Row[]) {
+      if (!rows('players').some((p) => p.id === g.id)) {
+        rows('players').push({ ...g, league_id: session.league_id, position: 'MID', skill_rating: 3, is_active: true, is_guest: true })
+      }
+    }
+    db.tables.session_players = rows('session_players').filter((r) => r.session_id !== session.id)
+    for (const id of picked) rows('session_players').push({ session_id: session.id, player_id: id, league_id: session.league_id })
+    for (const r of previous) {
+      const guest = rows('players').find((p) => p.id === r.player_id && p.is_guest)
+      if (guest && !rows('session_players').some((sp) => sp.player_id === guest.id)) guest.is_active = false
+    }
+  },
   confirm_teams: (a) => {
     const session = rows('sessions').find((s) => s.id === a.p_session_id)
     if (!session) throw { message: 'session not found' }
