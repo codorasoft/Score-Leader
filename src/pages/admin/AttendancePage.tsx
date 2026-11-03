@@ -7,6 +7,7 @@ import { serverErrorKey } from '../../lib/errorText'
 import { GuestBadge, PositionBadge } from './PlayersPage'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import type { Player, Session } from '../../lib/types'
+import LoadFailed from '../../components/LoadFailed'
 import PageSkeleton from '../../components/PageSkeleton'
 import { sessionDate } from '../../utils/sessionDate'
 import { SetupSteps } from '../../components/SetupSteps'
@@ -138,28 +139,31 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
-    supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).maybeSingle()
-      .then(({ data, error: loadError }) => {
-        // Not found, or another league's session
-        if (!data && !loadError) { navigate(adminPath('/history'), { replace: true }); return }
-        if (data) setSession(data as Session)
-      })
-    // Coming back to change attendance: start from what was saved, including this booking's guests
+    let current = true
+    setSession(null)
+    setLoadFailed(false)
     Promise.all([
+      supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).maybeSingle(),
       supabase.from('session_players').select('player_id').eq('session_id', sessionId),
       supabase.from('players').select('*').eq('league_id', league.id).eq('is_active', true).order('name'),
-    ]).then(([{ data: picked }, { data }]) => {
-      const saved = new Set(((picked ?? []) as { player_id: string }[]).map((r) => r.player_id))
-      if (saved.size) setSelected(saved)
-      if (!data) return
-      const all = data as Player[]
+    ]).then(([booking, picked, squad]) => {
+      if (!current) return
+      if (booking.error || picked.error || squad.error) { setLoadFailed(true); return }
+      if (!booking.data) { navigate(adminPath('/history'), { replace: true }); return }
+      const saved = new Set((picked.data as { player_id: string }[]).map((r) => r.player_id))
+      const all = squad.data as Player[]
       const ownGuests = all.filter((p) => p.is_guest && saved.has(p.id))
+      setSession(booking.data as Session)
+      setSelected(saved)
       setPlayers(all.filter((p) => !p.is_guest))
       setGuests(ownGuests)
       setSavedGuests(new Set(ownGuests.map((p) => p.id)))
-    })
-  }, [sessionId, league.id, navigate, adminPath])
+    }).catch(() => { if (current) setLoadFailed(true) })
+    return () => { current = false }
+  }, [sessionId, league.id, navigate, adminPath, attempt])
 
   const limit = session ? session.team_count * session.team_size : 0
 
@@ -210,24 +214,17 @@ export default function AttendancePage() {
     if (!sessionId || saving) return
     setSaving(true)
     setError('')
-    // New guests first, so attendance can point at them. Upsert: a retry after a failed save is safe.
     const newGuests = guests.filter((g) => selected.has(g.id) && !savedGuests.has(g.id))
-      .map(({ id, name, position, skill_rating }) => ({ id, league_id: league.id, name, position, skill_rating, is_guest: true }))
-    const { error: guestError } = newGuests.length ? await supabase.from('players').upsert(newGuests) : { error: null }
-    if (guestError) { setSaving(false); setError(t(serverErrorKey(guestError.message))); return }
-    setSavedGuests((prev) => new Set([...prev, ...newGuests.map((g) => g.id)]))
-    // Replace any attendance saved earlier, so going back and changing it works
-    const rows = Array.from(selected).map((playerId) => ({ session_id: sessionId, player_id: playerId }))
-    const { error: clearError } = await supabase.from('session_players').delete().eq('session_id', sessionId)
-    const { error: saveError } = clearError ? { error: clearError } : await supabase.from('session_players').insert(rows)
+      .map(({ id, name }) => ({ id, name }))
+    const { error: saveError } = await supabase.rpc('save_attendance', {
+      p_session_id: sessionId, p_players: [...selected], p_guests: newGuests,
+    })
     if (saveError) { setSaving(false); setError(t(serverErrorKey(saveError.message))); return }
-    // A guest of this booking who is no longer coming belongs nowhere else: remove them
-    const dropped = [...savedGuests].filter((id) => !selected.has(id))
-    if (dropped.length) await supabase.from('players').delete().in('id', dropped).eq('is_guest', true)
     setSaving(false)
     navigate(adminPath(`/sessions/${sessionId}/teams`))
   }
 
+  if (loadFailed) return <LoadFailed onRetry={() => setAttempt((n) => n + 1)} />
   if (!session) return <PageSkeleton />
 
   return (

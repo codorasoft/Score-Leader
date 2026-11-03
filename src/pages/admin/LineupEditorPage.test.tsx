@@ -2,11 +2,11 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 
-const insert = vi.fn().mockResolvedValue({ error: null })
-const upsert = vi.fn().mockResolvedValue({ error: null })
+const rpc = vi.fn().mockResolvedValue({ error: null })
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
+    rpc: (...args: unknown[]) => rpc(...args),
     from: (table: string) => {
       if (table === 'players') {
         return { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [
@@ -15,8 +15,7 @@ vi.mock('../../lib/supabase', () => ({
           { id: 'old', name: 'Retired', position: 'MID', photo_url: null, is_active: false },
         ] }) }) }) }
       }
-      if (table === 'lineups') return { insert }
-      return { upsert }
+      throw new Error(`Unexpected table ${table}`)
     },
   },
 }))
@@ -45,10 +44,10 @@ it('creates a lineup with the chosen players at their starting spots', async () 
   expect(screen.getByRole('button', { name: 'Ali' })).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /Save/ }))
 
-  await waitFor(() => expect(upsert).toHaveBeenCalled())
-  expect(insert).toHaveBeenCalledWith(expect.objectContaining({ name: 'Friday 5s', league_id: 'L1' }))
-  const lineupId = insert.mock.calls[0][0].id
-  expect(upsert.mock.calls[0][0]).toEqual([
+  await waitFor(() => expect(rpc).toHaveBeenCalled())
+  expect(rpc).toHaveBeenCalledWith('create_lineup', expect.objectContaining({ p_board: expect.objectContaining({ name: 'Friday 5s' }), p_league_id: 'L1' }))
+  const lineupId = rpc.mock.calls[0][1].p_id
+  expect(rpc.mock.calls[0][1].p_spots).toEqual([
     { lineup_id: lineupId, player_id: 'ali', x: 0.2, y: 0.85, bench_order: null },
     { lineup_id: lineupId, player_id: 'omar', x: 0.4, y: 0.85, bench_order: null },
   ])
@@ -62,7 +61,7 @@ it('will not save a lineup without a name', async () => {
 })
 
 it('saves arrows drawn on the board', async () => {
-  insert.mockClear()
+  rpc.mockClear()
   HTMLElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 300, right: 200, bottom: 300, x: 0, y: 0, toJSON: () => ({}) })
   HTMLElement.prototype.setPointerCapture = () => {}
   render(
@@ -79,14 +78,14 @@ it('saves arrows drawn on the board', async () => {
   fireEvent.pointerDown(area, { pointerId: 1, clientX: 40, clientY: 240 })
   fireEvent.pointerUp(area, { pointerId: 1, clientX: 160, clientY: 60 })
   fireEvent.click(screen.getByRole('button', { name: /Save/ }))
-  await waitFor(() => expect(insert).toHaveBeenCalled())
-  expect(insert.mock.calls[0][0].drawings).toEqual([
+  await waitFor(() => expect(rpc).toHaveBeenCalled())
+  expect(rpc.mock.calls[0][1].p_board.drawings).toEqual([
     expect.objectContaining({ kind: 'arrow', dashed: false, color: 'yellow', x1: 0.2, y1: 0.8, x2: 0.8, y2: 0.2 }),
   ])
 })
 
 it('adds a guest by name, shows them on the pitch and saves them with the board', async () => {
-  insert.mockClear()
+  rpc.mockClear()
   render(
     <InLeague><MemoryRouter initialEntries={['/admin/eagles/lineups/new']}>
       <Routes>
@@ -102,15 +101,15 @@ it('adds a guest by name, shows them on the pitch and saves them with the board'
 
   expect(screen.getByRole('button', { name: 'Khalil (guest)' })).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /Save/ }))
-  await waitFor(() => expect(insert).toHaveBeenCalled())
-  expect(insert.mock.calls[0][0].guests).toEqual([
+  await waitFor(() => expect(rpc).toHaveBeenCalled())
+  expect(rpc.mock.calls[0][1].p_board.guests).toEqual([
     expect.objectContaining({ name: 'Khalil', x: 0.2, y: 0.85 }),
   ])
 })
 
 describe('free text on the board', () => {
   const open = async () => {
-    insert.mockClear()
+    rpc.mockClear()
     HTMLElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 300, right: 200, bottom: 300, x: 0, y: 0, toJSON: () => ({}) })
     HTMLElement.prototype.setPointerCapture = () => {}
     render(
@@ -144,8 +143,8 @@ describe('free text on the board', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByText('Press high').closest('[style]')).toHaveStyle({ color: '#ef4444' })
     fireEvent.click(screen.getByRole('button', { name: /Save/ }))
-    await waitFor(() => expect(insert).toHaveBeenCalled())
-    expect(insert.mock.calls[0][0].drawings).toEqual([
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    expect(rpc.mock.calls[0][1].p_board.drawings).toEqual([
       expect.objectContaining({ kind: 'text', color: 'red', text: 'Press high', x: 0.5, y: 0.2 }),
     ])
   })
@@ -183,8 +182,8 @@ describe('free text on the board', () => {
     expect(screen.getByText('Hold the line').closest('[style]')!.getAttribute('style')).toMatch(/left: 50%; top: 50%/)
 
     fireEvent.click(screen.getAllByRole('button', { name: /Save/ }).at(-1)!)
-    await waitFor(() => expect(insert).toHaveBeenCalled())
-    expect(insert.mock.calls[0][0].drawings).toEqual([
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    expect(rpc.mock.calls[0][1].p_board.drawings).toEqual([
       expect.objectContaining({ kind: 'text', color: 'blue', text: 'Hold the line', x: 0.5, y: 0.5 }),
     ])
   })

@@ -117,3 +117,22 @@ it('best goal and best defender are picked by the admin, with no vote, and saved
     { award_type: 'best_defender', winner_player_id: 'p4', decided_by: 'admin_direct' },
   ])
 })
+
+it('waits for the roster and requires a successful retry after a read fails', async () => {
+  const user = userEvent.setup()
+  let release!: () => void
+  db.holds.players = new Promise<void>((resolve) => { release = resolve })
+  db.errors.players = { message: 'Failed to fetch' }
+  renderPage()
+  const finish = screen.getByRole('button', { name: 'Finish Booking' })
+  expect(finish).toBeDisabled()
+  await user.click(finish)
+  release()
+  const retry = await screen.findByRole('button', { name: 'Retry' })
+  expect(db.rpcs).toHaveLength(0)
+  expect(rows('sessions')[0].status).toBe('active')
+  delete db.errors.players
+  await user.click(retry)
+  await screen.findAllByText('Omar')
+  expect(screen.getByRole('button', { name: 'Finish Booking' })).toBeEnabled()
+})
