@@ -10,7 +10,8 @@
     "lint": "oxlint --deny-warnings",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "bench:stats": "vitest bench src/utils/leaguePerformance.bench.ts --run --reporter=verbose --silent=false"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

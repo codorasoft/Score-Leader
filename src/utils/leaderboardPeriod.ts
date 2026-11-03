@@ -36,14 +36,13 @@ type AwardRow = Pick<SessionAward, 'session_id' | 'award_type' | 'winner_player_
 export function periodStats(
   data: { players: Player[]; sessions: Session[]; matches: Match[]; teamPlayers: TeamPlayer[]; events: MatchEvent[]; awards: AwardRow[] },
   period: PeriodKey,
+  // Reconstruct from the full history so swaps outside the period are retained.
+  rosters = matchRosters(data),
 ): { stats: PeriodStat[]; sessionCount: number; matchCount: number } {
   const sessionIds = new Set(data.sessions.filter((s) => inPeriod(s.date, period)).map((s) => s.id))
   const matches = data.matches.filter((m) => m.status === 'completed' && sessionIds.has(m.session_id))
   const matchIds = new Set(matches.map((m) => m.id))
   const events = data.events.filter((e) => matchIds.has(e.match_id))
-
-  // From every match and event, not just this period's: undoing swaps needs the whole session
-  const rosters = matchRosters(data)
 
   // Interceptions per player per session
   const sessionOfMatch = new Map(matches.map((m) => [m.id, m.session_id]))

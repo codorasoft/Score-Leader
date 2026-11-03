@@ -23,34 +23,40 @@ export function computePlayerStats(
   matches: Match[],
   rosters: MatchRosters, // who was on which team in each match, after swaps (see matchRosters)
 ): PlayerStat[] {
-  return players.map((player) => {
-    const pEvents = events.filter((e) => e.player_id === player.id)
-
-    const goals = pEvents.filter((e) => e.event_type === 'goal' || e.event_type === 'penalty_goal').length
-    const assists = pEvents.filter((e) => e.event_type === 'assist').length
-    const yellowCards = pEvents.filter((e) => e.event_type === 'yellow_card').length
-    const redCards = pEvents.filter((e) => e.event_type === 'red_card').length
-    const interceptions = pEvents.filter((e) => e.event_type === 'interception').length
-
-    const teamIn = (m: Match) => rosters.get(m.id)?.get(player.id)
-    const completedMatches = matches.filter((m) => m.status === 'completed' && (teamIn(m) === m.team1_id || teamIn(m) === m.team2_id))
-    const matchesPlayed = completedMatches.length
-    // A draw still stores winner_team_id (who keeps the field), so it must not count as a win
-    const matchesWon = completedMatches.filter((m) => !m.is_draw && m.winner_team_id === teamIn(m)).length
-    const matchesDrawn = completedMatches.filter((m) => m.is_draw).length
-
-    // Clean sheet: a goalkeeper's or defender's team conceded 0 goals in a match
-    const keepsSheets = player.position === 'GK' || player.position === 'DEF'
-    let cleanSheets = 0
-    let goalsConceded = 0
-    for (const m of completedMatches) {
-      const conceded = teamIn(m) === m.team1_id ? m.team2_score : m.team1_score
-      goalsConceded += conceded
-      if (keepsSheets && conceded === 0) cleanSheets++
+  const stats = players.map((player) => ({
+    player, goals: 0, assists: 0, yellowCards: 0, redCards: 0, interceptions: 0,
+    matchesPlayed: 0, matchesWon: 0, matchesDrawn: 0, cleanSheets: 0, goalsConceded: 0,
+  }))
+  const byPlayer = new Map(stats.map((row) => [row.player.id, row]))
+  for (const event of events) {
+    const row = byPlayer.get(event.player_id)
+    if (!row) continue
+    switch (event.event_type) {
+      case 'goal':
+      case 'penalty_goal': row.goals++; break
+      case 'assist': row.assists++; break
+      case 'yellow_card': row.yellowCards++; break
+      case 'red_card': row.redCards++; break
+      case 'interception': row.interceptions++; break
     }
+  }
 
-    return { player, goals, assists, yellowCards, redCards, matchesPlayed, matchesWon, matchesDrawn, cleanSheets, interceptions, goalsConceded }
-  })
+  for (const match of matches) {
+    if (match.status !== 'completed') continue
+    for (const [id, team] of rosters.get(match.id) ?? []) {
+      if (team !== match.team1_id && team !== match.team2_id) continue
+      const row = byPlayer.get(id)
+      if (!row) continue
+      row.matchesPlayed++
+      // A draw can still have a winner_team_id to decide who stays on the pitch.
+      if (match.is_draw) row.matchesDrawn++
+      else if (team === match.winner_team_id) row.matchesWon++
+      const conceded = team === match.team1_id ? match.team2_score : match.team1_score
+      row.goalsConceded += conceded
+      if (conceded === 0 && (row.player.position === 'GK' || row.player.position === 'DEF')) row.cleanSheets++
+    }
+  }
+  return stats
 }
 
 export function getAutoAwardWinner(

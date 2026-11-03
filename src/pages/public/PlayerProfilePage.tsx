@@ -105,7 +105,7 @@ export default function PlayerProfilePage() {
   const history = buildPlayerHistory({ position: player.position, teamIn: (matchId) => rosters.get(matchId)?.get(player.id), ...data })
   const { totals, awardCounts } = history
   const winRate = totals.played ? Math.round((totals.wins / totals.played) * 100) : 0
-  const potmMonths = showBadges ? monthsWonBy(data.league, player.id) : []
+  const potmMonths = showBadges ? monthsWonBy(data.league, player.id, new Date(), rosters) : []
   const badges = showBadges && computeBadges(careerFromHistory(history.sessions, potmMonths.length, player.position))
   const card = showCards ? cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card : null
   // Partners from the squad only, not a booking's guests

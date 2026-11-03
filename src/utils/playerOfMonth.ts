@@ -1,4 +1,5 @@
 import type { Match, MatchEvent, Player, Session, SessionAward, TeamPlayer } from '../lib/types'
+import { matchRosters, type MatchRosters } from './playerMatches'
 import { availablePeriods, periodStats, type PeriodStat } from './leaderboardPeriod'
 
 export interface LeagueData {
@@ -53,8 +54,8 @@ export const potmPoints = (s: PeriodStat) => pointParts(s).reduce((sum, part) =>
 // Points first, then goals, assists and wins; players level on all four share the title.
 const rankKey = (s: PeriodStat) => [potmPoints(s), s.goals, s.assists, s.matchesWon]
 
-export function playersOfMonth(data: LeagueData, month: string): { winners: PeriodStat[]; points: number } | null {
-  return winnersFromStats(periodStats(data, month).stats)
+export function playersOfMonth(data: LeagueData, month: string, rosters?: MatchRosters): { winners: PeriodStat[]; points: number } | null {
+  return winnersFromStats(periodStats(data, month, rosters).stats)
 }
 
 export function winnersFromStats(stats: PeriodStat[]) {
@@ -72,10 +73,12 @@ export function winnersFromStats(stats: PeriodStat[]) {
 export const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
 // Only finished months count as a title; the current month is still "leading".
-export function monthsWonBy(data: LeagueData, playerId: string, now = new Date()): string[] {
+export function monthsWonBy(data: LeagueData, playerId: string, now = new Date(), rosters?: MatchRosters): string[] {
   const current = monthKey(now)
-  return availablePeriods(data.sessions)
-    .filter((p) => p.length === 7 && p < current)
-    .filter((month) => playersOfMonth(data, month)?.winners.some((s) => s.player.id === playerId))
+  const months = availablePeriods(data.sessions).filter((p) => p.length === 7 && p < current)
+  if (!months.length) return []
+  const history = rosters ?? matchRosters(data)
+  return months
+    .filter((month) => playersOfMonth(data, month, history)?.winners.some((s) => s.player.id === playerId))
     .sort()
 }
