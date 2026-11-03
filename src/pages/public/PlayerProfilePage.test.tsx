@@ -1,9 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
-import { resetDb } from '../../test/fakeSupabase'
-import { finishedLeague } from '../../test/fixtures'
+import { db, resetDb } from '../../test/fakeSupabase'
+import { event, finishedLeague, match } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
@@ -42,4 +43,40 @@ it('does not show a player from another league', async () => {
 it('links back to the league home when the leaderboard is off', async () => {
   renderPage('p2', FEATURES.filter((f) => f !== 'leaderboard' && f !== 'potm'))
   expect(await screen.findByRole('link', { name: /Home/ })).toHaveAttribute('href', '/l/eagles')
+})
+
+it('loads completed profiles in seven reads and reuses the cache for the next player', async () => {
+  const first = renderPage('p2')
+  await screen.findByRole('heading', { name: 'Omar' })
+  expect(db.reads).toBe(7)
+  first.unmount()
+  renderPage('p1')
+  await screen.findByRole('heading', { name: 'Ali' })
+  expect(db.reads).toBe(7)
+})
+
+it('includes unfinished goals on guest profiles without counting the unfinished match as played', async () => {
+  const league = finishedLeague()
+  resetDb({ ...league,
+    players: league.players.map((p) => p.id === 'p2' ? { ...p, is_guest: true } : p),
+    matches: [...league.matches, match('m3', { status: 'active' })],
+    match_events: [...league.match_events, event('e5', 'm3', 'p2', 'tg', 'goal')],
+  })
+  renderPage('p2')
+  await screen.findByRole('heading', { name: 'Omar' })
+  expect(tile('Goals')).toHaveTextContent('3')
+  expect(tile('Matches')).toHaveTextContent('2')
+  expect(db.reads).toBe(8)
+})
+
+it('can retry an incomplete league snapshot without displaying a partial profile', async () => {
+  const user = userEvent.setup()
+  db.errors.match_events = { message: 'Failed to fetch' }
+  renderPage('p2')
+  const retry = await screen.findByRole('button', { name: 'Retry' })
+  expect(screen.queryByRole('heading', { name: 'Omar' })).not.toBeInTheDocument()
+  delete db.errors.match_events
+  await user.click(retry)
+  await screen.findByRole('heading', { name: 'Omar' })
+  expect(tile('Goals')).toHaveTextContent('2')
 })

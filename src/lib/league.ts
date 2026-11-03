@@ -6,6 +6,8 @@ import type { Match, MatchEvent, Player, Session, SessionAward, Team, TeamPlayer
 
 export interface FullLeague extends LeagueData {
   teams: Team[]
+  guests: Player[]
+  complete: boolean
 }
 
 // Everyone's finished results; used for the leaderboard, Player of the Month, records, cards and
@@ -24,6 +26,10 @@ export function loadLeague(leagueId: string): Promise<FullLeague> {
       selectAll<SessionAward>((a, b) => supabase.from('session_awards').select('*').eq('league_id', leagueId).range(a, b), failed),
     ])
     // Guests play in a booking without joining the league's tables: their goals stay off the leaderboard
-    return { value: { players: players.filter((p) => !p.is_guest), sessions, matches, events, teamPlayers, teams, awards }, complete }
+    const value = {
+      players: players.filter((p) => !p.is_guest), guests: players.filter((p) => p.is_guest),
+      sessions, matches, events, teamPlayers, teams, awards, complete,
+    }
+    return { value, complete }
   })
 }

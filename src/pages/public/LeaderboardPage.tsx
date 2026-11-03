@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { loadLeague } from '../../lib/league'
 import { availablePeriods, defaultPeriod, periodStats, type PeriodKey, type PeriodStat } from '../../utils/leaderboardPeriod'
-import { monthKey, playersOfMonth, pointParts, potmPoints } from '../../utils/playerOfMonth'
+import { monthKey, winnersFromStats, pointParts, potmPoints } from '../../utils/playerOfMonth'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 import { drawLeaderboardImage, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
@@ -57,11 +57,20 @@ export default function LeaderboardPage() {
 
   const data = loaded?.leagueId === league.id ? loaded.data : null
 
-  if (!data) return <PageSkeleton />
-
-  const periods = availablePeriods(data.sessions)
+  const periods = useMemo(() => data ? availablePeriods(data.sessions) : [], [data])
   const requested = searchParams.get('period')
   const period: PeriodKey = requested && periods.includes(requested) ? requested : defaultPeriod(periods)
+  const result = useMemo(() => {
+    if (!data) return null
+    const { stats, sessionCount, matchCount } = periodStats(data, period)
+    return {
+      sessionCount, matchCount,
+      rows: stats.map((s) => ({ ...s, points: potmPoints(s) })),
+      potm: potmOn && period.length === 7 ? winnersFromStats(stats) : null,
+    }
+  }, [data, period, potmOn])
+  if (!result) return <PageSkeleton />
+  const { rows, sessionCount, matchCount, potm } = result
   // The opening period keeps a clean URL; any other choice is written out, 'all' included,
   // since an empty URL means the opening period (this month, when it has bookings)
   const choose = (p: PeriodKey) => setSearchParams(p === defaultPeriod(periods) ? {} : { period: p }, { replace: true })
@@ -72,15 +81,12 @@ export default function LeaderboardPage() {
     return new Date(`${p}-01T00:00:00`).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' })
   }
 
-  const { stats, sessionCount, matchCount } = periodStats(data, period)
-  const rows = stats.map((s) => ({ ...s, points: potmPoints(s) }))
   // Same tie-break as Player of the Month: goals, then assists, then wins; only full ties share a rank
   const compare = (a: (typeof rows)[number], b: (typeof rows)[number]) =>
     b[sortBy] - a[sortBy] || b.goals - a.goals || b.assists - a.assists || b.matchesWon - a.matchesWon
   const sorted = [...rows].sort(compare)
   const ranks: number[] = []
   sorted.forEach((s, i) => ranks.push(i > 0 && compare(sorted[i - 1], s) === 0 ? ranks[i - 1] : i + 1))
-  const potm = potmOn && period.length === 7 ? playersOfMonth(data, period) : null
   const monthOver = period < monthKey(new Date())
   const sortLabel = t(SORTS.find((s) => s.key === sortBy)!.labelKey)
 

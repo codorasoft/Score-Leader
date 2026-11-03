@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -9,6 +9,9 @@ import { PRESETS } from '../../utils/matchFormat'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
+import * as realtime from '../../hooks/useRealtime'
+import * as sessionData from '../../lib/sessionData'
+import * as standings from '../../utils/standings'
 import LiveSessionPage from './LiveSessionPage'
 
 const renderPage = () => render(
@@ -177,4 +180,66 @@ it('open extra time shows a clock that keeps counting up, named Extra time', asy
   expect(await screen.findByText('16:40')).toBeInTheDocument()
   expect(screen.getByText('Extra time')).toBeInTheDocument()
   expect(document.body.textContent).not.toMatch(/\+\d\d:\d\d/)
+})
+
+it('combines realtime notifications and follows up once after an in-flight read', async () => {
+  const league = finishedLeague()
+  resetDb({ ...league, matches: [...league.matches, match('m3', { match_number: 3, status: 'active' })] })
+  const listeners = new Map<string, () => void>()
+  const subscription = vi.spyOn(realtime, 'useRealtime').mockImplementation((table, filter, cb) => {
+    if (filter.value) listeners.set(table, cb)
+  })
+  const fetch = vi.spyOn(sessionData, 'fetchSession')
+  vi.useFakeTimers()
+  try {
+    const page = renderPage()
+    await act(async () => {})
+    expect(fetch).toHaveBeenCalledTimes(1)
+    let release!: () => void
+    db.holds.sessions = new Promise<void>((resolve) => { release = resolve })
+    const goal = () => { listeners.get('matches')!(); listeners.get('match_events')!(); listeners.get('match_events')!() }
+    goal()
+    await act(() => vi.advanceTimersByTimeAsync(250))
+    expect(fetch).toHaveBeenCalledTimes(2)
+    goal()
+    await act(() => vi.advanceTimersByTimeAsync(500))
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await act(async () => { release() })
+    db.tables.matches.find((m) => m.id === 'm3')!.team1_score = 7
+    await act(() => vi.advanceTimersByTimeAsync(250))
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(db.reads).toBe(3)
+    expect(screen.getByText('7')).toBeInTheDocument()
+    goal()
+    page.unmount()
+    await vi.advanceTimersByTimeAsync(300)
+    expect(fetch).toHaveBeenCalledTimes(3)
+  } finally {
+    subscription.mockRestore()
+    fetch.mockRestore()
+    vi.useRealTimers()
+  }
+})
+
+it('ticks the live clock without recalculating standings or reading the session again', async () => {
+  vi.useFakeTimers()
+  const compute = vi.spyOn(standings, 'computeStandings')
+  try {
+    const league = finishedLeague()
+    resetDb({ ...league, matches: [match('current', {
+      status: 'active', timer_status: 'running', timer_started_at: new Date().toISOString(),
+    })] })
+    renderPage()
+    await act(async () => {})
+    expect(screen.getByText('00:00')).toBeInTheDocument()
+    expect(compute).toHaveBeenCalled()
+    compute.mockClear()
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    expect(screen.getByText('00:03')).toBeInTheDocument()
+    expect(compute).not.toHaveBeenCalled()
+    expect(db.reads).toBe(1)
+  } finally {
+    compute.mockRestore()
+    vi.useRealTimers()
+  }
 })

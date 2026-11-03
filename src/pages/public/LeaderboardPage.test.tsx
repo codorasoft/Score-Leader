@@ -18,6 +18,7 @@ vi.mock('../../lib/shareImage', () => ({
   },
 }))
 
+import * as period from '../../utils/leaderboardPeriod'
 import LeaderboardPage from './LeaderboardPage'
 import RecordsPage from './RecordsPage'
 
@@ -130,4 +131,22 @@ it('shows each player\'s total points and records on the shared image', async ()
   const image = shared.images[0]
   // Omar: 2 goals and a win, 6 points
   expect(image.rows[0]).toMatchObject({ name: 'Omar', value: 6, record: '2G · 1W' })
+})
+
+it('calculates monthly stats once for the table and award and reuses them when sorting', async () => {
+  resetDb(finishedLeague())
+  const stats = vi.spyOn(period, 'periodStats')
+  try {
+    const user = userEvent.setup()
+    renderPage(FEATURES, '/l/eagles/leaderboard?period=2026-09')
+    await screen.findByRole('link', { name: /Omar/ })
+    expect(stats).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: 'Assists' }))
+    expect(order()[0]).toBe('Ali')
+    expect(stats).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('tab', { name: 'All time' }))
+    expect(stats).toHaveBeenCalledTimes(2)
+  } finally {
+    stats.mockRestore()
+  }
 })

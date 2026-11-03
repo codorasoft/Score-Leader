@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 
 export function useRealtime(table: string, filter: { column: string; value: string }, onUpdate: () => void) {
   useEffect(() => {
+    if (!filter.value) return
     const channel = supabase
       .channel(`${table}:${filter.column}=eq.${filter.value}`)
       .on(

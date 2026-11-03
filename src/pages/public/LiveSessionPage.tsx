@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchSession, type SessionData } from '../../lib/sessionData'
@@ -14,7 +14,8 @@ import LoadFailed from '../../components/LoadFailed'
 import { NextUp } from '../../components/NextUp'
 import { waitingQueue } from '../../utils/matchRotation'
 import NotAvailablePage from '../NotAvailablePage'
-import type { Session, Match, Team, MatchEvent, Player } from '../../lib/types'
+import { matchElapsed } from '../../utils/homeStatus'
+import type { Match, Team } from '../../lib/types'
 import { styleMap } from '../../lib/teamColors'
 import PageSkeleton from '../../components/PageSkeleton'
 import { sessionDate } from '../../utils/sessionDate'
@@ -23,63 +24,59 @@ const colorBg = styleMap('card')
 
 export default function LiveSessionPage() {
   const { token } = useParams<{ token: string }>()
+  return <LiveSession key={token} token={token ?? ''} />
+}
+
+function LiveSession({ token }: { token: string }) {
   const { t, i18n } = useTranslation()
-  const [session, setSession] = useState<Session | null>(null)
-  const [matches, setMatches] = useState<Match[]>([])
-  const [teams, setTeams] = useState<Team[]>([])
-  const [events, setEvents] = useState<MatchEvent[]>([])
-  const [players, setPlayers] = useState<Player[]>([])
-  const [elapsed, setElapsed] = useState(0)
+  const [live, setLive] = useState<SessionData | null>(null)
   const [status, setStatus] = useState<'loading' | 'missing' | 'failed' | 'ready'>('loading')
+  const [attempt, setAttempt] = useState(0)
+  const schedule = useRef<() => void>(() => {})
+  const refresh = useCallback(() => schedule.current(), [])
 
-  const load = useCallback(async () => {
-    let live: SessionData | null
-    try {
-      live = await fetchSession('share_token', token ?? '')
-    } catch {
-      // A failed live refresh keeps what is on screen; only a failed first load needs the retry screen
-      setStatus((s) => (s === 'ready' ? s : 'failed'))
-      return
-    }
-    if (!live) { setStatus('missing'); return }
-    setSession(live.session)
-    setTeams(live.teams)
-    setMatches(live.matches)
-    setEvents(live.events)
-    setPlayers(live.players)
-    setStatus('ready')
-  }, [token])
-
-  useEffect(() => { load() }, [load])
-
-  const match = matches
-    .filter((m) => m.status !== 'completed')
-    .sort((a, b) => b.match_number - a.match_number)[0] ?? null
-
-  // The clock restarts only when one of these changes, not on every refresh of the match row
-  const matchId = match?.id
-  const timerStatus = match?.timer_status
-  const timerStartedAt = match?.timer_started_at
-  const timerElapsed = match?.timer_elapsed_seconds
   useEffect(() => {
-    if (!matchId || timerElapsed === undefined) return
-    if (timerStatus !== 'running' || !timerStartedAt) {
-      setElapsed(timerElapsed)
-      return
+    let active = true
+    let fetching = false
+    let pending = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    // Group the goal, assist and score notifications in one short window.
+    // A change received during a fetch still gets a fresh snapshot afterwards.
+    const scheduleRefresh = () => {
+      if (!active) return
+      if (fetching) { pending = true; return }
+      if (timer === undefined) timer = setTimeout(load, 200)
     }
-    const startedAt = new Date(timerStartedAt).getTime()
-    const tick = () => setElapsed(timerElapsed + Math.max(0, Math.floor((serverNow() - startedAt) / 1000)))
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [matchId, timerStatus, timerStartedAt, timerElapsed])
+    async function load() {
+      timer = undefined
+      fetching = true
+      try {
+        const next = await fetchSession('share_token', token)
+        if (!active) return
+        setLive(next)
+        setStatus(next ? 'ready' : 'missing')
+      } catch {
+        if (active) setStatus((s) => s === 'ready' ? s : 'failed')
+      } finally {
+        fetching = false
+        if (pending) { pending = false; scheduleRefresh() }
+      }
+    }
+    schedule.current = scheduleRefresh
+    void load()
+    return () => { active = false; clearTimeout(timer) }
+  }, [token, attempt])
 
-  useRealtime('matches', { column: 'session_id', value: session?.id ?? '' }, load)
-  useRealtime('match_events', { column: 'match_id', value: match?.id ?? '' }, load)
+  // fetchSession returns matches in match-number order.
+  const match = live?.matches.filter((m) => m.status !== 'completed').pop()
+  useRealtime('matches', { column: 'session_id', value: live?.session.id ?? '' }, refresh)
+  useRealtime('match_events', { column: 'match_id', value: match?.id ?? '' }, refresh)
 
-  if (status === 'failed') return <LoadFailed onRetry={() => { setStatus('loading'); load() }} />
+  if (status === 'failed') return <LoadFailed onRetry={() => { setStatus('loading'); setAttempt((n) => n + 1) }} />
   if (status === 'missing') return <NotAvailablePage kind="page" embedded />
-  if (!session) return <PageSkeleton />
+  if (!live) return <PageSkeleton />
+  const { session, teams, matches, events, players } = live
 
   const teamName = (team: Team | undefined) =>
     team ? t('common.teamName', { color: t(`common.teamColor.${team.color}`) }) : ''
@@ -98,12 +95,7 @@ export default function LiveSessionPage() {
       ) : (
         <div className="mb-8">
           <div className="text-center text-xs text-gray-400 font-mono mb-1">{t('common.match', { number: match.match_number })}</div>
-          <div className="text-center text-4xl font-mono font-bold" dir="ltr">
-            {match.period === 5 ? '–' : formatMatchClock(Math.min(elapsed, len), len)}
-            {len > 0 && elapsed > len && (
-              <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - len, len)}</span>
-            )}
-          </div>
+          <LiveClock match={match} len={len} />
           <div className="text-center text-xs text-gray-300 mt-1 uppercase">
             {halfTime ? t('live.halfTime') : t(periodLabelKey(match.period, session))}
             {match.period === 5 && match.penalties_team1 != null && match.penalties_team2 != null && (
@@ -142,6 +134,26 @@ export default function LiveSessionPage() {
       <div className="mb-6"><SessionStandings teams={teams} matches={matches} /></div>
       <div className="mb-6"><SessionTopPlayers players={players} events={events} matches={matches} /></div>
       <SessionMatchList matches={matches} events={events} teams={teams} players={players} format={session} />
+    </div>
+  )
+}
+
+function LiveClock({ match, len }: { match: Match; len: number }) {
+  const [now, setNow] = useState(serverNow)
+  useEffect(() => {
+    if (match.timer_status !== 'running' || !match.timer_started_at) return
+    setNow(serverNow())
+    const id = setInterval(() => setNow(serverNow()), 1000)
+    return () => clearInterval(id)
+  }, [match.timer_started_at, match.timer_status])
+
+  const elapsed = matchElapsed(match, now)
+  return (
+    <div className="text-center text-4xl font-mono font-bold" dir="ltr">
+      {match.period === 5 ? '–' : formatMatchClock(Math.min(elapsed, len), len)}
+      {len > 0 && elapsed > len && (
+        <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - len, len)}</span>
+      )}
     </div>
   )
 }

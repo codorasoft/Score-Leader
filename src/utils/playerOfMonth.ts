@@ -54,7 +54,11 @@ export const potmPoints = (s: PeriodStat) => pointParts(s).reduce((sum, part) =>
 const rankKey = (s: PeriodStat) => [potmPoints(s), s.goals, s.assists, s.matchesWon]
 
 export function playersOfMonth(data: LeagueData, month: string): { winners: PeriodStat[]; points: number } | null {
-  const ranked = periodStats(data, month).stats
+  return winnersFromStats(periodStats(data, month).stats)
+}
+
+export function winnersFromStats(stats: PeriodStat[]) {
+  const ranked = stats
     .filter((s) => potmPoints(s) > 0)
     .sort((a, b) => {
       const [ka, kb] = [rankKey(a), rankKey(b)]

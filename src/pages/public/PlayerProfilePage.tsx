@@ -13,6 +13,7 @@ import { cardsForLeague } from '../../utils/leagueCards'
 import { matchRosters, partnerships, partnersOf, type Partner } from '../../utils/playerMatches'
 import { drawPlayerCard, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
+import LoadFailed from '../../components/LoadFailed'
 import NotAvailablePage from '../NotAvailablePage'
 import { PlayerAvatar } from '../../components/PlayerAvatar'
 
@@ -54,49 +55,48 @@ export default function PlayerProfilePage() {
   const showCards = useFeature('player_cards')
   const photosOn = useFeature('photos')
   const hasLeaderboard = useFeature('leaderboard')
-  const [loaded, setLoaded] = useState<{ key: string; data: ProfileData | 'missing' } | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const [loaded, setLoaded] = useState<{ key: string; data: ProfileData | 'missing' | 'failed' } | null>(null)
   const key = `${leagueInfo.id}:${playerId}`
   const data = loaded?.key === key ? loaded.data : null
 
   useEffect(() => {
     let stale = false
-    const done = (d: ProfileData | 'missing') => { if (!stale) setLoaded({ key, data: d }) }
+    const done = (d: ProfileData | 'missing' | 'failed') => { if (!stale) setLoaded({ key, data: d }) }
     const load = async () => {
-      const [{ data: player }, { data: tpRows }, { data: events }, { data: awards }, league] = await Promise.all([
-        supabase.from('players').select('*').eq('id', playerId).maybeSingle(),
-        supabase.from('team_players').select('team_id').eq('player_id', playerId),
-        supabase.from('match_events').select('*').eq('player_id', playerId),
-        supabase.from('session_awards').select('*').eq('winner_player_id', playerId),
-        loadLeague(leagueInfo.id),
-      ])
-      if (!player || (player as Player).league_id !== leagueInfo.id) { done('missing'); return }
+      const league = await loadLeague(leagueInfo.id)
+      if (stale) return
+      if (!league.complete) { done('failed'); return }
+      const player = league.players.find((p) => p.id === playerId) ?? league.guests.find((p) => p.id === playerId)
+      if (!player) { done('missing'); return }
 
-      const teamIds = (tpRows ?? []).map((r: { team_id: string }) => r.team_id)
-      const { data: teams } = teamIds.length
-        ? await supabase.from('teams').select('*').in('id', teamIds)
-        : { data: [] }
-      const sessionIds = [...new Set(((teams ?? []) as Team[]).map((tm) => tm.session_id))]
-      const [{ data: sessions }, { data: matches }] = sessionIds.length
-        ? await Promise.all([
-            supabase.from('sessions').select('*').in('id', sessionIds),
-            supabase.from('matches').select('*').in('session_id', sessionIds),
-          ])
-        : [{ data: [] }, { data: [] }]
-
+      const teamIds = new Set(league.teamPlayers.filter((row) => row.player_id === playerId).map((row) => row.team_id))
+      const teams = league.teams.filter((team) => teamIds.has(team.id))
+      const sessionIds = new Set(teams.map((team) => team.session_id))
+      const events = league.events.filter((e) => e.player_id === playerId)
+      const matches = league.matches.filter((m) => sessionIds.has(m.session_id))
+      // The cache includes all events but only completed matches. History also counts a
+      // player's goals and cards in unfinished matches, so look up just those missing matches.
+      const completed = new Set(league.matches.map((m) => m.id))
+      const missing = [...new Set(events.map((e) => e.match_id).filter((id) => !completed.has(id)))]
+      for (let start = 0; start < missing.length; start += 100) {
+        const { data, error } = await supabase.from('matches').select('*')
+          .eq('league_id', leagueInfo.id).in('id', missing.slice(start, start + 100))
+        if (stale) return
+        if (error) { done('failed'); return }
+        matches.push(...(data as Match[]).filter((m) => sessionIds.has(m.session_id)))
+      }
       done({
-        player: player as Player,
-        sessions: (sessions ?? []) as Session[],
-        teams: (teams ?? []) as Team[],
-        matches: (matches ?? []) as Match[],
-        events: (events ?? []) as MatchEvent[],
-        awards: (awards ?? []) as SessionAward[],
-        league,
+        player, teams, events, matches, league,
+        sessions: league.sessions.filter((s) => sessionIds.has(s.id)),
+        awards: league.awards.filter((a) => a.winner_player_id === playerId),
       })
     }
-    load()
+    load().catch(() => done('failed'))
     return () => { stale = true }
-  }, [playerId, leagueInfo.id, key])
+  }, [playerId, leagueInfo.id, key, attempt])
 
+  if (data === 'failed') return <LoadFailed onRetry={() => { setLoaded(null); setAttempt((n) => n + 1) }} />
   if (data === null) return <PageSkeleton />
   if (data === 'missing') return <NotAvailablePage kind="page" embedded />
 
@@ -105,14 +105,14 @@ export default function PlayerProfilePage() {
   const history = buildPlayerHistory({ position: player.position, teamIn: (matchId) => rosters.get(matchId)?.get(player.id), ...data })
   const { totals, awardCounts } = history
   const winRate = totals.played ? Math.round((totals.wins / totals.played) * 100) : 0
-  const potmMonths = monthsWonBy(data.league, player.id)
-  const badges = computeBadges(careerFromHistory(history.sessions, potmMonths.length, player.position))
-  const card = cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card
+  const potmMonths = showBadges ? monthsWonBy(data.league, player.id) : []
+  const badges = showBadges && computeBadges(careerFromHistory(history.sessions, potmMonths.length, player.position))
+  const card = showCards ? cardsForLeague({ ...data.league, players: [player] }).get(player.id)!.card : null
   // Partners from the squad only, not a booking's guests
   const squad = new Set(data.league.players.map((p) => p.id))
   const partners = partnersOf(partnerships(data.league).filter((d) => squad.has(d.a) && squad.has(d.b)), player.id, PARTNER_MIN_MATCHES)
   const nameOf = (id: string) => data.league.players.find((p) => p.id === id)?.name ?? '?'
-  const shareCard = async () => shareCanvas(await drawPlayerCard(photosOn ? player : { ...player, photo_url: null }, card), `${player.name}-card.png`, player.name)
+  const shareCard = async () => card && shareCanvas(await drawPlayerCard(photosOn ? player : { ...player, photo_url: null }, card), `${player.name}-card.png`, player.name)
 
   const tiles = [
     { label: t('profile.sessions'), value: totals.sessions },
@@ -133,7 +133,7 @@ export default function PlayerProfilePage() {
 
       <h1 className="sr-only">{player.name}</h1>
       <div className="flex flex-col items-center gap-3 mt-4 mb-6">
-        {showCards ? (
+        {card ? (
           <>
             <PlayerCardView player={player} card={card} />
             <button onClick={shareCard} className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 text-sm font-semibold">
@@ -175,7 +175,7 @@ export default function PlayerProfilePage() {
             </section>
           )}
 
-          {showBadges && <PlayerBadges earned={badges.earned} next={badges.next} potmMonths={potmMonths} />}
+          {badges && <PlayerBadges earned={badges.earned} next={badges.next} potmMonths={potmMonths} />}
 
           <section className="mb-6" aria-labelledby="partners-title">
             <h2 id="partners-title" className="text-xs uppercase text-gray-400 mb-2">🤝 {t('partners.title')}</h2>
