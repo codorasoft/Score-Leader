@@ -5,7 +5,12 @@ import { playerCard, type CardInput, type PlayerCard } from './playerCard'
 
 export function cardsForLeague(league: LeagueData): Map<string, { card: PlayerCard; input: CardInput }> {
   const played = matchesByPlayer(league)
-  const form = formRatings(league)
+  // Keep the full roster for match history and swaps. Only requested cards need a form rating.
+  const cardPlayerIds = new Set(league.players.map((p) => p.id))
+  const form = formRatings({
+    ...league,
+    teamPlayers: league.teamPlayers.filter((tp) => cardPlayerIds.has(tp.player_id)),
+  })
   const completedIds = new Set(league.matches.filter((m) => m.status === 'completed').map((m) => m.id))
   const count = (playerId: string, types: string[]) =>
     league.events.filter((e) => e.player_id === playerId && completedIds.has(e.match_id) && types.includes(e.event_type)).length

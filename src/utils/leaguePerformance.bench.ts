@@ -1,5 +1,6 @@
 import { test } from 'vitest'
 import { event, match, player, session } from '../test/fixtures'
+import { cardsForLeague } from './leagueCards'
 import { periodStats } from './leaderboardPeriod'
 import { monthsWonBy, type LeagueData } from './playerOfMonth'
 
@@ -40,7 +41,9 @@ for (const bookings of [5, 104]) {
     const now = new Date(2026, 0, 1)
     const standings = await bench('all-time leaderboard stats', () => { periodStats(league, 'all') }).run()
     const titles = await bench('monthly titles on a player profile', () => { monthsWonBy(league, '0', now) }).run()
-    for (const result of [standings, titles]) {
+    const profile = { ...league, players: [league.players[0]] }
+    const card = await bench('card on a player profile', () => { cardsForLeague(profile) }).run()
+    for (const result of [standings, titles, card]) {
       console.info(`${bookings} bookings • ${result.name}: ${result.latency.p50.toFixed(2)} ms median (${result.latency.samplesCount} samples)`)
     }
   })

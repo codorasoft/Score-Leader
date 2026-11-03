@@ -1,3 +1,6 @@
+import { vi } from 'vitest'
+import * as playerForm from './playerForm'
+import { finishedLeague } from '../test/fixtures'
 import { cardsForLeague } from './leagueCards'
 import type { Match, MatchEvent, Player, Session, TeamPlayer } from '../lib/types'
 
@@ -26,4 +29,20 @@ it('builds each player\'s card from their matches, goals, assists, clean sheets 
   expect(cards.get('gk')!.card.attributes[0].key).toBe('KEE')
   expect(cards.get('new')!.input.matches).toBe(0)
   expect(cards.get('new')!.card.overall).toBe(45 + 4 * 6)
+})
+
+it('calculates form only for the requested profile and preserves its full-league card', () => {
+  const { players, sessions, matches, team_players, match_events } = finishedLeague()
+  const league = { players, sessions, matches, teamPlayers: team_players, events: match_events, awards: [] }
+  const expected = cardsForLeague(league)
+  const ratings = vi.spyOn(playerForm, 'formRatings')
+  try {
+    for (const player of players) {
+      const profile = cardsForLeague({ ...league, players: [player] })
+      expect(profile.get(player.id)).toEqual(expected.get(player.id))
+      expect(ratings.mock.lastCall?.[0].teamPlayers).toEqual(team_players.filter((tp) => tp.player_id === player.id))
+    }
+  } finally {
+    ratings.mockRestore()
+  }
 })
