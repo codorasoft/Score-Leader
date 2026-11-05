@@ -36,6 +36,7 @@ import { serverNowIso } from '../../lib/serverClock'
 import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
+import LoadFailed from '../../components/LoadFailed'
 
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
@@ -48,7 +49,7 @@ export default function MatchTrackerPage() {
 
   const {
     match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
-    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef, missing,
+    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef, missing, loadFailed,
   } = useMatchData(sessionId, matchId, league.id)
   const [dialog, setDialog] = useState<'goal' | 'card' | 'interception' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
@@ -82,6 +83,7 @@ export default function MatchTrackerPage() {
   }
 
   if (missing) return <Navigate to={adminPath('/history')} replace />
+  if (!match && loadFailed) return <LoadFailed onRetry={load} />
   if (!match || !screen) return <PageSkeleton />
 
   const team1 = teams.find((tm) => tm.id === match.team1_id)

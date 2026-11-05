@@ -71,3 +71,34 @@ it('a request that changes something clears the copies; reads do not', async () 
   expect(load).toHaveBeenCalledTimes(2)
   expect(base).toHaveBeenCalledTimes(3)
 })
+
+it('discards a snapshot loaded while a write was still in progress', async () => {
+  let finishWrite!: (response: Response) => void
+  const writing = new Promise<Response>((resolve) => { finishWrite = resolve })
+  const wrapped = forgetOnWrite(vi.fn(() => writing) as unknown as typeof fetch)
+  const load = vi.fn(async () => ({ value: 'before save', complete: true }))
+
+  const save = wrapped('https://x.supabase.co/rest/v1/players', { method: 'PATCH' })
+  expect(await cachedLoad('L1', load)).toBe('before save')
+  finishWrite(new Response('{}'))
+  await save
+  load.mockResolvedValue({ value: 'after save', complete: true })
+
+  expect(await cachedLoad('L1', load)).toBe('after save')
+  expect(load).toHaveBeenCalledTimes(2)
+})
+
+it('also discards a concurrent snapshot if a write rejects after it may have reached the server', async () => {
+  let rejectWrite!: (error: Error) => void
+  const writing = new Promise<Response>((_resolve, reject) => { rejectWrite = reject })
+  const wrapped = forgetOnWrite(vi.fn(() => writing) as unknown as typeof fetch)
+  const load = vi.fn(async () => ({ value: 'before save', complete: true }))
+
+  const save = wrapped('https://x.supabase.co/rest/v1/players', { method: 'PATCH' })
+  await cachedLoad('L1', load)
+  rejectWrite(new Error('connection lost'))
+  await expect(save).rejects.toThrow('connection lost')
+  await cachedLoad('L1', load)
+
+  expect(load).toHaveBeenCalledTimes(2)
+})

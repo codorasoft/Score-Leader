@@ -8,6 +8,7 @@ import { PlayerCardView } from '../../components/PlayerCardView'
 import type { Player } from '../../lib/types'
 import type { PlayerCard } from '../../utils/playerCard'
 import PageSkeleton from '../../components/PageSkeleton'
+import LoadFailed from '../../components/LoadFailed'
 import { backTo } from '../../components/BackLink'
 
 export default function CardsPage() {
@@ -15,12 +16,14 @@ export default function CardsPage() {
   const league = useLeague()
   const publicPath = usePublicPath()
   const profiles = useFeature('profiles')
-  const [loaded, setLoaded] = useState<{ leagueId: string; rows: { player: Player; card: PlayerCard }[] } | null>(null)
+  const [loaded, setLoaded] = useState<{ leagueId: string; rows: { player: Player; card: PlayerCard }[] | 'failed' } | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let stale = false
     loadLeague(league.id).then((data) => {
       if (stale) return
+      if (!data.complete) { setLoaded({ leagueId: league.id, rows: 'failed' }); return }
       const cards = cardsForLeague(data)
       const rows = data.players
         .filter((p) => p.is_active)
@@ -28,12 +31,13 @@ export default function CardsPage() {
         // Players with real matches first; star-only estimates (NEW) after them
         .sort((a, b) => Number(a.card.isNew) - Number(b.card.isNew) || b.card.overall - a.card.overall || a.player.name.localeCompare(b.player.name))
       setLoaded({ leagueId: league.id, rows })
-    })
+    }).catch(() => { if (!stale) setLoaded({ leagueId: league.id, rows: 'failed' }) })
     return () => { stale = true }
-  }, [league.id])
+  }, [league.id, attempt])
 
   const rows = loaded?.leagueId === league.id ? loaded.rows : null
 
+  if (rows === 'failed') return <LoadFailed onRetry={() => { setLoaded(null); setAttempt((n) => n + 1) }} />
   if (!rows) return <PageSkeleton />
 
   return (

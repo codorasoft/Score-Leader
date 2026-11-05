@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
@@ -154,10 +154,89 @@ it('the keeper warning counts the teams in the session', async () => {
 it("does not load another league's session", async () => {
   rows('sessions').find((x) => x.id === 's2')!.league_id = 'L2'
   renderPage()
-  await waitFor(() => expect(db.reads).toBeGreaterThan(0))
-  await new Promise((r) => setTimeout(r, 50))
+  expect(await screen.findByText('Page not found')).toBeInTheDocument()
   expect(screen.queryByText('Ali')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Confirm Teams & Start' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Confirm Teams & Start' })).not.toBeInTheDocument()
+  expect(db.writes).toEqual([])
+})
+
+it.each(['sessions', 'session_players', 'players', 'matches', 'match_events', 'team_players'])(
+  'offers a retry without saving incomplete teams when %s cannot load', async (table) => {
+    const saved = [['p1', 'p2', 'p3', 'p4'], ['p5'], ['p6']]
+    rows('sessions').find((s) => s.id === 's2')!.draft_teams = saved
+    db.errors[table] = { message: 'Failed to fetch' }
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Shuffle All' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirm Teams & Start' })).not.toBeInTheDocument()
+    expect(db.writes).toEqual([])
+    expect(rows('sessions').find((s) => s.id === 's2')!.draft_teams).toEqual(saved)
+
+    delete db.errors[table]
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText(/^4 players/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm Teams & Start' })).toBeEnabled()
+    expect(db.writes).toEqual([])
+  },
+)
+
+it('handles a failed player request without smart balancing', async () => {
+  db.errors.players = { message: 'Failed to fetch' }
+  renderPage(FEATURES.filter((f) => f !== 'smart_balancing'))
+  expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  expect(db.writes).toEqual([])
+})
+
+function renderSessionSwitch() {
+  const source = rows('sessions').find((s) => s.id === 's2')!
+  rows('sessions').push({ ...source, id: 's3', team_count: 2, draft_teams: [['p1', 'p3'], ['p5', 'p6']] })
+  rows('session_players').push(...['p1', 'p3', 'p5', 'p6'].map((player_id) => ({ league_id: 'L1', session_id: 's3', player_id })))
+  return render(
+    <MemoryRouter initialEntries={['/admin/eagles/sessions/s2/teams']}><InLeague>
+      <Link to="/admin/eagles/sessions/s3/teams">Next booking</Link>
+      <Routes><Route path="/admin/eagles/sessions/:sessionId/teams" element={<TeamBuilderPage />} /></Routes>
+    </InLeague></MemoryRouter>,
+  )
+}
+
+it('hides the previous booking while the next one loads and cannot save its teams to the next booking', async () => {
+  const user = userEvent.setup()
+  renderSessionSwitch()
+  await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(3))
+  await waitFor(() => expect(db.writes).toHaveLength(1))
+  let release!: () => void
+  db.holds.sessions = new Promise<void>((resolve) => { release = resolve })
+  await user.click(screen.getByRole('button', { name: 'Yellow Team' }))
+  await user.click(screen.getByRole('link', { name: 'Next booking' }))
+
+  expect(screen.getByRole('status')).toHaveTextContent('Loading')
+  expect(screen.queryByRole('button', { name: 'Shuffle All' })).not.toBeInTheDocument()
+  expect(screen.queryByText('Omar')).not.toBeInTheDocument()
+  expect(db.writes.filter((w) => w.filters.includes('id=s3'))).toEqual([])
+
+  await act(async () => { release() })
+  await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(2))
+  expect(screen.queryByText('Who plays first?')).not.toBeInTheDocument()
+  expect(screen.queryByText('Omar')).not.toBeInTheDocument()
+  expect(db.writes.filter((w) => w.filters.includes('id=s3'))).toEqual([])
+})
+
+it('ignores a late player response from the previous booking', async () => {
+  let release!: () => void
+  db.holds.players = new Promise<void>((resolve) => { release = resolve })
+  const user = userEvent.setup()
+  renderSessionSwitch()
+  await waitFor(() => expect(db.reads).toBeGreaterThanOrEqual(2))
+  delete db.holds.players
+  await user.click(screen.getByRole('link', { name: 'Next booking' }))
+  await waitFor(() => expect(screen.getAllByText(/^2 players/)).toHaveLength(2))
+
+  await act(async () => { release() })
+  expect(screen.getAllByText(/^2 players/)).toHaveLength(2)
+  expect(screen.queryByText('Omar')).not.toBeInTheDocument()
+  expect(db.writes).toEqual([])
 })
 
 it('does not ask who plays first in a 2-team session (both always play)', async () => {

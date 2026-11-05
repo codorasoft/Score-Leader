@@ -28,9 +28,16 @@ export function forgetCachedLeagues() {
 
 // Wraps fetch so that any request that changes something (a goal, an edit, a photo) clears the copies
 export function forgetOnWrite(base: typeof fetch): typeof fetch {
-  return (input, init) => {
+  return async (input, init) => {
     const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase()
-    if (method !== 'GET' && method !== 'HEAD') forgetCachedLeagues()
-    return base(input, init)
+    if (method === 'GET' || method === 'HEAD') return base(input, init)
+    forgetCachedLeagues()
+    try {
+      return await base(input, init)
+    } finally {
+      // A read started during the save may still contain the previous values.
+      // Also clear after a network failure: the server may have accepted the write.
+      forgetCachedLeagues()
+    }
   }
 }

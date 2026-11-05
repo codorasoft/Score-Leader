@@ -74,6 +74,17 @@ it('loads the match, teams, players and the day so far in one request', async ()
   expect(db.reads).toBe(1)
 })
 
+it('offers a retry when the initial match request fails', async () => {
+  const user = userEvent.setup()
+  db.errors.sessions = { message: 'connection lost' }
+  renderPage()
+  expect(await screen.findByText('Could not load. Check your connection.')).toBeInTheDocument()
+  delete db.errors.sessions
+  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(await screen.findByText('Green Team')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+})
+
 it('starts the clock and records a goal with an assist', async () => {
   const user = userEvent.setup()
   renderPage()

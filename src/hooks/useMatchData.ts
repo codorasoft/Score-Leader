@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type SetStateAction } from 'react'
 import { supabase } from '../lib/supabase'
 import { outbox } from '../lib/pitchOutbox'
 import { overlayPending } from '../lib/outboxOverlay'
@@ -10,6 +10,10 @@ import type { Match, Session, Team, Player, MatchEvent, TeamPlayer } from '../li
 // The match screen's data: the match and its session from the server, with the changes still
 // waiting on this phone shown on top
 export function useMatchData(sessionId: string | undefined, matchId: string | undefined, leagueId: string) {
+  const key = `${leagueId}:${sessionId}:${matchId}`
+  const [stateKey, setStateKey] = useState(key)
+  const activeKeyRef = useRef<string | null>(null)
+  const requestRef = useRef(0)
   const [match, setMatch] = useState<Match | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
@@ -21,6 +25,7 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
   const [endBlocked, setEndBlocked] = useState(false)
   // No such match in this league's session (an old or mistyped link)
   const [missing, setMissing] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   // A change saved on this phone was refused by the server, and the screen has not reloaded since:
   // the score shown may be wrong, so the match must not be ended from it
@@ -29,18 +34,22 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
 
   // One request for the whole session; runs on open and after every goal, card or swap
   const load = useCallback(async () => {
+    if (activeKeyRef.current !== key) return
+    const request = ++requestRef.current
+    const current = () => activeKeyRef.current === key && requestRef.current === request
+    setLoadFailed(false)
     const refusedBefore = seenRejectedRef.current
     let data: SessionData | null
     try {
       data = await fetchSession('id', sessionId ?? '', leagueId)
     } catch {
       // Offline: keep what is on screen rather than wiping it
+      if (current()) setLoadFailed(true)
       return
     }
+    if (!current()) return
     const m = data?.matches.find((x) => x.id === matchId)
     if (!data || !m) { setMissing(true); return }
-    setMissing(false)
-    if (seenRejectedRef.current === refusedBefore) staleRef.current = false
 
     // A goal and its score are saved by separate requests, so the server can accept one and refuse
     // the other. The timeline decides: with nothing waiting on this phone, a score that disagrees
@@ -49,11 +58,16 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     if (m.status !== 'completed' && outbox.pending().length === 0 && !outbox.isFlushing()) {
       const real = scoreFromGoals(m, data.events.filter((e) => e.match_id === m.id))
       if (real.team1_score !== m.team1_score || real.team2_score !== m.team2_score) {
-        const { error } = await supabase.from('matches').update(real)
-          .eq('id', m.id).eq('team1_score', m.team1_score).eq('team2_score', m.team2_score)
-        if (!error) Object.assign(m, real)
+        try {
+          const { error } = await supabase.from('matches').update(real)
+            .eq('id', m.id).eq('team1_score', m.team1_score).eq('team2_score', m.team2_score)
+          if (!error) Object.assign(m, real)
+        } catch { /* keep the fetched data if the score repair could not be sent */ }
       }
     }
+    if (!current()) return
+    setMissing(false)
+    if (seenRejectedRef.current === refusedBefore) staleRef.current = false
     const finished = new Set(data.matches.filter((x) => x.status === 'completed').map((x) => x.id))
     setSession(data.session)
     setSessionMatches(data.matches)
@@ -70,9 +84,35 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     setMatch(shown.match)
     setEvents(shown.events)
     setTeamPlayers(shown.teamPlayers)
-  }, [sessionId, matchId, leagueId])
+  }, [sessionId, matchId, leagueId, key])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    activeKeyRef.current = key
+    setStateKey(key)
+    setMatch(null)
+    setSession(null)
+    setTeams([])
+    setTeamPlayers([])
+    setPlayers([])
+    setEvents([])
+    setSessionMatches([])
+    setSessionEvents([])
+    setMissing(false)
+    setEndBlocked(false)
+    staleRef.current = false
+    seenRejectedRef.current = outbox.rejected()
+    load()
+    return () => {
+      activeKeyRef.current = null
+    }
+  }, [load, key])
+
+  // A response requested before a local edit must not replace that optimistic change.
+  const updateMatch = useCallback((next: SetStateAction<Match | null>) => {
+    if (activeKeyRef.current !== key) return
+    requestRef.current++
+    setMatch(next)
+  }, [key])
 
   // Once every waiting change has been sent, reload so the screen shows the server's copy
   useEffect(() => outbox.subscribe(() => {
@@ -87,9 +127,9 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
 
   // Show the change immediately, then send it (or keep it on the phone until there is signal)
   const apply = async (ops: OutboxOp[]) => {
-    if (!match) return
+    if (!match || activeKeyRef.current !== key) return
     const shown = overlayPending(ops, { match, events, teamPlayers })
-    setMatch(shown.match)
+    updateMatch(shown.match)
     setEvents(shown.events)
     setTeamPlayers(shown.teamPlayers)
     let allSent = true
@@ -103,12 +143,16 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
 
   // Show the clock change at once (also when it waits offline in the outbox), then reload
   const refreshMatch = () => {
-    setMatch((m) => (m ? overlayPending(outbox.pending(), { match: m, events: [], teamPlayers: [] }).match : m))
+    updateMatch((m) => (m ? overlayPending(outbox.pending(), { match: m, events: [], teamPlayers: [] }).match : m))
     return load()
   }
 
+  const current = stateKey === key
   return {
-    match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
-    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef, missing,
+    match: current ? match : null, setMatch: updateMatch, session: current ? session : null,
+    teams: current ? teams : [], teamPlayers: current ? teamPlayers : [], players: current ? players : [],
+    events: current ? events : [], sessionMatches: current ? sessionMatches : [], sessionEvents: current ? sessionEvents : [],
+    load, apply, refreshMatch, endBlocked: current && endBlocked, setEndBlocked, staleRef,
+    missing: current && missing, loadFailed: current && loadFailed,
   }
 }

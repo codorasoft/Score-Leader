@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { InLeague } from '../../test/league'
 import { db, resetDb, rows } from '../../test/fakeSupabase'
@@ -121,4 +121,96 @@ it('shows the vote as closed when it closed while the page was open', async () =
   await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
   expect(await screen.findByText('This vote is closed.')).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+it.each(['award_votes', 'award_vote_entries', 'award_vote_nominations', 'players'])(
+  'offers a retry when loading %s fails, without showing a missing vote or a partial ballot',
+  async (table) => {
+    resetDb({ award_votes: [vote()], award_vote_nominations: nominations, players })
+    db.errors[table] = { message: 'Failed to fetch' }
+    const user = userEvent.setup()
+    renderPage()
+
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    expect(screen.queryByText('Vote not found')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Submit Vote' })).not.toBeInTheDocument()
+    expect(db.writes).toEqual([])
+
+    delete db.errors[table]
+    await user.click(retry)
+    expect(await screen.findByRole('button', { name: 'Hadi' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Omar' })).toBeInTheDocument()
+  },
+)
+
+it('recovers from a rejected loading request', async () => {
+  resetDb({ award_votes: [vote()], award_vote_nominations: nominations, players })
+  let reject!: (error: Error) => void
+  db.holds.award_votes = new Promise((_, fail) => { reject = fail })
+  const user = userEvent.setup()
+  renderPage()
+
+  await act(async () => { reject(new Error('Connection interrupted')) })
+  const retry = await screen.findByRole('button', { name: 'Retry' })
+  delete db.holds.award_votes
+  await user.click(retry)
+  expect(await screen.findByRole('button', { name: 'Hadi' })).toBeInTheDocument()
+})
+
+it('re-enables submission after a rejected request and preserves the selected nominee', async () => {
+  resetDb({ award_votes: [vote()], award_vote_nominations: nominations, players })
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'Hadi' }))
+  let reject!: (error: Error) => void
+  db.holds.award_vote_entries = new Promise((_, fail) => { reject = fail })
+  const submit = screen.getByRole('button', { name: 'Submit Vote' })
+  await user.click(submit)
+  expect(submit).toBeDisabled()
+
+  await act(async () => { reject(new Error('Connection interrupted')) })
+  expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
+  expect(submit).toBeEnabled()
+  delete db.holds.award_vote_entries
+  await user.click(submit)
+  expect(await screen.findByText('Your vote has been recorded.')).toBeInTheDocument()
+  expect(rows('award_vote_entries')).toEqual([expect.objectContaining({ player_id: 'p5' })])
+})
+
+it('shows a closed vote without depending on ballot queries', async () => {
+  resetDb({ award_votes: [vote('closed')] })
+  db.errors.award_vote_entries = { message: 'Failed to fetch' }
+  db.errors.award_vote_nominations = { message: 'Failed to fetch' }
+  renderPage()
+  expect(await screen.findByText('This vote is closed.')).toBeInTheDocument()
+})
+
+it('does not mark a new ballot as submitted when the previous ballot finishes saving', async () => {
+  resetDb({
+    award_votes: [vote(), { ...vote(), id: 'v2', vote_token: 'tok-next', award_type: 'best_goal' }],
+    award_vote_nominations: [...nominations, { award_vote_id: 'v2', player_id: 'p2' }],
+    players,
+  })
+  const router = createMemoryRouter([
+    { path: '/v/:voteToken', element: <InLeague><VotePage /></InLeague> },
+  ], { initialEntries: ['/v/tok-v'] })
+  const user = userEvent.setup()
+  render(<RouterProvider router={router} />)
+  await user.click(await screen.findByRole('button', { name: 'Hadi' }))
+  let finish!: () => void
+  db.holds.award_vote_entries = new Promise<void>((resolve) => { finish = resolve })
+  await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
+
+  await act(async () => { await router.navigate('/v/tok-next') })
+  await act(async () => { finish() })
+  expect(await screen.findByRole('button', { name: 'Omar' })).toBeInTheDocument()
+  expect(screen.queryByText('Your vote has been recorded.')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Hadi' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Submit Vote' })).toBeDisabled()
+
+  await user.click(screen.getByRole('button', { name: 'Omar' }))
+  await user.click(screen.getByRole('button', { name: 'Submit Vote' }))
+  expect(await screen.findByText('Your vote has been recorded.')).toBeInTheDocument()
+  expect(rows('award_vote_entries').map((entry) => [entry.award_vote_id, entry.player_id]))
+    .toEqual([['v1', 'p5'], ['v2', 'p2']])
 })

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLeague, useFeature, useAdminPath } from '../../contexts/LeagueContext'
 import { supabase } from '../../lib/supabase'
-import { selectAll } from '../../lib/selectAll'
+import { selectAllOrThrow } from '../../lib/selectAll'
 import { balanceTeams } from '../../utils/teamBalancer'
 import { blendStrength, formRatings, DEFAULT_FORM_SESSIONS } from '../../utils/playerForm'
 import { partnerships, type Pair } from '../../utils/playerMatches'
@@ -16,6 +16,9 @@ import { draftOf, restoreDraft } from '../../utils/teamEdit'
 import type { Match, MatchEvent, Player, Session, TeamColor, TeamPlayer } from '../../lib/types'
 import { SetupSteps } from '../../components/SetupSteps'
 import { backTo } from '../../components/BackLink'
+import LoadFailed from '../../components/LoadFailed'
+import PageSkeleton from '../../components/PageSkeleton'
+import NotAvailablePage from '../NotAvailablePage'
 
 const WEIGHT_KEY = 'balanceFormWeight'
 const SPLIT_DUOS_KEY = 'balanceSplitDuos'
@@ -39,6 +42,12 @@ const readWeight = () => {
 
 export default function TeamBuilderPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const league = useLeague()
+  // A new session must never inherit another session's editable teams or draft-save queue.
+  return <TeamBuilder key={`${league.id}/${sessionId}`} sessionId={sessionId} />
+}
+
+function TeamBuilder({ sessionId }: { sessionId?: string }) {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const league = useLeague()
@@ -60,6 +69,8 @@ export default function TeamBuilderPage() {
   const [sessionDate, setSessionDate] = useState('')
   const [makingBoard, setMakingBoard] = useState(false)
   const [firstPlaying, setFirstPlaying] = useState<[TeamColor, TeamColor] | null>(null)
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'failed' | 'missing'>('loading')
+  const [attempt, setAttempt] = useState(0)
   const needsGk = attendees.length > 0 && attendees.filter((p) => p.position === 'GK').length < teamCount
 
   const strengthOf = useCallback(
@@ -109,51 +120,63 @@ export default function TeamBuilderPage() {
 
   useEffect(() => {
     let stale = false
+    canSave.current = false
+    setLoadState('loading')
     const load = async () => {
-      if (!sessionId) return
-      const [{ data: sessionRow }, { data: spRows }] = await Promise.all([
+      if (!sessionId) { setLoadState('missing'); return }
+      const [booking, attendance] = await Promise.all([
         supabase.from('sessions').select('*').eq('id', sessionId).eq('league_id', league.id).maybeSingle(),
         supabase.from('session_players').select('player_id').eq('session_id', sessionId),
       ])
+      if (stale) return
+      if (booking.error?.code === '22P02') { setLoadState('missing'); return }
+      if (booking.error || attendance.error) throw booking.error ?? attendance.error
+      const sessionRow = booking.data
       // Not found, or another league's session
-      if (stale || !sessionRow) return
+      if (!sessionRow) { setLoadState('missing'); return }
       const { team_count: count, draft_teams: saved, date, status } = sessionRow as Session
-      setSessionDate(date)
-      canSave.current = status === 'draft' && 'draft_teams' in sessionRow
-      setTeamCount(count)
-      const playerIds = (spRows ?? []).map((r: { player_id: string }) => r.player_id)
-      if (playerIds.length === 0) return
-      let list: Player[]
+      const playerIds = (attendance.data ?? []).map((r: { player_id: string }) => r.player_id)
+      let list: Player[] = []
       let formOf = new Map<string, number>()
       let duos: Pair[] = []
-      if (!smart) {
-        const { data: playerRows } = await supabase.from('players').select('*').in('id', playerIds)
+      if (playerIds.length && !smart) {
+        const { data: playerRows, error } = await supabase.from('players').select('*').in('id', playerIds)
+        if (error) throw error
         list = (playerRows ?? []) as Player[]
-      } else {
-        const [{ data: playerRows }, sessions, matches, events, teamPlayers] = await Promise.all([
+      } else if (playerIds.length) {
+        const [squad, sessions, matches, events, teamPlayers] = await Promise.all([
           supabase.from('players').select('*').in('id', playerIds),
-          selectAll<Session>((a, b) => supabase.from('sessions').select('*').eq('league_id', league.id).range(a, b)),
-          selectAll<Match>((a, b) => supabase.from('matches').select('*').eq('league_id', league.id).eq('status', 'completed').range(a, b)),
-          selectAll<MatchEvent>((a, b) => supabase.from('match_events').select('*').in('player_id', playerIds).range(a, b)),
-          selectAll<TeamPlayer>((a, b) => supabase.from('team_players').select('*').in('player_id', playerIds).range(a, b)),
+          selectAllOrThrow<Session>((a, b) => supabase.from('sessions').select('*').eq('league_id', league.id).order('id').range(a, b)),
+          selectAllOrThrow<Match>((a, b) => supabase.from('matches').select('*').eq('league_id', league.id).eq('status', 'completed').order('id').range(a, b)),
+          selectAllOrThrow<MatchEvent>((a, b) => supabase.from('match_events').select('*').in('player_id', playerIds).order('id').range(a, b)),
+          selectAllOrThrow<TeamPlayer>((a, b) => supabase.from('team_players').select('*').in('player_id', playerIds).order('team_id').order('player_id').range(a, b)),
         ])
-        list = (playerRows ?? []) as Player[]
+        if (squad.error) throw squad.error
+        list = (squad.data ?? []) as Player[]
         formOf = formRatings({ sessions, matches, events, teamPlayers }, DEFAULT_FORM_SESSIONS)
         duos = partnerships({ sessions, matches, events, teamPlayers })
       }
       if (stale) return
+      setSessionDate(date)
+      canSave.current = status === 'draft' && 'draft_teams' in sessionRow
+      setTeamCount(count)
       setForm(formOf)
       setPairs(duos)
       setAttendees(list)
-      if (list.length === 0) return
+      if (list.length === 0) {
+        setTeams(Array.from({ length: count }, () => []))
+        setLoadState('ready')
+        return
+      }
       // The teams from the last visit when they still fit who is attending; otherwise new ones
       const kept = restoreDraft(saved, list, count)
       if (kept) setTeams(kept)
       else arrangeLoaded(list, count, formOf, duos)
+      setLoadState('ready')
     }
-    load()
-    return () => { stale = true }
-  }, [sessionId, league.id, smart])
+    load().catch(() => { if (!stale) setLoadState('failed') })
+    return () => { stale = true; canSave.current = false }
+  }, [sessionId, league.id, smart, attempt])
 
   const changeSplitDuos = (value: boolean) => {
     setSplitDuos(value)
@@ -209,6 +232,10 @@ export default function TeamBuilderPage() {
   }
 
   const mix = t('teamBuilder.balanceMix', { stars: 100 - formPercent, form: formPercent })
+
+  if (loadState === 'failed') return <LoadFailed onRetry={() => setAttempt((n) => n + 1)} />
+  if (loadState === 'missing') return <NotAvailablePage kind="page" embedded />
+  if (loadState === 'loading') return <PageSkeleton />
 
   return (
     <div>

@@ -7,6 +7,7 @@ import { computeRecords, type LeagueRecord, type RecordHolder } from '../../util
 import { formatMatchClock } from '../../utils/matchClock'
 import { styleMap } from '../../lib/teamColors'
 import PageSkeleton from '../../components/PageSkeleton'
+import LoadFailed from '../../components/LoadFailed'
 import { backTo } from '../../components/BackLink'
 
 const MAX_HOLDERS = 3
@@ -18,16 +19,20 @@ export default function RecordsPage() {
   const league = useLeague()
   const publicPath = usePublicPath()
   const profiles = useFeature('profiles')
-  const [loaded, setLoaded] = useState<{ leagueId: string; records: LeagueRecord[] } | null>(null)
+  const [loaded, setLoaded] = useState<{ leagueId: string; records: LeagueRecord[] | 'failed' } | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let stale = false
-    loadLeague(league.id).then((data) => { if (!stale) setLoaded({ leagueId: league.id, records: computeRecords(data) }) })
+    loadLeague(league.id).then((data) => {
+      if (!stale) setLoaded({ leagueId: league.id, records: data.complete ? computeRecords(data) : 'failed' })
+    }).catch(() => { if (!stale) setLoaded({ leagueId: league.id, records: 'failed' }) })
     return () => { stale = true }
-  }, [league.id])
+  }, [league.id, attempt])
 
   const records = loaded?.leagueId === league.id ? loaded.records : null
 
+  if (records === 'failed') return <LoadFailed onRetry={() => { setLoaded(null); setAttempt((n) => n + 1) }} />
   if (!records) return <PageSkeleton />
 
   const valueLabel = (r: LeagueRecord) => {

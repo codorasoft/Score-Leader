@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
-import { InLeague } from '../../test/league'
+import { InLeague, testLeague } from '../../test/league'
+import { LeagueProvider } from '../../contexts/LeagueContext'
 import { db, resetDb } from '../../test/fakeSupabase'
 import { finishedLeague } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
@@ -19,6 +20,7 @@ vi.mock('../../lib/shareImage', () => ({
 }))
 
 import * as period from '../../utils/leaderboardPeriod'
+import * as leagueData from '../../lib/league'
 import LeaderboardPage from './LeaderboardPage'
 import RecordsPage from './RecordsPage'
 
@@ -90,6 +92,50 @@ it('says so when no matches have been finished', async () => {
   resetDb({ players: finishedLeague().players })
   renderPage()
   expect(await screen.findByText('No finished matches in this period')).toBeInTheDocument()
+})
+
+it.each(['incomplete', 'rejected'])('offers a retry instead of a ranking after an %s load', async (failure) => {
+  resetDb(finishedLeague())
+  const load = vi.spyOn(leagueData, 'loadLeague')
+  if (failure === 'rejected') load.mockRejectedValueOnce(new Error('offline'))
+  else db.errors.match_events = { message: 'Failed to fetch' }
+  try {
+    const user = userEvent.setup()
+    renderPage()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    expect(screen.queryByRole('link', { name: /Omar/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('No finished matches in this period')).not.toBeInTheDocument()
+
+    delete db.errors.match_events
+    await user.click(retry)
+    expect(await screen.findByRole('link', { name: /Omar/ })).toBeInTheDocument()
+    expect(order()[0]).toBe('Omar')
+  } finally {
+    load.mockRestore()
+  }
+})
+
+it('ignores an older response after leaving a league and returning to it', async () => {
+  resetDb(finishedLeague())
+  const complete = await leagueData.loadLeague('L1')
+  let resolveOld!: (value: leagueData.FullLeague) => void
+  const oldRequest = new Promise<leagueData.FullLeague>((resolve) => { resolveOld = resolve })
+  const load = vi.spyOn(leagueData, 'loadLeague').mockReturnValueOnce(oldRequest).mockResolvedValue(complete)
+  const view = (id: string) => (
+    <MemoryRouter><LeagueProvider league={{ ...testLeague(), id }}><LeaderboardPage /></LeagueProvider></MemoryRouter>
+  )
+  try {
+    const { rerender } = render(view('L1'))
+    rerender(view('L2'))
+    await screen.findByRole('link', { name: /Omar/ })
+    rerender(view('L1'))
+    await screen.findByRole('link', { name: /Omar/ })
+
+    await act(async () => { resolveOld({ ...complete, players: [] }); await oldRequest })
+    expect(screen.getByRole('link', { name: /Omar/ })).toBeInTheDocument()
+  } finally {
+    load.mockRestore()
+  }
 })
 
 it('records reuse the history the leaderboard just downloaded', async () => {

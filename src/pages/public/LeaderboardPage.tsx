@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -10,6 +10,7 @@ import { drawLeaderboardImage, shareCanvas } from '../../lib/shareImage'
 import { useLeague, useFeature, usePublicPath } from '../../contexts/LeagueContext'
 import type { Player, Match, MatchEvent, TeamPlayer, Session, SessionAward } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
+import LoadFailed from '../../components/LoadFailed'
 
 type SortKey = 'points' | 'goals' | 'assists' | 'cleanSheets' | 'matchesWon'
 
@@ -41,21 +42,25 @@ export default function LeaderboardPage() {
   const potmOn = useFeature('potm')
   const profiles = useFeature('profiles')
   const photosOn = useFeature('photos')
-  const [loaded, setLoaded] = useState<{ leagueId: string; data: Data } | null>(null)
+  const [loaded, setLoaded] = useState<{ leagueId: string; data: Data | 'failed' } | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const [sortBy, setSortBy] = useState<SortKey>('points')
 
-  const load = useCallback(async () => {
-    // Shared with cards, records and profiles; the leaderboard lists active players only
-    const { players, sessions, matches, events, teamPlayers, awards } = await loadLeague(league.id)
-    if (currentLeague.current !== league.id) return
-    setLoaded({ leagueId: league.id, data: { players: players.filter((p) => p.is_active), sessions, matches, events, teamPlayers, awards } })
-  }, [league.id])
+  useEffect(() => {
+    let stale = false
+    // Shared with cards, records and profiles; the leaderboard lists active players only.
+    // A partial history must never be presented as a complete ranking.
+    loadLeague(league.id).then((next) => {
+      if (stale) return
+      if (!next.complete) { setLoaded({ leagueId: league.id, data: 'failed' }); return }
+      const { players, sessions, matches, events, teamPlayers, awards } = next
+      setLoaded({ leagueId: league.id, data: { players: players.filter((p) => p.is_active), sessions, matches, events, teamPlayers, awards } })
+    }).catch(() => { if (!stale) setLoaded({ leagueId: league.id, data: 'failed' }) })
+    return () => { stale = true }
+  }, [league.id, attempt])
 
-  const currentLeague = useRef(league.id)
-  currentLeague.current = league.id
-  useEffect(() => { load() }, [load])
-
-  const data = loaded?.leagueId === league.id ? loaded.data : null
+  const state = loaded?.leagueId === league.id ? loaded.data : null
+  const data = state === 'failed' ? null : state
 
   const periods = useMemo(() => data ? availablePeriods(data.sessions) : [], [data])
   const requested = searchParams.get('period')
@@ -69,6 +74,7 @@ export default function LeaderboardPage() {
       potm: potmOn && period.length === 7 ? winnersFromStats(stats) : null,
     }
   }, [data, period, potmOn])
+  if (state === 'failed') return <LoadFailed onRetry={() => { setLoaded(null); setAttempt((n) => n + 1) }} />
   if (!result) return <PageSkeleton />
   const { rows, sessionCount, matchCount, potm } = result
   // The opening period keeps a clean URL; any other choice is written out, 'all' included,

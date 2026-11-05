@@ -18,17 +18,34 @@ export function useAuth(): AuthState {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    })
+    let active = true
+    let receivedAuthEvent = false
+    // The initial lookup can finish after a newer sign-in or sign-out event.
+    // Only use it until the subscription has supplied the current session.
+    supabase.auth.getSession().then(
+      ({ data }) => {
+        if (!active || receivedAuthEvent) return
+        setUser(data.session?.user ?? null)
+        setLoading(false)
+      },
+      () => {
+        if (!active || receivedAuthEvent) return
+        setUser(null)
+        setLoading(false)
+      },
+    )
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
+      receivedAuthEvent = true
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signIn = async (email: string, password: string) => {

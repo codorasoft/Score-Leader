@@ -7,9 +7,14 @@ import { useFeature } from '../../contexts/LeagueContext'
 import { serverErrorKey } from '../../lib/errorText'
 import type { AwardVote, Player } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
+import LoadFailed from '../../components/LoadFailed'
 
 export default function VotePage() {
   const { voteToken } = useParams<{ voteToken: string }>()
+  return <VoteBallot key={voteToken} voteToken={voteToken} />
+}
+
+function VoteBallot({ voteToken }: { voteToken: string | undefined }) {
   const { t } = useTranslation()
   const votingOn = useFeature('voting')
   const [vote, setVote] = useState<AwardVote | null>(null)
@@ -18,62 +23,92 @@ export default function VotePage() {
   const [submitted, setSubmitted] = useState(false)
   const [alreadyVoted, setAlreadyVoted] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadFailed(false)
+    setVote(null)
+    setNominees([])
+    setChosen(null)
+    setSubmitted(false)
+    setAlreadyVoted(false)
+    setSendError('')
     const init = async () => {
       const fp = getVoterId()
 
-      const { data: voteData } = await supabase
-        .from('award_votes').select('*').eq('vote_token', voteToken).single()
+      const { data: voteData, error: voteError } = await supabase
+        .from('award_votes').select('*').eq('vote_token', voteToken).maybeSingle()
+      if (cancelled) return
+      if (voteError) throw voteError
 
-      if (!voteData) { setLoading(false); return }
+      if (!voteData) return
       setVote(voteData as AwardVote)
+      if (voteData.status === 'closed' || !votingOn) return
 
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('award_vote_entries')
         .select('id')
         .eq('award_vote_id', (voteData as AwardVote).id)
         .eq('voter_fingerprint', fp)
         .maybeSingle()
+      if (cancelled) return
+      if (existingError) throw existingError
 
-      if (existing) { setAlreadyVoted(true); setLoading(false); return }
+      if (existing) { setAlreadyVoted(true); return }
 
-      const { data: nomData } = await supabase
+      const { data: nomData, error: nomError } = await supabase
         .from('award_vote_nominations')
         .select('player_id')
         .eq('award_vote_id', (voteData as AwardVote).id)
+      if (cancelled) return
+      if (nomError) throw nomError
 
       const pIds = (nomData ?? []).map((n: { player_id: string }) => n.player_id)
       if (pIds.length > 0) {
-        const { data: pData } = await supabase.from('players').select('*').in('id', pIds)
+        const { data: pData, error: playerError } = await supabase.from('players').select('*').in('id', pIds)
+        if (cancelled) return
+        if (playerError) throw playerError
         setNominees((pData ?? []) as Player[])
       }
-      setLoading(false)
     }
-    init()
-  }, [voteToken])
+    void init().catch(() => {
+      if (!cancelled) setLoadFailed(true)
+    }).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [voteToken, votingOn, attempt])
 
   const handleSubmit = async () => {
     if (!chosen || !vote || sending) return
     setSending(true)
     setSendError('')
-    const fp = getVoterId()
-    const { error } = await supabase.from('award_vote_entries').insert({
-      award_vote_id: vote.id,
-      voter_fingerprint: fp,
-      player_id: chosen,
-    })
-    setSending(false)
-    // The voting rule refused it: the vote was closed (or voting switched off) after the page loaded
-    if (error?.code === '42501') { setVote({ ...vote, status: 'closed' }); return }
-    // A duplicate means this device's vote is already in; anything else was not saved, so keep the choice for a retry
-    if (error && error.code !== '23505') { setSendError(t(serverErrorKey(error.message))); return }
-    setSubmitted(true)
+    try {
+      const fp = getVoterId()
+      const { error } = await supabase.from('award_vote_entries').insert({
+        award_vote_id: vote.id,
+        voter_fingerprint: fp,
+        player_id: chosen,
+      })
+      // The voting rule refused it: the vote was closed (or voting switched off) after the page loaded
+      if (error?.code === '42501') { setVote({ ...vote, status: 'closed' }); return }
+      // A duplicate means this device's vote is already in; anything else was not saved, so keep the choice for a retry
+      if (error && error.code !== '23505') { setSendError(t(serverErrorKey(error.message))); return }
+      setSubmitted(true)
+    } catch {
+      setSendError(t(serverErrorKey(undefined)))
+    } finally {
+      setSending(false)
+    }
   }
 
   if (loading) return <PageSkeleton />
+  if (loadFailed) return <LoadFailed onRetry={() => setAttempt((value) => value + 1)} />
   if (!vote) return <div className="p-4 text-red-400 text-center">{t('vote.notFound')}</div>
   if (vote.status === 'closed' || !votingOn) return <div className="p-4 text-center"><p className="text-gray-400">{t('vote.closed')}</p></div>
   if (alreadyVoted || submitted) return (

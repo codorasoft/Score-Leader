@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
+import type { Session } from '@supabase/supabase-js'
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -18,6 +19,21 @@ import { supabase } from '../lib/supabase'
 import { forgetPush } from '../lib/push'
 import { useAuth } from './useAuth'
 
+const session = (id: string) => ({ user: { id } }) as Session
+const sessionResult = (value: Session | null) => ({ data: { session: value }, error: null })
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+beforeEach(() => {
+  vi.mocked(supabase.auth.getSession).mockReset().mockResolvedValue(sessionResult(null))
+  vi.mocked(supabase.auth.onAuthStateChange).mockClear()
+})
+
 describe('useAuth', () => {
   it('loading starts true', () => {
     const { result } = renderHook(() => useAuth())
@@ -28,6 +44,71 @@ describe('useAuth', () => {
     const { result } = renderHook(() => useAuth())
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.user).toBeNull()
+  })
+
+  it('does not restore an old session after a sign-out event', async () => {
+    const initial = deferred<ReturnType<typeof sessionResult>>()
+    vi.mocked(supabase.auth.getSession).mockReturnValue(initial.promise)
+    const { result } = renderHook(() => useAuth())
+    const onChange = vi.mocked(supabase.auth.onAuthStateChange).mock.calls[0][0]
+
+    act(() => { onChange('SIGNED_OUT', null) })
+    await act(async () => { initial.resolve(sessionResult(session('old-user'))) })
+
+    expect(result.current.loading).toBe(false)
+    expect(result.current.user).toBeNull()
+  })
+
+  it('does not overwrite a new sign-in with the initial session lookup', async () => {
+    const initial = deferred<ReturnType<typeof sessionResult>>()
+    vi.mocked(supabase.auth.getSession).mockReturnValue(initial.promise)
+    const { result } = renderHook(() => useAuth())
+    const onChange = vi.mocked(supabase.auth.onAuthStateChange).mock.calls[0][0]
+
+    act(() => { onChange('SIGNED_IN', session('new-user')) })
+    await act(async () => { initial.resolve(sessionResult(null)) })
+
+    expect(result.current.loading).toBe(false)
+    expect(result.current.user?.id).toBe('new-user')
+  })
+
+  it('settles loading when the initial session lookup rejects', async () => {
+    vi.mocked(supabase.auth.getSession).mockRejectedValue(new Error('session unavailable'))
+    const { result } = renderHook(() => useAuth())
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+  })
+
+  it('keeps a newer auth event when the initial session lookup rejects', async () => {
+    const initial = deferred<ReturnType<typeof sessionResult>>()
+    vi.mocked(supabase.auth.getSession).mockReturnValue(initial.promise)
+    const { result } = renderHook(() => useAuth())
+    const onChange = vi.mocked(supabase.auth.onAuthStateChange).mock.calls[0][0]
+
+    act(() => { onChange('SIGNED_IN', session('new-user')) })
+    await act(async () => { initial.reject(new Error('session unavailable')) })
+
+    expect(result.current.loading).toBe(false)
+    expect(result.current.user?.id).toBe('new-user')
+  })
+
+  it('ignores results and auth callbacks from an effect that has been cleaned up', async () => {
+    const initial = deferred<ReturnType<typeof sessionResult>>()
+    vi.mocked(supabase.auth.getSession)
+      .mockReturnValueOnce(initial.promise)
+      .mockResolvedValueOnce(sessionResult(session('current-user')))
+    const { result } = renderHook(() => useAuth(), {
+      reactStrictMode: true,
+    })
+    await waitFor(() => expect(result.current.user?.id).toBe('current-user'))
+
+    const oldOnChange = vi.mocked(supabase.auth.onAuthStateChange).mock.calls[0][0]
+    await act(async () => {
+      oldOnChange('SIGNED_OUT', null)
+      initial.resolve(sessionResult(session('old-user')))
+    })
+    expect(result.current.user?.id).toBe('current-user')
   })
 })
 
