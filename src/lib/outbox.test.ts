@@ -149,7 +149,7 @@ describe('changes the server refuses while sending saved ones', () => {
     online = true
     const listener = vi.fn()
     box.subscribe(listener)
-    expect(await box.flush()).toBe(true)
+    expect(await box.flush()).toBe(false)
     expect(box.rejected()).toBe(1)
     expect(listener).toHaveBeenCalled()
 
@@ -161,11 +161,11 @@ describe('changes the server refuses while sending saved ones', () => {
     expect(createOutbox({ client, storage, isOnline: () => true }).rejected()).toBe(0)
   })
 
-  it('a change refused straight away is not counted: its error is on screen as it happens', async () => {
+  it('also reports an immediate refusal so optimistic clock and score changes can be corrected', async () => {
     const { client } = fakeClient([REFUSED])
     const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
     expect(await box.runOrQueue(goal('g1'))).toBe('failed')
-    expect(box.rejected()).toBe(0)
+    expect(box.rejected()).toBe(1)
   })
 })
 
@@ -193,17 +193,112 @@ describe('a server that fails for now (an overloaded gateway, too many requests,
     expect(calls).toEqual(['insert match_events g1', 'insert match_events g1', 'insert match_events g1', 'insert match_events g2'])
   })
 
-  it('gives up on a change that keeps failing, so it cannot hold up the rest for ever', async () => {
-    const { client, calls } = fakeClient(Array.from({ length: 8 }, () => temporary(500)))
+  it('keeps changes through a long server outage and sends them when service returns', async () => {
+    const { client, calls } = fakeClient(Array.from({ length: 12 }, () => temporary(500)))
     const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
     expect(await box.runOrQueue(goal('g1'))).toBe('queued')
     await box.runOrQueue(goal('g2'))
-    for (let i = 0; i < 6; i++) expect(await box.flush()).toBe(false)
-    // The 8th failed try counts it as refused; the change behind it goes
+    for (let i = 0; i < 11; i++) expect(await box.flush()).toBe(false)
+    expect(box.pending().map((o) => o.id)).toEqual(['op-g1', 'op-g2'])
+    expect(box.rejected()).toBe(0)
     expect(await box.flush()).toBe(true)
-    expect(box.rejected()).toBe(1)
-    expect(calls.filter((c) => c.endsWith('g1'))).toHaveLength(8)
+    expect(box.rejected()).toBe(0)
+    expect(calls.filter((c) => c.endsWith('g1'))).toHaveLength(13)
     expect(calls.at(-1)).toBe('insert match_events g2')
+  })
+})
+
+describe('durable sends and match completion', () => {
+  function heldClient() {
+    let release!: (result: Result) => void
+    const first = new Promise<Result>((resolve) => { release = resolve })
+    const insert = vi.fn().mockReturnValueOnce(first).mockResolvedValue({ error: null, status: 201 })
+    const update = vi.fn().mockResolvedValue({ error: null, status: 200 })
+    const client = {
+      from: () => ({ insert, update: () => ({ match: update }), delete: () => ({ match: update }) }),
+    }
+    return { client, insert, update, release }
+  }
+
+  it('persists an online edit before its request starts and retains it until acknowledged', async () => {
+    const storage = memoryStorage()
+    const { client, release } = heldClient()
+    const box = createOutbox({ client, storage, isOnline: () => true })
+    const sending = box.runOrQueue(goal('g1'))
+    expect(box.pending()).toEqual([goal('g1')])
+    const reopened = createOutbox({ client, storage, isOnline: () => false })
+    expect(reopened.pending()).toEqual([goal('g1')])
+    release({ error: null, status: 201 })
+    expect(await sending).toBe('sent')
+    expect(createOutbox({ client, storage, isOnline: () => false }).pending()).toEqual([])
+  })
+
+  it('keeps another open tab’s unsent goal when this tab sends its own change', async () => {
+    const storage = memoryStorage()
+    const client = fakeClient([]).client
+    const offline = () => createOutbox({ client, storage, isOnline: () => false })
+    const first = offline()
+    const second = createOutbox({ client, storage, isOnline: () => true })
+    await first.runOrQueue(goal('still-waiting'))
+    expect(await second.runOrQueue(goal('delivered'))).toBe('sent')
+    expect(offline().pending()).toEqual([goal('still-waiting')])
+  })
+
+  it('concurrent flushes wait for the in-flight request without sending it twice', async () => {
+    const { client, release, insert } = heldClient()
+    const box = createOutbox({ client, storage: memoryStorage(), isOnline: () => true })
+    const sending = box.runOrQueue(goal('g1'))
+    let finished = false
+    const firstFlush = box.flush().then((done) => { finished = true; return done })
+    const secondFlush = box.flush()
+    await vi.waitFor(() => expect(insert).toHaveBeenCalledTimes(1))
+    expect(finished).toBe(false)
+    expect(box.isFlushing()).toBe(true)
+    release({ error: null, status: 201 })
+    expect(await sending).toBe('sent')
+    expect(await firstFlush).toBe(true)
+    expect(await secondFlush).toBe(true)
+    expect(insert).toHaveBeenCalledTimes(1)
+  })
+
+  const score: OutboxOp = { id: 'score1', kind: 'update', table: 'matches', values: { team1_score: 1 }, match: { id: 'm1' } }
+
+  it('persists the whole goal action before sending and keeps flush waiting for its score', async () => {
+    const storage = memoryStorage()
+    const { client, release, insert, update } = heldClient()
+    let finishScore!: (result: Result) => void
+    update.mockReturnValueOnce(new Promise<Result>((resolve) => { finishScore = resolve }))
+    const box = createOutbox({ client, storage, isOnline: () => true })
+    const sending = box.runBatchOrQueue([goal('g1'), score])
+    expect(createOutbox({ client, storage, isOnline: () => false }).pending().map((op) => op.id)).toEqual(['op-g1', 'score1'])
+    let finished = false
+    const flushing = box.flush().then((done) => { finished = true; return done })
+    await vi.waitFor(() => expect(insert).toHaveBeenCalledTimes(1))
+    release({ error: null, status: 201 })
+    await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    expect(finished).toBe(false)
+    expect(box.pending().map((op) => op.id)).toEqual(['score1'])
+    finishScore({ error: null, status: 200 })
+    expect(await sending).toBe('sent')
+    expect(await flushing).toBe(true)
+  })
+
+  it.each([false, true])('cancels dependent score edits when a goal is refused (reopened: %s)', async (reopened) => {
+    const storage = memoryStorage()
+    const { client, release, update } = heldClient()
+    let box = createOutbox({ client, storage, isOnline: () => !reopened })
+    const sending = box.runBatchOrQueue([goal('g1'), score])
+    if (reopened) {
+      expect(await sending).toBe('queued')
+      box = createOutbox({ client, storage, isOnline: () => true })
+    }
+    const flushing = box.flush()
+    release({ error: { message: 'permission denied' }, status: 403 })
+    if (!reopened) expect(await sending).toBe('failed')
+    expect(await flushing).toBe(false)
+    expect(update).not.toHaveBeenCalled()
+    expect(box.pending()).toEqual([])
+    expect(box.rejected()).toBe(2)
   })
 })
 

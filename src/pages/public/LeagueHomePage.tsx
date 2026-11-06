@@ -9,6 +9,7 @@ import { useLeague, usePublicPath } from '../../contexts/LeagueContext'
 import type { FeatureKey } from '../../lib/features'
 import type { Session } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
+import LoadFailed from '../../components/LoadFailed'
 
 const PAGES: { rest: string; key: string; feature: FeatureKey }[] = [
   { rest: '/leaderboard', key: 'nav.leaderboard', feature: 'leaderboard' },
@@ -16,36 +17,44 @@ const PAGES: { rest: string; key: string; feature: FeatureKey }[] = [
   { rest: '/cards', key: 'nav.cards', feature: 'player_cards' },
 ]
 
+interface HomeData { active: Session | null; history: Session[] }
+
 export default function LeagueHomePage() {
   const { t, i18n } = useTranslation()
   const league = useLeague()
   const publicPath = usePublicPath()
-  const [loaded, setLoaded] = useState<{ leagueId: string; active: Session | null; history: Session[] } | null>(null)
+  const [loaded, setLoaded] = useState<{ leagueId: string; data: HomeData | 'failed' } | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let stale = false
     const load = async () => {
-      const [{ data: active }, { data: history }] = await Promise.all([
+      const [active, history] = await Promise.all([
         supabase.from('sessions').select('*').eq('league_id', league.id).eq('status', 'active')
           .order('date', { ascending: false }).limit(1),
         supabase.from('sessions').select('*').eq('league_id', league.id).eq('status', 'completed')
           .order('date', { ascending: false }).limit(10),
       ])
       if (stale) return
+      if (active.error || history.error) throw active.error ?? history.error
       setLoaded({
         leagueId: league.id,
-        active: ((active ?? []) as Session[])[0] ?? null,
-        history: (history ?? []) as Session[],
+        data: {
+          active: ((active.data ?? []) as Session[])[0] ?? null,
+          history: (history.data ?? []) as Session[],
+        },
       })
     }
-    load()
+    load().catch(() => { if (!stale) setLoaded({ leagueId: league.id, data: 'failed' }) })
     return () => { stale = true }
-  }, [league.id])
+  }, [league.id, attempt])
 
-  const data = loaded && loaded.leagueId === league.id ? loaded : null
+  const data = loaded?.leagueId === league.id ? loaded.data : null
   const dateLabel = (date: string) =>
     format(new Date(`${date}T00:00:00`), 'PPP', { locale: i18n.language === 'ar' ? ar : enUS })
   const pages = PAGES.filter((p) => league.features.includes(p.feature))
+
+  if (data === 'failed') return <LoadFailed onRetry={() => { setLoaded(null); setAttempt((n) => n + 1) }} />
 
   return (
     <div className="max-w-lg mx-auto">

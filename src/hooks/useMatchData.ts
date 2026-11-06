@@ -55,19 +55,24 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     // the other. The timeline decides: with nothing waiting on this phone, a score that disagrees
     // with it is put right. Only if the score is still the one just read, so a goal being saved
     // from another phone is never overwritten.
-    if (m.status !== 'completed' && outbox.pending().length === 0 && !outbox.isFlushing()) {
+    const settled = outbox.pending().length === 0 && !outbox.isFlushing()
+    let scoreConfirmed = settled
+    if (m.status !== 'completed' && settled) {
       const real = scoreFromGoals(m, data.events.filter((e) => e.match_id === m.id))
       if (real.team1_score !== m.team1_score || real.team2_score !== m.team2_score) {
+        staleRef.current = true
+        scoreConfirmed = false
         try {
-          const { error } = await supabase.from('matches').update(real)
+          const { data: repaired, error } = await supabase.from('matches').update(real)
             .eq('id', m.id).eq('team1_score', m.team1_score).eq('team2_score', m.team2_score)
-          if (!error) Object.assign(m, real)
-        } catch { /* keep the fetched data if the score repair could not be sent */ }
+            .neq('status', 'completed').select('id').maybeSingle()
+          if (repaired && !error) { Object.assign(m, real); scoreConfirmed = true }
+        } catch { /* finish must wait for a confirmed score */ }
       }
     }
     if (!current()) return
     setMissing(false)
-    if (seenRejectedRef.current === refusedBefore) staleRef.current = false
+    if (scoreConfirmed && seenRejectedRef.current === refusedBefore) staleRef.current = false
     const finished = new Set(data.matches.filter((x) => x.status === 'completed').map((x) => x.id))
     setSession(data.session)
     setSessionMatches(data.matches)
@@ -132,13 +137,9 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     updateMatch(shown.match)
     setEvents(shown.events)
     setTeamPlayers(shown.teamPlayers)
-    let allSent = true
-    for (const op of ops) {
-      const outcome = await outbox.runOrQueue(op)
-      if (outcome === 'failed') { load(); return }
-      if (outcome === 'queued') allSent = false
-    }
-    if (allSent) load()
+    // Register the goal, assist and score together. The drain subscription above
+    // refreshes once the whole action finishes, including after a server refusal.
+    await outbox.runBatchOrQueue(ops)
   }
 
   // Show the clock change at once (also when it waits offline in the outbox), then reload

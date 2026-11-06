@@ -61,10 +61,8 @@ export default function MatchTrackerPage() {
   } | null>(null)
   // Clock reading captured when Goal/Card is tapped, not after the scorer is picked
   const [eventClock, setEventClock] = useState(0)
-  const [penaltyMode, setPenaltyMode] = useState(false)
   const [view, setView] = useState<'match' | 'session'>('match')
-  // Saving the result and setting up the next match takes two requests; a second tap meanwhile
-  // would set up the next match twice. The ref blocks it at once, the state greys the buttons out.
+  // Only one decision about the final score can be in progress at a time.
   const finishingRef = useRef(false)
   const [finishing, setFinishing] = useState(false)
   // The last try to save the result failed (no signal, or the server refused it)
@@ -73,7 +71,7 @@ export default function MatchTrackerPage() {
   const timer = useMatchTimer(match ?? ({} as Match))
 
   const format = session ?? DEFAULT_FORMAT
-  const screen = match ? matchScreen(format, match, timer, penaltyMode) : null
+  const screen = match ? matchScreen(format, match, timer) : null
   useEndAlert(match?.id, screen?.reachedEnd ?? false)
   useWakeLock(timer.timerStatus === 'running')
 
@@ -245,18 +243,20 @@ export default function MatchTrackerPage() {
     await finishMatch(!update.is_draw && match.period >= 3 ? { ...update, draw_resolved_by: 'extra_time' } : update)
   }
 
-  const goToPenalties = async () => {
-    setPenaltyMode(true)
+  const goToPenalties = () => withSettledScore(async () => {
     // Straight from a period still on the clock (a level match 1 of a one-period session): keep its length
     const unrecorded = match.period <= 4 && match.period_seconds.length < match.period
-    await apply([{
-      id: newId(), kind: 'update', table: 'matches', match: { id: match.id },
-      values: {
-        period: 5, timer_status: 'stopped', timer_started_at: null,
-        ...(unrecorded ? { timer_elapsed_seconds: timer.elapsed, period_seconds: [...match.period_seconds, timer.elapsed] } : {}),
-      },
-    }])
-  }
+    const changes = {
+      period: 5, timer_status: 'stopped' as const, timer_started_at: null,
+      ...(unrecorded ? { timer_elapsed_seconds: timer.elapsed, period_seconds: [...match.period_seconds, timer.elapsed] } : {}),
+    }
+    const outcome = await outbox.runOrQueue({
+      id: newId(), kind: 'update', table: 'matches', match: { id: match.id }, values: changes,
+    })
+    // A settled tie can enter penalties offline. If the queued update is later refused,
+    // the normal reload restores the server's period and the regulation controls.
+    if (outcome !== 'failed') setMatch((m) => m && { ...m, ...changes })
+  })
 
   // The draw stands (draw rule 'draw'): no winner, and resolveMatch sends the next teams on
   const endAsDraw = () => finishMatch({ is_draw: true, winner_team_id: null, draw_resolved_by: null })
@@ -268,31 +268,41 @@ export default function MatchTrackerPage() {
     }, { team1: penaltyT1, team2: penaltyT2 })
   }
 
-  // update carries the winner, or none for a draw that stands
-  const finishMatch = async (update: Partial<Match>, penalties?: { team1: number; team2: number }) => {
+  // Both a shoot-out and the final result depend on the score being settled.
+  const withSettledScore = async (action: () => Promise<void>) => {
     if (finishingRef.current) return
     finishingRef.current = true
     setFinishing(true)
     try {
-      // Ending creates the next match on the server, so everything recorded must be sent first
-      if (outbox.pending().length > 0 && !(await outbox.flush())) {
-        setEndBlocked(true)
+      if (!(await outbox.flush())) {
+        // Pending edits need another attempt. A permanent refusal has its own warning;
+        // the outbox reloads the corrected score before the referee tries again.
+        setEndBlocked(outbox.pending().length > 0)
         return
       }
-      // The result is worked out from the score on screen. If the server refused a saved change,
-      // reload first: the warning stays up and the admin ends the match from the corrected score.
+      // Give the referee the corrected score before asking for the decision again.
       if (staleRef.current) {
         await load()
+        setFinishFailed(staleRef.current)
         return
       }
+      setFinishFailed(false)
+      await action()
+    } finally {
+      finishingRef.current = false
+      setFinishing(false)
+    }
+  }
 
+  // update carries the winner, or none for a draw that stands
+  const finishMatch = (update: Partial<Match>, penalties?: { team1: number; team2: number }) =>
+    withSettledScore(async () => {
       const finished = finishedMatchFields(match, timer.elapsed)
       const completedMatch = { ...match, ...update } as Match
       const next = resolveMatch(completedMatch)
 
       // The result and the next match are saved together or not at all (public.finish_match);
       // a second call returns the next match the first one set up
-      setFinishFailed(false)
       const { data: nextMatchId, error } = await supabase.rpc('finish_match', {
         p_match_id: match.id,
         p_is_draw: completedMatch.is_draw,
@@ -316,11 +326,7 @@ export default function MatchTrackerPage() {
         nextMatchId: nextMatchId as string,
         next,
       })
-    } finally {
-      finishingRef.current = false
-      setFinishing(false)
-    }
-  }
+    })
 
   // Same component instance is reused for the next match, so per-match UI state must be reset
   // (the shoot-out's counts are keyed by the match and start again by themselves)
@@ -328,7 +334,6 @@ export default function MatchTrackerPage() {
   const continueAfterResult = () => {
     if (!result) return
     setResult(null)
-    setPenaltyMode(false)
     setView('match')
     navigate(adminPath(`/sessions/${sessionId}/match/${result.nextMatchId}`))
   }
@@ -360,7 +365,7 @@ export default function MatchTrackerPage() {
         </div>
       )}
 
-      <div hidden={view !== 'match'}>
+      <fieldset hidden={view !== 'match'} disabled={finishing} aria-label={t('match.tabMatch')} className="min-w-0">
       {/* Timer */}
       <div className="text-center mb-6">
         <div className="text-xs uppercase text-gray-400 mb-1">{periodName(match.period)}</div>
@@ -437,7 +442,7 @@ export default function MatchTrackerPage() {
         <h3 className="text-xs uppercase text-gray-400 mb-2">{t('timeline.title')}</h3>
         <MatchTimeline events={events} teams={teams} players={players} format={session ?? undefined} />
       </section>
-      </div>
+      </fieldset>
 
       {confirmUndo && lastEvent && (
         <MatchConfirmDialog

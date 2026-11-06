@@ -1,6 +1,8 @@
 import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from './pitchOps'
 import { overlayPending } from '../lib/outboxOverlay'
+import { createOutbox } from '../lib/outbox'
 import type { Match, MatchEvent, TeamPlayer } from '../lib/types'
+import { resetDb, rows, supabase } from '../test/fakeSupabase'
 
 const match = { id: 'm1', team1_id: 'A', team2_id: 'B', team1_score: 1, team2_score: 0, period: 1 } as Match
 const clock = { elapsed_seconds: 95, minute: 1 }
@@ -15,6 +17,47 @@ it('records a goal with its assist and the new score, using ids made on the phon
   expect(goal).toMatchObject({ event_type: 'goal', player_id: 'ali', team_id: 'B', elapsed_seconds: 95, created_at: now })
   expect(assist).toMatchObject({ event_type: 'assist', player_id: 'omar', related_event_id: goal.id })
   expect(state.match).toMatchObject({ team1_score: 1, team2_score: 1 })
+})
+
+it.each([false, true])('keeps an accepted goal in the score when its assist is refused (reopened: %s)', async (reopened) => {
+  resetDb({ matches: [{ ...match }] })
+  const storage = sessionStorage
+  storage.clear()
+  let disconnected = reopened
+  const client = {
+    from(table: string) {
+      const query = supabase.from(table)
+      return {
+        ...query,
+        insert(row: Record<string, unknown>) {
+          if (table === 'match_events' && row.event_type === 'assist') {
+            return Promise.resolve(disconnected
+              ? { error: { message: 'Lost connection' }, status: 0 }
+              : { error: { message: 'Assister no longer exists', code: '23503' }, status: 409 })
+          }
+          return query.insert(row)
+        },
+      }
+    },
+  }
+  const open = () => createOutbox({ storage, client, isOnline: () => true })
+  let box = open()
+  const result = await box.runBatchOrQueue(goalOps({ match, scorerId: 'ali', scorerTeamId: 'B', assisterId: 'omar', clock, newId: ids, now }))
+  if (reopened) {
+    expect(result).toBe('queued')
+    // Only the goal reached the server before the app closed.
+    expect(rows('match_events').map((e) => e.event_type)).toEqual(['goal'])
+    expect(rows('matches')[0].team2_score).toBe(0)
+    disconnected = false
+    box = open()
+    expect(await box.flush()).toBe(false)
+  } else {
+    expect(result).toBe('failed')
+  }
+  expect(rows('match_events').map((e) => e.event_type)).toEqual(['goal'])
+  expect(rows('matches')[0]).toMatchObject({ team1_score: 1, team2_score: 1 })
+  expect(box.rejected()).toBe(1)
+  expect(box.pending()).toEqual([])
 })
 
 it('records a card', () => {

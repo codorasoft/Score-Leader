@@ -465,6 +465,7 @@
     "sending": "Sending saved changes…",
     "saved_one": "{{count}} change saved on this phone — it will be sent automatically.",
     "saved_other": "{{count}} changes saved on this phone — they will be sent automatically.",
+    "memoryOnly": "Changes are only kept in this open page. Keep it open until they finish sending.",
     "retry": "Try now",
     "rejected_one": "{{count}} saved change could not be sent — the server refused it.",
     "rejected_other": "{{count}} saved changes could not be sent — the server refused them.",
