@@ -243,3 +243,36 @@ it('ticks the live clock without recalculating standings or reading the session 
     vi.useRealTimers()
   }
 })
+
+it('refreshes scores missed while offline or asleep and coalesces wake signals from both subscriptions', async () => {
+  const league = finishedLeague()
+  resetDb({ ...league, matches: [...league.matches, match('m3', { match_number: 3, status: 'active' })] })
+  const fetch = vi.spyOn(sessionData, 'fetchSession')
+  vi.useFakeTimers()
+  try {
+    const page = renderPage()
+    await act(async () => {})
+    expect(fetch).toHaveBeenCalledTimes(1)
+    db.tables.matches.find((m) => m.id === 'm3')!.team1_score = 7
+    act(() => {
+      window.dispatchEvent(new Event('online'))
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await act(() => vi.advanceTimersByTimeAsync(250))
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('7')).toBeInTheDocument()
+
+    page.unmount()
+    act(() => {
+      window.dispatchEvent(new Event('online'))
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await vi.advanceTimersByTimeAsync(500)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  } finally {
+    Reflect.deleteProperty(document, 'visibilityState')
+    fetch.mockRestore()
+    vi.useRealTimers()
+  }
+})

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -11,9 +11,11 @@ import { PRESETS, type MatchFormat } from '../../utils/matchFormat'
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
 import MatchTrackerPage from './MatchTrackerPage'
+import { outbox } from '../../lib/pitchOutbox'
 
 // Session s1 is under way: match 1, Green v Blue with Yellow waiting, not started yet
 beforeEach(() => {
+  outbox.dismissRejected()
   localStorage.clear()
   resetDb({
     players, teams, team_players: teamPlayers,
@@ -178,6 +180,81 @@ it('a draw in match 1 goes to penalties', async () => {
   expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
 })
 
+it('a refused equalizer cannot put the match into penalties', async () => {
+  Object.assign(m1(), { status: 'active', timer_status: 'running' })
+  scored('tb', 1)
+  const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  const user = userEvent.setup()
+  const end = async () => {
+    await user.click(screen.getByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+  }
+  try {
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '⚽ Goal' }))
+    await user.click(screen.getByRole('button', { name: 'Omar' }))
+    await user.click(screen.getByRole('button', { name: 'No assist' }))
+    expect(score().slice(0, 2)).toEqual(['1', '1'])
+
+    await end()
+    expect(await screen.findByText(/saved changes must be sent before this match can end/)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Penalty Shootout' })).toBeNull()
+
+    onLine.mockReturnValue(true)
+    db.errors.match_events = { message: 'Unknown scorer', code: '23503' }
+    await end()
+    expect(await screen.findByText(/2 saved changes could not be sent/)).toBeInTheDocument()
+    expect(m1()).toMatchObject({ period: 1, team1_score: 0, team2_score: 1 })
+    expect(screen.queryByRole('heading', { name: 'Penalty Shootout' })).toBeNull()
+    expect(db.rpcs.some((call) => call.fn === 'finish_match')).toBe(false)
+
+    // The refusal also blocked the background reload. Retry from a verified score.
+    delete db.errors.match_events
+    await end()
+    await waitFor(() => expect(score().slice(0, 2)).toEqual(['0', '1']))
+    await end()
+    expect(await screen.findByRole('heading', { name: 'Blue Team wins!' })).toBeInTheDocument()
+    expect(m1()).toMatchObject({ status: 'completed', period: 1, is_draw: false, winner_team_id: 'tb' })
+  } finally { onLine.mockRestore() }
+})
+
+it('keeps the regulation controls when the server refuses the switch to penalties', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: 'End Match' }))
+  db.errors.matches = { message: 'Period change refused' }
+  await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+
+  expect(await screen.findByText(/1 saved change could not be sent/)).toBeInTheDocument()
+  expect(m1().period).toBe(1)
+  expect(screen.queryByRole('heading', { name: 'Penalty Shootout' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'End Match' })).toBeEnabled()
+})
+
+it('allows a settled tie to enter penalties offline and restores regulation if the queued transition is refused', async () => {
+  const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  const user = userEvent.setup()
+  try {
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'End Match' }))
+    await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+    expect(await screen.findByRole('heading', { name: 'Penalty Shootout' })).toBeInTheDocument()
+    expect(m1().period).toBe(1)
+    expect(outbox.pending()).toHaveLength(1)
+
+    onLine.mockReturnValue(true)
+    db.errors.matches = { message: 'Period change refused' }
+    await user.click(screen.getByRole('button', { name: 'Try now' }))
+    expect(await screen.findByText(/1 saved change could not be sent/)).toBeInTheDocument()
+    delete db.errors.matches
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    expect(await screen.findByRole('button', { name: 'End Match' })).toBeEnabled()
+    expect(screen.queryByRole('heading', { name: 'Penalty Shootout' })).toBeNull()
+    expect(m1().period).toBe(1)
+    expect(outbox.pending()).toEqual([])
+  } finally { onLine.mockRestore() }
+})
+
 it('a result that cannot be saved says so, and leaves the match and the session as they were', async () => {
   // The goal limit is reached, so End Match ends the match straight away, without asking
   scored('tg', 2)
@@ -313,6 +390,35 @@ describe('score and timeline out of step', () => {
     onLine.mockRestore()
   })
 
+  it('waits for the last online goal, assist and score before recording the winner', async () => {
+    Object.assign(m1(), { status: 'active', timer_status: 'running' })
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '⚽ Goal' }))
+    await user.click(screen.getByRole('button', { name: 'Omar' }))
+    let releaseEvents!: () => void
+    let releaseScore!: () => void
+    db.holds.match_events = new Promise<void>((r) => { releaseEvents = r })
+    db.holds.matches = new Promise<void>((r) => { releaseScore = r })
+    try {
+      await user.click(screen.getByRole('button', { name: 'Ali' }))
+      await user.click(screen.getByRole('button', { name: 'End Match' }))
+      await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
+      expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeDisabled()
+      expect(db.rpcs.some((call) => call.fn === 'finish_match')).toBe(false)
+
+      await act(async () => { releaseEvents() })
+      await waitFor(() => expect(rows('match_events').map((e) => e.event_type)).toEqual(['goal', 'assist']))
+      expect(m1()).toMatchObject({ status: 'active', team1_score: 0 })
+      expect(db.rpcs.some((call) => call.fn === 'finish_match')).toBe(false)
+
+      await act(async () => { releaseScore() })
+      expect(await screen.findByRole('heading', { name: 'Green Team wins!' })).toBeInTheDocument()
+      expect(m1()).toMatchObject({ status: 'completed', team1_score: 1, winner_team_id: 'tg' })
+      expect(db.rpcs.filter((call) => call.fn === 'finish_match')).toHaveLength(1)
+    } finally { releaseEvents(); releaseScore() }
+  })
+
   it('ending the match is held back when a saved goal turns out refused, so the result uses the real score', async () => {
     // Match 2: a draw would go to the team that waited, so the winner depends on the true score
     Object.assign(rows('matches')[0], { status: 'active', timer_status: 'running', match_number: 2 })
@@ -324,14 +430,15 @@ describe('score and timeline out of step', () => {
     await user.click(screen.getByRole('button', { name: 'No assist' }))
     await waitFor(() => expect(score().slice(0, 2)).toEqual(['1', '0']))
 
-    // Signal returns, but the server refuses the goal (its score change goes through)
+    // Signal returns, but the server refuses the goal, so its dependent score update is cancelled.
     onLine.mockReturnValue(true)
     db.errors.match_events = { message: 'violates foreign key constraint', code: '23503' }
     await user.click(screen.getByRole('button', { name: 'End Match' }))
     await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
 
-    await waitFor(() => expect(screen.getByText(/1 saved change could not be sent/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/2 saved changes could not be sent/)).toBeInTheDocument())
     expect(m1()).toMatchObject({ status: 'active', winner_team_id: null })
+    expect(db.writes.filter((w) => w.table === 'matches')).toEqual([])
     expect(rows('matches')).toHaveLength(1)
 
     // The screen could not reload either (the server is still failing); another tap still does not

@@ -9,7 +9,6 @@ export function matchScreen(
   format: MatchFormat,
   match: ScreenMatch,
   clock: { elapsed: number; timerStatus?: TimerStatus },
-  penaltyMode: boolean,
 ) {
   const timerStatus = clock.timerStatus ?? match.timer_status
   const step: Step = nextStep(format, { ...match, timer_status: timerStatus }, clock.elapsed)
@@ -17,7 +16,7 @@ export function matchScreen(
   const reachedEnd = (step.kind === 'endPeriod' && step.timeUp) || step.kind === 'endMatch'
   const matchOver = match.status === 'completed'
   // Penalties are period 5, so a reload during the shoot-out comes back to it (not once the match is over)
-  const showPenalties = (penaltyMode || match.period === 5) && !matchOver
+  const showPenalties = match.period === 5 && !matchOver
   // The clock stopped on a period that is already recorded: the break before the next step
   const between = !showPenalties && step.kind !== 'play' && step.kind !== 'endPeriod'
     && timerStatus === 'stopped' && match.period_seconds.length >= match.period

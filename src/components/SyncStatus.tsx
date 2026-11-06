@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Outbox } from '../lib/outbox'
 
-const readStatus = (outbox: Outbox) => ({ pending: outbox.pending().length, flushing: outbox.isFlushing(), rejected: outbox.rejected() })
+const readStatus = (outbox: Outbox) => ({ pending: outbox.pending().length, flushing: outbox.isFlushing(), rejected: outbox.rejected(), durable: outbox.isDurable() })
 
 export function useOutboxStatus(outbox: Outbox) {
   const [status, setStatus] = useState(() => readStatus(outbox))
@@ -14,7 +14,7 @@ export function useOutboxStatus(outbox: Outbox) {
 // if the server refused any of them: that warning stays until the admin dismisses it.
 export function SyncStatus({ outbox }: { outbox: Outbox }) {
   const { t } = useTranslation()
-  const { pending, flushing, rejected } = useOutboxStatus(outbox)
+  const { pending, flushing, rejected, durable } = useOutboxStatus(outbox)
 
   return (
     <>
@@ -30,12 +30,12 @@ export function SyncStatus({ outbox }: { outbox: Outbox }) {
           </button>
         </div>
       )}
-      {pending > 0 && <Waiting outbox={outbox} pending={pending} flushing={flushing} />}
+      {pending > 0 && <Waiting outbox={outbox} pending={pending} flushing={flushing} durable={durable} />}
     </>
   )
 }
 
-function Waiting({ outbox, pending, flushing }: { outbox: Outbox; pending: number; flushing: boolean }) {
+function Waiting({ outbox, pending, flushing, durable }: { outbox: Outbox; pending: number; flushing: boolean; durable: boolean }) {
   const { t } = useTranslation()
   return (
     <div role="status" className="mb-4 rounded-xl border border-orange-500/70 bg-orange-900/30 px-3 py-2.5 flex items-center gap-3">
@@ -44,7 +44,9 @@ function Waiting({ outbox, pending, flushing }: { outbox: Outbox; pending: numbe
         <span className="block font-semibold text-orange-200">
           {flushing ? t('offline.sending') : t('offline.noSignal')}
         </span>
-        <span className="block text-xs text-orange-100/80">{t('offline.saved', { count: pending })}</span>
+        <span className={`block ${durable ? 'text-xs text-orange-100/80' : 'text-sm font-medium text-orange-100'}`}>
+          {durable ? t('offline.saved', { count: pending }) : t('offline.memoryOnly')}
+        </span>
       </span>
       {!flushing && (
         <button onClick={() => outbox.flush()} className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-xs font-semibold shrink-0">

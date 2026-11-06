@@ -13,7 +13,7 @@ vi.mock('../lib/pitchOutbox', () => ({
     pending: vi.fn(() => []),
     isFlushing: vi.fn(() => false),
     subscribe: vi.fn(() => () => {}),
-    runOrQueue: vi.fn(async () => 'queued'),
+    runBatchOrQueue: vi.fn(async () => 'queued'),
   },
 }))
 
@@ -40,7 +40,7 @@ beforeEach(() => {
   resetDb({ matches: [match('m1')] })
   vi.mocked(fetchSession).mockReset().mockResolvedValue(snapshot())
   vi.mocked(outbox.pending).mockReset().mockReturnValue([])
-  vi.mocked(outbox.runOrQueue).mockReset().mockResolvedValue('queued')
+  vi.mocked(outbox.runBatchOrQueue).mockReset().mockResolvedValue('queued')
 })
 
 it('exposes an initial request failure and recovers when retried', async () => {
@@ -156,6 +156,21 @@ it('ignores a superseded response even when it was waiting for a score repair', 
   expect(result.current.match?.timer_elapsed_seconds).toBe(20)
   await act(async () => { repair.resolve() })
   expect(result.current.match?.timer_elapsed_seconds).toBe(20)
+})
+
+it.each(['refused', 'changed elsewhere'])('keeps finishing blocked when a score repair is %s', async (reason) => {
+  const inconsistent = snapshot()
+  inconsistent.matches[0].team1_score = 1
+  // The server's match is already 0–0, so the conditional update of 1–0 hits no row.
+  if (reason === 'refused') db.errors.matches = { message: 'update refused' }
+  vi.mocked(fetchSession).mockResolvedValueOnce(inconsistent)
+  const { result } = renderHook(() => useMatchData('s1', 'm1', 'L1'))
+  await waitFor(() => expect(result.current.match?.id).toBe('m1'))
+  expect(result.current.staleRef.current).toBe(true)
+
+  await act(() => result.current.load())
+  expect(result.current.match?.team1_score).toBe(0)
+  expect(result.current.staleRef.current).toBe(false)
 })
 
 it('ignores a response from an effect cleaned up by StrictMode', async () => {

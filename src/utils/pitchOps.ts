@@ -40,13 +40,15 @@ const scoreUpdate = (p: Pick<Common, 'match' | 'newId'>, teamId: string, delta: 
 
 export function goalOps(p: Common & { scorerId: string; scorerTeamId: string; assisterId?: string | null; assisterTeamId?: string | null }): OutboxOp[] {
   const goal = eventRow(p, { id: p.newId(), player_id: p.scorerId, team_id: p.scorerTeamId, event_type: 'goal' })
-  const ops = [insert(p, goal)]
+  const goalInsert = insert(p, goal)
+  const ops = [goalInsert]
   if (p.assisterId) {
     ops.push(insert(p, eventRow(p, {
       id: p.newId(), player_id: p.assisterId, team_id: p.assisterTeamId ?? p.scorerTeamId, event_type: 'assist', related_event_id: goal.id,
     })))
   }
-  ops.push(scoreUpdate(p, p.scorerTeamId, 1))
+  // Once the goal is accepted it counts, even if the server refuses its assist.
+  ops.push({ ...scoreUpdate(p, p.scorerTeamId, 1), dependsOn: goalInsert.id })
   return ops
 }
 

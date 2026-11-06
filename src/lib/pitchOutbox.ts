@@ -11,17 +11,18 @@ const memoryStorage = () => {
   return { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v) } }
 }
 
-const storage = (() => {
+const storageSettings = (() => {
   try {
-    localStorage.setItem('scoreleader.probe', '1')
-    return localStorage
+    // Access can be denied altogether. Keep reading an existing queue even if writes
+    // currently fail (e.g. quota exceeded); createOutbox detects each failed save.
+    return { storage: window.localStorage, persistent: true }
   } catch {
-    return memoryStorage()
+    return { storage: memoryStorage(), persistent: false }
   }
 })()
 
 export const outbox = createOutbox({
-  storage,
+  ...storageSettings,
   isOnline: () => navigator.onLine !== false,
   // No session also when an expired login could not be renewed; the changes wait until it can
   isSignedIn: async () => !!(await supabase.auth.getSession()).data.session,
