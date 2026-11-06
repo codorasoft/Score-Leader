@@ -13,7 +13,7 @@ import { NextUp } from '../../components/NextUp'
 import { BetweenPeriods } from '../../components/BetweenPeriods'
 import { findLastUndoable, undoAllowed } from '../../utils/matchEdit'
 import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
-import { totalSeconds, DEFAULT_FORMAT, periodAfter, periodLabelKey, periodSecondsAtStart } from '../../utils/matchFormat'
+import { totalSeconds, DEFAULT_FORMAT, periodAfter, periodLabelKey } from '../../utils/matchFormat'
 import { matchScreen } from '../../utils/matchScreen'
 import { canRecordEvents, finishedMatchFields } from '../../utils/matchClock'
 import { GoalDialog } from '../../components/GoalDialog'
@@ -49,7 +49,7 @@ export default function MatchTrackerPage() {
 
   const {
     match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
-    load, apply, refreshMatch, endBlocked, setEndBlocked, staleRef, missing, loadFailed,
+    load, apply, endBlocked, setEndBlocked, staleRef, missing, loadFailed,
   } = useMatchData(sessionId, matchId, league.id)
   const [dialog, setDialog] = useState<'goal' | 'card' | 'interception' | 'swap' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
@@ -68,7 +68,7 @@ export default function MatchTrackerPage() {
   // The last try to save the result failed (no signal, or the server refused it)
   const [finishFailed, setFinishFailed] = useState(false)
 
-  const timer = useMatchTimer(match ?? ({} as Match))
+  const timer = useMatchTimer(match, apply)
 
   const format = session ?? DEFAULT_FORMAT
   const screen = match ? matchScreen(format, match, timer) : null
@@ -190,31 +190,12 @@ export default function MatchTrackerPage() {
       ? periodAfter(format, step.period, level) === null ? t('match.timeUp') : t('match.periodTimeUp', { period: periodName(step.period) })
       : step.kind === 'endMatch' && step.reason === 'goalLimit' ? t('match.goalLimitReached') : null
 
-  // Both show the new period state on this screen before the write and reload finish, as apply() does;
-  // otherwise Start would briefly offer to restart the ended period and record it twice
-  const endCurrentPeriod = async () => {
-    const seconds = timer.elapsed
-    setMatch((m) => m && {
-      ...m, timer_status: 'stopped', timer_started_at: null, timer_elapsed_seconds: seconds, period_seconds: [...m.period_seconds, seconds],
-    })
-    await timer.endPeriod()
-    await refreshMatch()
-  }
-
-  const startNextPeriod = async (period: number) => {
-    primeAlertAudio()
-    setMatch((m) => m && {
-      ...m, period, status: 'active', timer_status: 'running', timer_elapsed_seconds: 0, timer_started_at: serverNowIso(),
-      period_seconds: periodSecondsAtStart(m.period_seconds, period),
-    })
-    await timer.startPeriod(period)
-    await refreshMatch()
-  }
-
   const runStep = async () => {
     switch (step.kind) {
-      case 'endPeriod': return endsMatch ? doEndMatch() : endCurrentPeriod()
-      case 'startPeriod': return startNextPeriod(step.period)
+      case 'endPeriod': return endsMatch ? doEndMatch() : timer.endPeriod()
+      case 'startPeriod':
+        primeAlertAudio()
+        return timer.startPeriod(step.period)
       case 'penalties': return goToPenalties()
       case 'draw': return endAsDraw()
       default: return doEndMatch()

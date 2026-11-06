@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchSession, type SessionData } from '../../lib/sessionData'
 import { useRealtime } from '../../hooks/useRealtime'
 import { serverNow } from '../../lib/serverClock'
-import { formatMatchClock } from '../../utils/matchClock'
+import { formatDuration } from '../../utils/matchClock'
 import { periodLabelKey, periodLength } from '../../utils/matchFormat'
 import { MatchTimeline } from '../../components/MatchTimeline'
 import { SessionMatchList } from '../../components/SessionMatchList'
@@ -68,9 +68,12 @@ function LiveSession({ token }: { token: string }) {
     return () => { active = false; clearTimeout(timer) }
   }, [token, attempt])
 
-  // fetchSession returns matches in match-number order.
-  const match = live?.matches.filter((m) => m.status !== 'completed').pop()
-  useRealtime('matches', { column: 'session_id', value: live?.session.id ?? '' }, refresh)
+  // Finishing a match creates the next fixture. Closing the booking leaves that row in place.
+  const match = live?.session.status === 'active' ? live.matches.filter((m) => m.status !== 'completed').pop() : undefined
+  const sessionId = live?.session.id ?? ''
+  const completed = live?.session.status === 'completed'
+  useRealtime('sessions', { column: 'id', value: completed ? '' : sessionId }, refresh)
+  useRealtime('matches', { column: 'session_id', value: sessionId }, refresh)
   useRealtime('match_events', { column: 'match_id', value: match?.id ?? '' }, refresh)
 
   if (status === 'failed') return <LoadFailed onRetry={() => { setStatus('loading'); setAttempt((n) => n + 1) }} />
@@ -90,7 +93,7 @@ function LiveSession({ token }: { token: string }) {
       {!match ? (
         <div className="text-center mb-8">
           <h1 className="text-xl font-bold mb-2">{sessionDate(session.date, i18n.language)}</h1>
-          <p className="text-gray-400">{t('live.noActiveMatch')}</p>
+          <p className="text-gray-400">{t(completed ? 'history.status.completed' : 'live.noActiveMatch')}</p>
         </div>
       ) : (
         <div className="mb-8">
@@ -150,9 +153,9 @@ function LiveClock({ match, len }: { match: Match; len: number }) {
   const elapsed = matchElapsed(match, now)
   return (
     <div className="text-center text-4xl font-mono font-bold" dir="ltr">
-      {match.period === 5 ? '–' : formatMatchClock(Math.min(elapsed, len), len)}
+      {match.period === 5 ? '–' : formatDuration(Math.min(elapsed, len))}
       {len > 0 && elapsed > len && (
-        <span className="block text-xl text-red-400">+{formatMatchClock(elapsed - len, len)}</span>
+        <span className="block text-xl text-red-400">+{formatDuration(elapsed - len)}</span>
       )}
     </div>
   )

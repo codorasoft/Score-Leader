@@ -3,12 +3,12 @@ import type { Match, MatchEvent, MatchStatus, TimerStatus } from '../lib/types'
 export const MATCH_DURATION_SECONDS = 7 * 60
 export const GOAL_LIMIT = 2
 
-const mmss = (seconds: number) =>
+export const formatDuration = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 
 export function formatMatchClock(seconds: number, limitSeconds = MATCH_DURATION_SECONDS) {
-  if (seconds <= limitSeconds) return mmss(seconds)
-  return `${mmss(limitSeconds)} +${mmss(seconds - limitSeconds)}`
+  if (seconds <= limitSeconds) return formatDuration(seconds)
+  return `${formatDuration(limitSeconds)} +${formatDuration(seconds - limitSeconds)}`
 }
 
 export function eventClockSeconds(event: Pick<MatchEvent, 'elapsed_seconds' | 'minute'>) {

@@ -14,6 +14,7 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
   const [stateKey, setStateKey] = useState(key)
   const activeKeyRef = useRef<string | null>(null)
   const requestRef = useRef(0)
+  const confirmedMatch = useRef<Match | null>(null)
   const [match, setMatch] = useState<Match | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
@@ -81,6 +82,7 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     setPlayers(data.players)
 
     // Changes still waiting on this phone are shown on top of what the server has
+    confirmedMatch.current = m
     const shown = overlayPending(outbox.pending(), {
       match: m,
       events: data.events.filter((e) => e.match_id === m.id),
@@ -93,6 +95,7 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
 
   useEffect(() => {
     activeKeyRef.current = key
+    confirmedMatch.current = null
     setStateKey(key)
     setMatch(null)
     setSession(null)
@@ -120,7 +123,19 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
   }, [key])
 
   // Once every waiting change has been sent, reload so the screen shows the server's copy
-  useEffect(() => outbox.subscribe(() => {
+  useEffect(() => outbox.subscribe((delivery) => {
+    const saved = confirmedMatch.current
+    const { op, accepted } = delivery ?? {}
+    if (saved && op?.kind === 'update' && op.table === 'matches' && op.match.id === saved.id) {
+      if (accepted) {
+        confirmedMatch.current = { ...saved, ...op.values }
+      } else if ('timer_status' in op.values) {
+        // A refused clock edit can also arrive after an offline replay. Restore the last
+        // confirmed match plus remaining edits even when the following reload cannot run.
+        const shown = overlayPending(outbox.pending(), { match: saved, events: [], teamPlayers: [] })
+        updateMatch(shown.match)
+      }
+    }
     const refused = outbox.rejected()
     if (refused > seenRejectedRef.current) staleRef.current = true
     seenRejectedRef.current = refused
@@ -128,7 +143,7 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
       setEndBlocked(false)
       load()
     }
-  }), [load])
+  }), [load, updateMatch])
 
   // Show the change immediately, then send it (or keep it on the phone until there is signal)
   const apply = async (ops: OutboxOp[]) => {
@@ -142,18 +157,12 @@ export function useMatchData(sessionId: string | undefined, matchId: string | un
     await outbox.runBatchOrQueue(ops)
   }
 
-  // Show the clock change at once (also when it waits offline in the outbox), then reload
-  const refreshMatch = () => {
-    updateMatch((m) => (m ? overlayPending(outbox.pending(), { match: m, events: [], teamPlayers: [] }).match : m))
-    return load()
-  }
-
   const current = stateKey === key
   return {
     match: current ? match : null, setMatch: updateMatch, session: current ? session : null,
     teams: current ? teams : [], teamPlayers: current ? teamPlayers : [], players: current ? players : [],
     events: current ? events : [], sessionMatches: current ? sessionMatches : [], sessionEvents: current ? sessionEvents : [],
-    load, apply, refreshMatch, endBlocked: current && endBlocked, setEndBlocked, staleRef,
+    load, apply, endBlocked: current && endBlocked, setEndBlocked, staleRef,
     missing: current && missing, loadFailed: current && loadFailed,
   }
 }
