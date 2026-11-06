@@ -107,6 +107,57 @@ it('starts the clock and records a goal with an assist', async () => {
   expect(score().slice(0, 2)).toEqual(['1', '0'])
 })
 
+it('keeps goals locked after a refused kickoff and lets the referee retry', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  const start = await screen.findByRole('button', { name: '▶ Start' })
+  db.errors.matches = { message: 'Kickoff refused' }
+  await user.click(start)
+  expect(await screen.findByText(/1 saved change could not be sent/)).toBeInTheDocument()
+  expect(m1().timer_status).toBe('stopped')
+  expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeDisabled()
+
+  delete db.errors.matches
+  await user.click(screen.getByRole('button', { name: '▶ Start' }))
+  await waitFor(() => expect(m1().timer_status).toBe('running'))
+  expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeEnabled()
+})
+
+it('keeps the accepted kickoff running when the server refuses Pause', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await user.click(await screen.findByRole('button', { name: '▶ Start' }))
+  await waitFor(() => expect(m1().timer_status).toBe('running'))
+  const startedAt = m1().timer_started_at
+  db.errors.matches = { message: 'Pause refused' }
+  await user.click(screen.getByRole('button', { name: '⏸ Pause' }))
+  expect(await screen.findByText(/1 saved change could not be sent/)).toBeInTheDocument()
+  expect(m1()).toMatchObject({ timer_status: 'running', timer_started_at: startedAt })
+  expect(screen.getByRole('button', { name: '⏸ Pause' })).toBeEnabled()
+})
+
+it('restores the stopped clock when a kickoff queued before reopening is refused', async () => {
+  const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  const user = userEvent.setup()
+  try {
+    const page = renderPage()
+    await user.click(await screen.findByRole('button', { name: '▶ Start' }))
+    expect(outbox.pending()).toHaveLength(1)
+    page.unmount()
+    renderPage()
+    expect(await screen.findByRole('button', { name: '⏸ Pause' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeEnabled()
+
+    onLine.mockReturnValue(true)
+    db.errors.matches = { message: 'Kickoff refused' }
+    await user.click(screen.getByRole('button', { name: 'Try now' }))
+    expect(await screen.findByText(/1 saved change could not be sent/)).toBeInTheDocument()
+    expect(m1().timer_status).toBe('stopped')
+    expect(screen.getByRole('button', { name: '⚽ Goal' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '▶ Start' })).toBeEnabled()
+  } finally { onLine.mockRestore() }
+})
+
 it('undoes the last goal', async () => {
   const user = userEvent.setup()
   renderPage()

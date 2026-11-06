@@ -51,9 +51,10 @@ export function createOutbox({ client, storage, isOnline, isSignedIn = async () 
   try { rejected = Number(storage.getItem(REJECTED_KEY)) || 0 } catch { /* storage blocked */ }
   let flushing = false
   let draining: Promise<boolean> | null = null
-  const listeners = new Set<() => void>()
+  type Delivery = { op: OutboxOp; accepted: boolean }
+  const listeners = new Set<(delivery?: Delivery) => void>()
   const waiting = new Set<{ ids: Set<string>; failed: boolean }>()
-  const notify = () => listeners.forEach((listener) => listener())
+  const notify = (delivery?: Delivery) => listeners.forEach((listener) => listener(delivery))
 
   // Store only this tab's additions and removals against the latest saved queue. An
   // acknowledgement in another open tab must not erase a goal still waiting here.
@@ -137,7 +138,7 @@ export function createOutbox({ client, storage, isOnline, isSignedIn = async () 
           changes.set(op.id, null)
         }
         save()
-        notify()
+        notify({ op, accepted: outcome === 'ok' })
       }
       return !refused
     }
@@ -184,7 +185,7 @@ export function createOutbox({ client, storage, isOnline, isSignedIn = async () 
     dismissRejected: () => setRejected(0),
     isFlushing: () => flushing,
     isDurable: () => durable,
-    subscribe: (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } },
+    subscribe: (l: (delivery?: Delivery) => void) => { listeners.add(l); return () => { listeners.delete(l) } },
   }
 }
 

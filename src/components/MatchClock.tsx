@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { formatMatchClock } from '../utils/matchClock'
+import { formatDuration } from '../utils/matchClock'
 
 // The period's clock, with added time below it once the period's length has passed
 export function MatchClock({ elapsed, periodSeconds, showButtons, running, onStart, onPause }: {
@@ -15,9 +15,9 @@ export function MatchClock({ elapsed, periodSeconds, showButtons, running, onSta
   return (
     <>
       <div className="text-5xl font-mono font-bold">
-        {formatMatchClock(Math.min(elapsed, periodSeconds), periodSeconds)}
+        {formatDuration(Math.min(elapsed, periodSeconds))}
         {periodSeconds > 0 && elapsed > periodSeconds && (
-          <span className="block text-2xl text-red-400 mt-1">+{formatMatchClock(elapsed - periodSeconds, periodSeconds)}</span>
+          <span className="block text-2xl text-red-400 mt-1">+{formatDuration(elapsed - periodSeconds)}</span>
         )}
       </div>
       {showButtons && (

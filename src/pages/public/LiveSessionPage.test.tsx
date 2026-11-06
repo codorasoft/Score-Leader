@@ -40,17 +40,54 @@ it('shows the match being played: clock, score, waiting team and goals', async (
 })
 
 it('shows the day and results when no match is being played', async () => {
-  resetDb(finishedLeague())
+  resetDb({ ...finishedLeague(), sessions: [{ ...session, status: 'active' }] })
   renderPage()
   expect(await screen.findByText('No active match')).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /20 Sep/ })).toBeInTheDocument()
   expect(screen.getAllByText('Omar').length).toBeGreaterThan(0)
 })
 
+it.each(['pending', 'active'] as const)('shows the final results when a completed booking still has a %s match', async (status) => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    matches: [...league.matches, match('m3', { match_number: 3, status, period_seconds: [0] })],
+  })
+  renderPage()
+  expect(await screen.findByRole('heading', { name: /Last match/i })).toBeInTheDocument()
+  expect(screen.queryByText('Match #3')).not.toBeInTheDocument()
+  expect(screen.queryByText('Half-time')).not.toBeInTheDocument()
+  expect(screen.getByText('Completed')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /#2.*1.*Yellow Team wins/ })).toBeInTheDocument()
+})
+
+it('switches an open score page to the final results when only the booking status changes', async () => {
+  const league = finishedLeague()
+  resetDb({
+    ...league,
+    sessions: [{ ...session, status: 'active' }],
+    matches: [...league.matches, match('m3', { match_number: 3 })],
+  })
+  let onSessionChange: (() => void) | undefined
+  const subscription = vi.spyOn(realtime, 'useRealtime').mockImplementation((table, filter, cb) => {
+    if (table === 'sessions') onSessionChange = filter.column === 'id' && filter.value === session.id ? cb : undefined
+  })
+  try {
+    renderPage()
+    expect(await screen.findByText('Match #3')).toBeInTheDocument()
+    db.tables.sessions[0].status = 'completed'
+    expect(onSessionChange).toBeDefined()
+    act(() => onSessionChange?.())
+    expect(await screen.findByText('Completed')).toBeInTheDocument()
+    expect(screen.queryByText('Match #3')).not.toBeInTheDocument()
+    expect(onSessionChange).toBeUndefined()
+  } finally { subscription.mockRestore() }
+})
+
 it('loads the session, teams, matches, goals and players in one request', async () => {
   resetDb(finishedLeague())
   renderPage()
-  expect(await screen.findByText('No active match')).toBeInTheDocument()
+  expect(await screen.findByText('Completed')).toBeInTheDocument()
   expect(screen.getAllByText('Omar').length).toBeGreaterThan(0)
   expect(db.reads).toBe(1)
 })
@@ -82,7 +119,7 @@ it('offers a retry when the session cannot be loaded', async () => {
 
   delete db.errors.sessions
   await user.click(screen.getByRole('button', { name: 'Retry' }))
-  expect(await screen.findByText('No active match')).toBeInTheDocument()
+  expect(await screen.findByText('Completed')).toBeInTheDocument()
 })
 
 it('four teams: shows who comes on next, in order', async () => {
@@ -136,10 +173,10 @@ it('a long period that runs over shows the overrun once, measured against that p
   resetDb({
     ...league,
     sessions: [{ ...session, status: 'active', ...PRESETS.halves }],
-    matches: [...league.matches, match('m3', { match_number: 3, status: 'active', period: 1, timer_status: 'paused', timer_elapsed_seconds: 1100 })],
+    matches: [...league.matches, match('m3', { match_number: 3, status: 'active', period: 1, timer_status: 'paused', timer_elapsed_seconds: 1300 })],
   })
   renderPage()
-  expect(await screen.findByText('+08:20')).toBeInTheDocument()
+  expect(await screen.findByText('+11:40')).toBeInTheDocument()
   expect(document.body.textContent).not.toMatch(/\+\d\d:\d\d \+/)
 })
 
@@ -184,7 +221,7 @@ it('open extra time shows a clock that keeps counting up, named Extra time', asy
 
 it('combines realtime notifications and follows up once after an in-flight read', async () => {
   const league = finishedLeague()
-  resetDb({ ...league, matches: [...league.matches, match('m3', { match_number: 3, status: 'active' })] })
+  resetDb({ ...league, sessions: [{ ...session, status: 'active' }], matches: [...league.matches, match('m3', { match_number: 3, status: 'active' })] })
   const listeners = new Map<string, () => void>()
   const subscription = vi.spyOn(realtime, 'useRealtime').mockImplementation((table, filter, cb) => {
     if (filter.value) listeners.set(table, cb)
@@ -226,7 +263,7 @@ it('ticks the live clock without recalculating standings or reading the session 
   const compute = vi.spyOn(standings, 'computeStandings')
   try {
     const league = finishedLeague()
-    resetDb({ ...league, matches: [match('current', {
+    resetDb({ ...league, sessions: [{ ...session, status: 'active' }], matches: [match('current', {
       status: 'active', timer_status: 'running', timer_started_at: new Date().toISOString(),
     })] })
     renderPage()
@@ -244,9 +281,9 @@ it('ticks the live clock without recalculating standings or reading the session 
   }
 })
 
-it('refreshes scores missed while offline or asleep and coalesces wake signals from both subscriptions', async () => {
+it('refreshes scores missed while offline or asleep and coalesces wake signals from all subscriptions', async () => {
   const league = finishedLeague()
-  resetDb({ ...league, matches: [...league.matches, match('m3', { match_number: 3, status: 'active' })] })
+  resetDb({ ...league, sessions: [{ ...session, status: 'active' }], matches: [...league.matches, match('m3', { match_number: 3, status: 'active' })] })
   const fetch = vi.spyOn(sessionData, 'fetchSession')
   vi.useFakeTimers()
   try {
