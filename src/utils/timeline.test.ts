@@ -40,3 +40,8 @@ it('shows an interception as its own entry', () => {
   expect(buildTimeline([ev({ id: 'i1', event_type: 'interception', player_id: 'p4', created_at: '2026-10-04T10:02:00Z', elapsed_seconds: 120 })]))
     .toEqual([{ id: 'i1', kind: 'interception', clock: 120, teamId: 'red', playerId: 'p4' }])
 })
+
+it('shows an own goal on the side of the team it counts for, marked as an own goal', () => {
+  expect(buildTimeline([ev({ id: 'o1', event_type: 'own_goal', player_id: 'p5', team_id: 'blue', created_at: '2026-10-04T10:03:00Z', elapsed_seconds: 180 })]))
+    .toEqual([{ id: 'o1', kind: 'goal', clock: 180, teamId: 'blue', playerId: 'p5', ownGoal: true }])
+})

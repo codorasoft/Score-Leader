@@ -1,4 +1,4 @@
-import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from './pitchOps'
+import { goalOps, ownGoalOps, cardOps, interceptionOps, swapOps, undoOps } from './pitchOps'
 import { overlayPending } from '../lib/outboxOverlay'
 import { createOutbox } from '../lib/outbox'
 import type { Match, MatchEvent, TeamPlayer } from '../lib/types'
@@ -115,4 +115,16 @@ it('every event row carries the match period', () => {
   const events = ops.filter((o) => o.table === 'match_events')
   expect(events.length).toBeGreaterThan(0)
   for (const op of events) expect((op as unknown as { row: MatchEvent }).row.period).toBe(2)
+})
+
+it('records an own goal for the other team, and undoing it takes the goal back off that team', () => {
+  // Ali plays for A and puts the ball in his own net: B's goal
+  const ops = ownGoalOps({ match, playerId: 'ali', creditedTeamId: 'B', clock, newId: ids, now })
+  const state = overlayPending(ops, { match, events: [], teamPlayers: [] })
+  expect(state.events).toHaveLength(1)
+  expect(state.events[0]).toMatchObject({ event_type: 'own_goal', player_id: 'ali', team_id: 'B', related_event_id: null })
+  expect(state.match).toMatchObject({ team1_score: 1, team2_score: 1 })
+  const undone = overlayPending(undoOps({ match: state.match, event: state.events[0], events: state.events, newId: ids }), state)
+  expect(undone.events).toEqual([])
+  expect(undone.match).toMatchObject({ team1_score: 1, team2_score: 0 })
 })

@@ -4,7 +4,7 @@ import { eventClockSeconds } from './matchClock'
 interface SwapSide { playerId: string; from: string; to: string }
 
 export type TimelineEntry =
-  | { id: string; kind: 'goal'; period: number; clock: number | null; teamId: string; playerId: string; assistPlayerId?: string }
+  | { id: string; kind: 'goal'; period: number; clock: number | null; teamId: string; playerId: string; assistPlayerId?: string; ownGoal?: boolean }
   | { id: string; kind: 'yellow_card'; period: number; clock: number | null; teamId: string; playerId: string }
   | { id: string; kind: 'red_card'; period: number; clock: number | null; teamId: string; playerId: string; suspensionMinutes: number | null }
   | { id: string; kind: 'interception'; period: number; clock: number | null; teamId: string; playerId: string }
@@ -22,6 +22,9 @@ export function buildTimeline(events: MatchEvent[]): TimelineEntry[] {
     if (e.event_type === 'goal' || e.event_type === 'penalty_goal') {
       const assist = linked(e, 'assist')
       entries.push({ ...base, kind: 'goal', playerId: e.player_id, ...(assist && { assistPlayerId: assist.player_id }) })
+    } else if (e.event_type === 'own_goal') {
+      // teamId is the team the goal counts for, so it sits on that team's side of the timeline
+      entries.push({ ...base, kind: 'goal', playerId: e.player_id, ownGoal: true })
     } else if (e.event_type === 'yellow_card') {
       entries.push({ ...base, kind: 'yellow_card', playerId: e.player_id })
     } else if (e.event_type === 'red_card') {

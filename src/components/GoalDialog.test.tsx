@@ -52,3 +52,23 @@ it('asks who assisted the scorer, and can go back to pick another scorer', () =>
   fireEvent.click(screen.getByText('No assist'))
   expect(onConfirm).toHaveBeenCalledWith({ scorerId: 'p2', assisterId: null })
 })
+
+it('records an own goal in two taps, with no assist step', () => {
+  const onConfirm = vi.fn()
+  render(<GoalDialog teams={mockTeams} onConfirm={onConfirm} onClose={vi.fn()} />)
+  fireEvent.click(screen.getByText('Own goal'))
+  expect(screen.getByRole('heading', { name: 'Own goal — whose?' })).toBeInTheDocument()
+  fireEvent.click(screen.getByText('Player 2'))
+  expect(onConfirm).toHaveBeenCalledWith({ scorerId: 'p2', assisterId: null, ownGoal: true })
+})
+
+it('lists only the given teams for an own goal, and can go back to a normal goal', () => {
+  const onConfirm = vi.fn()
+  render(<GoalDialog teams={[mockTeams[0]]} ownGoalTeams={[mockTeams[1]]} onConfirm={onConfirm} onClose={vi.fn()} />)
+  fireEvent.click(screen.getByText('Own goal'))
+  expect(screen.queryByRole('button', { name: 'Player 1' })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByText('Back'))
+  fireEvent.click(screen.getByText('Player 1'))
+  fireEvent.click(screen.getByText('No assist'))
+  expect(onConfirm).toHaveBeenCalledWith({ scorerId: 'p1', assisterId: null })
+})

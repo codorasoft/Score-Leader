@@ -16,7 +16,7 @@ import { describeOutcome, type MatchOutcome } from '../../utils/matchOutcome'
 import { totalSeconds, DEFAULT_FORMAT, periodAfter, periodLabelKey } from '../../utils/matchFormat'
 import { matchScreen } from '../../utils/matchScreen'
 import { canRecordEvents, finishedMatchFields } from '../../utils/matchClock'
-import { GoalDialog } from '../../components/GoalDialog'
+import { GoalDialog, type GoalResult } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
 import { InterceptionDialog } from '../../components/InterceptionDialog'
 import { SwapDialog } from '../../components/SwapDialog'
@@ -33,7 +33,7 @@ import { MatchConfirmDialog } from '../../components/MatchConfirmDialog'
 import { PenaltyShootout } from '../../components/PenaltyShootout'
 import { outbox, newId } from '../../lib/pitchOutbox'
 import { serverNowIso } from '../../lib/serverClock'
-import { goalOps, cardOps, interceptionOps, swapOps, undoOps } from '../../utils/pitchOps'
+import { goalOps, ownGoalOps, cardOps, interceptionOps, swapOps, undoOps } from '../../utils/pitchOps'
 import type { Match, Team } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
 import LoadFailed from '../../components/LoadFailed'
@@ -112,10 +112,16 @@ export default function MatchTrackerPage() {
   }
   const clockFields = { elapsed_seconds: eventClock, minute: Math.floor(eventClock / 60) }
 
-  const handleGoalConfirm = async ({ scorerId, assisterId }: { scorerId: string; assisterId: string | null }) => {
+  const handleGoalConfirm = async ({ scorerId, assisterId, ownGoal }: GoalResult) => {
     setDialog(null)
     const scorerTeamId = teamPlayers.find((tp) => tp.player_id === scorerId)?.team_id
     if (!scorerTeamId || !inProgress) return
+    if (ownGoal) {
+      // It counts for the team the player is playing against
+      const creditedTeamId = scorerTeamId === match.team1_id ? match.team2_id : match.team1_id
+      await apply(ownGoalOps({ match, playerId: scorerId, creditedTeamId, clock: clockFields, newId, now: serverNowIso() }))
+      return
+    }
     const assisterTeamId = assisterId ? teamPlayers.find((tp) => tp.player_id === assisterId)?.team_id : null
     await apply(goalOps({
       match, scorerId, scorerTeamId, assisterId, assisterTeamId, clock: clockFields, newId, now: serverNowIso(),
@@ -147,7 +153,8 @@ export default function MatchTrackerPage() {
   const lastEventLabel = lastEvent && (
     lastEvent.event_type === 'swap'
       ? t('match.undoSwap', { a: nameOf(lastEvent.player_id), b: swapPartner ? nameOf(swapPartner.player_id) : '?' })
-      : t(lastEventIsGoal ? 'match.undoGoal'
+      : t(lastEvent.event_type === 'own_goal' ? 'match.undoOwnGoal'
+        : lastEventIsGoal ? 'match.undoGoal'
         : lastEvent.event_type === 'interception' ? 'match.undoInterception'
         : lastEvent.event_type === 'red_card' ? 'match.undoRed' : 'match.undoYellow',
         { name: nameOf(lastEvent.player_id) })

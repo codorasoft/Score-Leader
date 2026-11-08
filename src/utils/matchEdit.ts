@@ -2,7 +2,8 @@ import type { EventType, Match, MatchEvent } from '../lib/types'
 import { decideResult, drawGoesToPenalties } from './matchRotation'
 import type { MatchFormat } from './matchFormat'
 
-const SCORING: EventType[] = ['goal', 'penalty_goal']
+// An own goal's team_id is the team it counts for, so it adds to the score like any goal
+const SCORING: EventType[] = ['goal', 'penalty_goal', 'own_goal']
 const UNDOABLE: EventType[] = [...SCORING, 'yellow_card', 'red_card', 'swap', 'interception']
 
 // Assists and the second row of a swap pair are undone together with the event they belong to.

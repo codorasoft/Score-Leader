@@ -39,7 +39,7 @@ export interface SummaryParts {
 export function buildSummaryParts({ t, date, teams, players, matches, events, awards, url }: SummaryInput): SummaryParts {
   const finished = matches.filter((m) => m.status === 'completed')
   const finishedIds = new Set(finished.map((m) => m.id))
-  const goals = events.filter((e) => finishedIds.has(e.match_id) && (e.event_type === 'goal' || e.event_type === 'penalty_goal')).length
+  const goals = events.filter((e) => finishedIds.has(e.match_id) && (e.event_type === 'goal' || e.event_type === 'penalty_goal' || e.event_type === 'own_goal')).length
   const teamName = (team: Team) => t('common.teamName', { color: t(`common.teamColor.${team.color}`) })
   const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
   const sections: SummaryParts['sections'] = []
