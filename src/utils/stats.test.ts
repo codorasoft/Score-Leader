@@ -138,3 +138,12 @@ describe('getBestGoalkeepers', () => {
     expect(keepers({ p1: [0] })).toEqual([])
   })
 })
+
+it('keeps own goals apart from the player\'s goals, while the other team keeps its clean sheet off', () => {
+  const players = [mkPlayer('p1', 'DEF')]
+  // p1 plays for t1 and puts one in his own net: t2's goal
+  const events = [mkEvent({ player_id: 'p1', team_id: 't2', event_type: 'own_goal' })]
+  const matches = [mkMatch({ team1_score: 0, team2_score: 1, winner_team_id: 't2' })]
+  const [p1] = computePlayerStats(players, events, matches, byTeam({ p1: ['t1'] }, matches))
+  expect([p1.goals, p1.ownGoals, p1.cleanSheets, p1.goalsConceded]).toEqual([0, 1, 0, 1])
+})

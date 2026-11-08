@@ -13,6 +13,8 @@ export interface PlayerStat {
   // Goalkeepers and defenders only
   cleanSheets: number
   interceptions: number
+  // Goals put in their own net: they count for the other team, never as the player's goals
+  ownGoals: number
   // Goals the player's team let in across those matches (penalty shootouts not counted)
   goalsConceded: number
 }
@@ -24,7 +26,7 @@ export function computePlayerStats(
   rosters: MatchRosters, // who was on which team in each match, after swaps (see matchRosters)
 ): PlayerStat[] {
   const stats = players.map((player) => ({
-    player, goals: 0, assists: 0, yellowCards: 0, redCards: 0, interceptions: 0,
+    player, goals: 0, assists: 0, yellowCards: 0, redCards: 0, interceptions: 0, ownGoals: 0,
     matchesPlayed: 0, matchesWon: 0, matchesDrawn: 0, cleanSheets: 0, goalsConceded: 0,
   }))
   const byPlayer = new Map(stats.map((row) => [row.player.id, row]))
@@ -38,6 +40,7 @@ export function computePlayerStats(
       case 'yellow_card': row.yellowCards++; break
       case 'red_card': row.redCards++; break
       case 'interception': row.interceptions++; break
+      case 'own_goal': row.ownGoals++; break
     }
   }
 

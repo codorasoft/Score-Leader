@@ -52,6 +52,12 @@ export function goalOps(p: Common & { scorerId: string; scorerTeamId: string; as
   return ops
 }
 
+// An own goal: the row names the player who put it in their own net and, as team_id, the team it counts for.
+export function ownGoalOps(p: Common & { playerId: string; creditedTeamId: string }): OutboxOp[] {
+  const goalInsert = insert(p, eventRow(p, { id: p.newId(), player_id: p.playerId, team_id: p.creditedTeamId, event_type: 'own_goal' }))
+  return [goalInsert, { ...scoreUpdate(p, p.creditedTeamId, 1), dependsOn: goalInsert.id }]
+}
+
 export function cardOps(p: Common & { playerId: string; teamId: string; cardType: 'yellow_card' | 'red_card'; suspensionMinutes: 2 | 3 | null }): OutboxOp[] {
   return [insert(p, eventRow(p, {
     id: p.newId(), player_id: p.playerId, team_id: p.teamId, event_type: p.cardType,
@@ -81,7 +87,7 @@ export function undoOps(p: { match: Common['match']; event: MatchEvent; events: 
   const removeLinked: OutboxOp = { id: newId(), kind: 'delete', table: 'match_events', match: { related_event_id: event.id } }
   const removeEvent: OutboxOp = { id: newId(), kind: 'delete', table: 'match_events', match: { id: event.id } }
 
-  if (event.event_type === 'goal' || event.event_type === 'penalty_goal') {
+  if (event.event_type === 'goal' || event.event_type === 'penalty_goal' || event.event_type === 'own_goal') {
     return [removeLinked, removeEvent, scoreUpdate({ match: p.match, newId }, event.team_id, -1)]
   }
   if (event.event_type === 'swap') {

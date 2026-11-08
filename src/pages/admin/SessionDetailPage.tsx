@@ -37,7 +37,8 @@ const EDIT_ICON = icon('M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z')
 const DELETE_ICON = icon('M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6')
 const iconButton = 'w-9 h-9 shrink-0 rounded-lg flex items-center justify-center'
 
-const isGoal = (e: MatchEvent) => e.event_type === 'goal' || e.event_type === 'penalty_goal'
+// An own goal's team_id is the team it counts for, so it is listed with that team's goals
+const isGoal = (e: MatchEvent) => e.event_type === 'goal' || e.event_type === 'penalty_goal' || e.event_type === 'own_goal'
 
 export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -105,6 +106,13 @@ export default function SessionDetailPage() {
 
   const teamById = Object.fromEntries(teams.map((tm) => [tm.id, tm]))
   const playerName = (id: string) => players.find((p) => p.id === id)?.name ?? '?'
+  const withPlayers = (teamId: string) => ({
+    team: teamById[teamId],
+    players: teamPlayers
+      .filter((tp) => tp.team_id === teamId)
+      .map((tp) => players.find((p) => p.id === tp.player_id)!)
+      .filter(Boolean),
+  })
   const teamLabel = (team: Team) => t('common.teamName', { color: t(`common.teamColor.${team.color}`) })
   const teamNameOf = (id: string | null) => (id && teamById[id] ? teamLabel(teamById[id]) : '?')
   const format = session ?? DEFAULT_FORMAT
@@ -127,11 +135,12 @@ export default function SessionDetailPage() {
     await supabase.from('matches').update(recomputeResult(match, data as MatchEvent[], format)).eq('id', match.id)
   }
 
-  const addGoal = (match: Match, teamId: string, scorerId: string, assisterId: string | null) =>
+  // teamId is the team the goal counts for; an own goal's scorer plays for the other team
+  const addGoal = (match: Match, teamId: string, scorerId: string, assisterId: string | null, ownGoal = false) =>
     runEdit(async () => {
       const { data: goal } = await supabase
         .from('match_events')
-        .insert({ match_id: match.id, period: match.period, player_id: scorerId, team_id: teamId, event_type: 'goal' })
+        .insert({ match_id: match.id, period: match.period, player_id: scorerId, team_id: teamId, event_type: ownGoal ? 'own_goal' : 'goal' })
         .select().single()
       if (!goal) return
       if (assisterId) {
@@ -410,6 +419,9 @@ export default function SessionDetailPage() {
                                     <span className="font-mono text-xs text-gray-400 me-2" dir="ltr">{formatMatchClock(eventClockSeconds(g)!, periodLength(g.period, format) ?? MATCH_DURATION_SECONDS)}</span>
                                   )}
                                   ⚽ {playerName(g.player_id)}
+                                  {g.event_type === 'own_goal' && (
+                                    <span className="text-xs text-gray-400 ms-2">({t('timeline.ownGoalMark')})</span>
+                                  )}
                                   {assist && (
                                     <span className="text-xs text-gray-400 ms-2">
                                       {t('sessionDetail.assistBy', { name: playerName(assist.player_id) })}
@@ -495,17 +507,13 @@ export default function SessionDetailPage() {
 
       {goalDialog && (
         <GoalDialog
-          teams={[{
-            team: teamById[goalDialog.teamId],
-            players: teamPlayers
-              .filter((tp) => tp.team_id === goalDialog.teamId)
-              .map((tp) => players.find((p) => p.id === tp.player_id)!)
-              .filter(Boolean),
-          }]}
-          onConfirm={({ scorerId, assisterId }) => {
+          teams={[withPlayers(goalDialog.teamId)]}
+          // An own goal for this team is scored by a player of the team it played against
+          ownGoalTeams={[withPlayers(goalDialog.match.team1_id === goalDialog.teamId ? goalDialog.match.team2_id : goalDialog.match.team1_id)]}
+          onConfirm={({ scorerId, assisterId, ownGoal }) => {
             const { match, teamId } = goalDialog
             setGoalDialog(null)
-            addGoal(match, teamId, scorerId, assisterId)
+            addGoal(match, teamId, scorerId, assisterId, ownGoal)
           }}
           onClose={() => setGoalDialog(null)}
         />

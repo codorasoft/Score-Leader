@@ -174,14 +174,19 @@
     "periodTimeUp": "Time's up for the {{period}}",
     "drawEnd": "Draw — end match",
     "interception": "🛡️ Interception",
-    "undoInterception": "🛡️ Interception — {{name}}"
+    "undoInterception": "🛡️ Interception — {{name}}",
+    "undoOwnGoal": "⚽ Own goal — {{name}}"
   },
   "goal": {
     "whoScored": "Who scored?",
     "assist": "Assist? (optional)",
     "noAssist": "No assist",
     "assistFor": "Who assisted {{name}}?",
-    "changeScorer": "Change scorer"
+    "changeScorer": "Change scorer",
+    "ownGoal": "Own goal",
+    "whoOwnGoal": "Own goal — whose?",
+    "ownGoalHint": "Pick the player who put it in their own net. The goal counts for the other team.",
+    "notOwnGoal": "Back"
   },
   "card": {
     "who": "Card — who?",
@@ -404,7 +409,9 @@
     "show": "Timeline",
     "sessionProgress": "Booking so far",
     "drawWinner": "Draw · {{team}} wins",
-    "interception": "🛡️ {{name}}"
+    "interception": "🛡️ {{name}}",
+    "ownGoalMark": "OG",
+    "ownGoal": "own goal"
   },
   "standings": {
     "title": "Team standings",

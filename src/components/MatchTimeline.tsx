@@ -50,6 +50,9 @@ export function MatchTimeline({ events, teams, players, format }: Props) {
             {e.kind === 'goal' && (
               <>
                 ⚽ <span className="font-semibold">{playerName(e.playerId)}</span>
+                {e.ownGoal && (
+                  <span className="text-xs text-gray-400 ms-2" title={t('timeline.ownGoal')}>({t('timeline.ownGoalMark')})</span>
+                )}
                 {e.assistPlayerId && (
                   <span className="text-xs text-gray-400 ms-2">{t('timeline.assist', { name: playerName(e.assistPlayerId) })}</span>
                 )}

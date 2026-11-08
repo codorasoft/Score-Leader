@@ -198,14 +198,19 @@
     "periodTimeUp": "انتهى وقت {{period}}",
     "drawEnd": "تعادل — إنهاء المباراة",
     "interception": "🛡️ قطع كرة",
-    "undoInterception": "🛡️ قطع كرة — {{name}}"
+    "undoInterception": "🛡️ قطع كرة — {{name}}",
+    "undoOwnGoal": "⚽ هدف عكسي — {{name}}"
   },
   "goal": {
     "whoScored": "من سجّل؟",
     "assist": "تمريرة حاسمة؟ (اختياري)",
     "noAssist": "بدون تمريرة حاسمة",
     "assistFor": "من مرّر الكرة إلى {{name}}؟",
-    "changeScorer": "تغيير المسجّل"
+    "changeScorer": "تغيير المسجّل",
+    "ownGoal": "هدف عكسي",
+    "whoOwnGoal": "هدف عكسي — من سجّله؟",
+    "ownGoalHint": "اختر اللاعب الذي سجّل في مرمى فريقه. يُحتسب الهدف للفريق الآخر.",
+    "notOwnGoal": "رجوع"
   },
   "card": {
     "who": "البطاقة — لمن؟",
@@ -456,7 +461,9 @@
     "show": "المجريات",
     "sessionProgress": "الحجز حتى الآن",
     "drawWinner": "تعادل · فوز {{team}}",
-    "interception": "🛡️ {{name}}"
+    "interception": "🛡️ {{name}}",
+    "ownGoalMark": "عكسي",
+    "ownGoal": "هدف عكسي"
   },
   "standings": {
     "title": "ترتيب الفرق",

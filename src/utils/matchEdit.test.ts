@@ -128,3 +128,20 @@ describe('undoAllowed', () => {
     expect(undoAllowed('goal', { cards: false, swaps: false })).toBe(true)
   })
 })
+
+describe('own goals', () => {
+  it('count for the team in their team_id, and can be undone', async () => {
+    const { scoreFromGoals } = await import('./matchEdit')
+    const events = [
+      { event_type: 'goal', team_id: 'A' },
+      { event_type: 'own_goal', team_id: 'B' },
+      { event_type: 'assist', team_id: 'A' },
+    ] as never[]
+    expect(scoreFromGoals({ team1_id: 'A', team2_id: 'B' }, events)).toEqual({ team1_score: 1, team2_score: 1 })
+    const last = findLastUndoable([
+      { id: 'g1', event_type: 'goal', created_at: '2026-10-04T10:00:00Z' },
+      { id: 'o1', event_type: 'own_goal', created_at: '2026-10-04T10:01:00Z' },
+    ] as never[])
+    expect((last as { id: string }).id).toBe('o1')
+  })
+})
