@@ -40,7 +40,7 @@ async function handle(req: Request): Promise<Response> {
   } catch {
     answer = null
   }
-  return json({ command: readVoiceAnswer(answer, body.players) })
+  return json({ command: readVoiceAnswer(answer, body.players, body) })
 }
 
 Deno.serve(async (req) => {

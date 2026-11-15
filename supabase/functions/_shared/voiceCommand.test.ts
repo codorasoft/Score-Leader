@@ -52,6 +52,17 @@ describe('voiceSchema and voicePrompt', () => {
     expect(prompt).toContain('"goal Sami"')
     expect(prompt).toContain("other guesses at the same words (may spell a name better):\n\"goal Sammy\"")
   })
+
+  it('gives the interpreter roster hints for a misheard family name without rewriting the transcript', () => {
+    const prompt = voicePrompt({
+      league_id: LEAGUE, text: 'دجل سجل جول', alternatives: [], lang: 'ar',
+      players: [{ id: 'a', name: 'محمد العجل', team: 'green', playing: true }],
+    })
+    expect(prompt).toContain('"دجل سجل جول"')
+    expect(prompt).toContain('"دجل" -> p1 (similar spelling only; ask the referee)')
+    expect(prompt).not.toContain('"سجل" ->')
+    expect(prompt).not.toContain('"جول" ->')
+  })
 })
 
 describe('readVoiceAnswer', () => {
@@ -109,5 +120,57 @@ describe('readVoiceAnswer', () => {
   it('reads anything unexpected as not understood', () => {
     expect(readVoiceAnswer(null, roster).action).toBe('unknown')
     expect(readVoiceAnswer({ action: 'dance' }, roster).action).toBe('unknown')
+  })
+})
+
+describe('roster suggestions when the interpreter misses a name', () => {
+  const players: VoicePlayer[] = [
+    { id: 'a', name: 'محمد العجل', team: 'green', playing: true },
+    { id: 'b', name: 'خالد الحسن', team: 'green', playing: true },
+    { id: 'c', name: 'عمر الحسن', team: 'blue', playing: true },
+    { id: 'd', name: 'أحمد الدجل', team: 'yellow', playing: false },
+  ]
+  const missing = { action: 'goal', player: null, other_player: null, suspension_minutes: null, candidates: [] }
+  const heard = (text: string, alternatives: string[] = []) => ({ text, alternatives })
+
+  it('suggests the misheard surname but leaves the scorer for the referee to choose', () => {
+    expect(readVoiceAnswer(missing, players.slice(0, 3), heard('دجل سجل جول')))
+      .toEqual({ action: 'goal', playerId: null, otherId: null, suspensionMinutes: null, candidates: ['a'] })
+  })
+
+  it('keeps all players sharing the spoken surname', () => {
+    expect(readVoiceAnswer(missing, players, heard('هدف الحسن')).candidates).toEqual(['b', 'c'])
+  })
+
+  it('can use another recognition guess', () => {
+    expect(readVoiceAnswer(missing, players, heard('هدف ممم', ['العجل سجل جول'])).candidates).toEqual(['a'])
+  })
+
+  it('does not derive a player from the action words', () => {
+    expect(readVoiceAnswer(missing, players, heard('سجل جول')).candidates).toEqual([])
+  })
+
+  it('preserves the known assist alongside a suggested scorer', () => {
+    expect(readVoiceAnswer({ ...missing, other_player: 'p2' }, players.slice(0, 3), heard('دجل سجل جول اسيست خالد')))
+      .toMatchObject({ playerId: null, otherId: 'b', candidates: ['a'] })
+  })
+
+  it('never guesses a scorer from the known assister or another player sharing that name', () => {
+    expect(readVoiceAnswer({ ...missing, other_player: 'p2' }, players, heard('هدف اسيست الحسن')))
+      .toMatchObject({ playerId: null, otherId: 'b', candidates: [] })
+  })
+
+  it('does not replace an interpreter-selected player or its existing ambiguity', () => {
+    expect(readVoiceAnswer({ ...missing, player: 'p2' }, players, heard('العجل سجل جول')))
+      .toMatchObject({ playerId: 'b', candidates: [] })
+    expect(readVoiceAnswer({ ...missing, candidates: ['p2', 'p3'] }, players, heard('العجل سجل جول')).candidates)
+      .toEqual(['b', 'c'])
+  })
+
+  it('does not suggest waiting players or infer players for clock, undo, unknown or swap actions', () => {
+    expect(readVoiceAnswer(missing, players, heard('الدجل سجل جول')).candidates).toEqual([])
+    for (const action of ['pause', 'resume', 'undo', 'unknown', 'swap']) {
+      expect(readVoiceAnswer({ ...missing, action }, players, heard('العجل سجل جول')).candidates).toEqual([])
+    }
   })
 })

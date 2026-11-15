@@ -7,6 +7,7 @@ import { resetDb, rows } from '../../test/fakeSupabase'
 import { match, players, session, teamPlayers, teams } from '../../test/fixtures'
 import { FEATURES } from '../../lib/features'
 import type { VoiceCommand } from '../../lib/voiceApi'
+import { readVoiceAnswer } from '../../../supabase/functions/_shared/voiceCommand'
 
 vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase')).supabaseModule)
 
@@ -225,5 +226,29 @@ it('one tap makes the named player the scorer when the name came back as the ass
   await user.click(screen.getByRole('button', { name: 'Confirm' }))
 
   await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p1' }))
+  expect(rows('match_events').some((e) => e.event_type === 'assist')).toBe(false)
+})
+
+it('offers a player by their misheard surname and saves only after they are picked and confirmed', async () => {
+  heard = 'دجل سجل جول'
+  const namedPlayers = players.map((p) => p.id === 'p2' ? { ...p, name: 'محمد العجل' } : p)
+  resetDb({
+    players: namedPlayers, teams, team_players: teamPlayers,
+    sessions: [{ ...session, status: 'active' }], matches: [match('m1')], match_events: [],
+  })
+  answer = readVoiceAnswer(
+    { action: 'goal', player: null, other_player: null, suspension_minutes: null, candidates: [] },
+    [{ id: 'p2', name: 'محمد العجل', team: 'green', playing: true }],
+    { text: heard, alternatives: [] },
+  )
+  const user = await kickOff()
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  await screen.findByText('Who scored?')
+  expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+  expect(rows('match_events')).toHaveLength(0)
+  await user.click(screen.getByRole('button', { name: 'محمد العجل' }))
+  expect(rows('match_events')).toHaveLength(0)
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p2' }))
   expect(rows('match_events').some((e) => e.event_type === 'assist')).toBe(false)
 })
