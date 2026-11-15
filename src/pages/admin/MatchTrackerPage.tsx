@@ -20,6 +20,8 @@ import { GoalDialog, type GoalResult } from '../../components/GoalDialog'
 import { CardDialog } from '../../components/CardDialog'
 import { InterceptionDialog } from '../../components/InterceptionDialog'
 import { SwapDialog } from '../../components/SwapDialog'
+import { VoiceSheet, type ConfirmedVoice } from '../../components/VoiceSheet'
+import { speechSupported } from '../../lib/speech'
 import { SuspensionCountdown } from '../../components/SuspensionCountdown'
 import { MatchResultDialog } from '../../components/MatchResultDialog'
 import { MatchTimeline } from '../../components/MatchTimeline'
@@ -51,7 +53,7 @@ export default function MatchTrackerPage() {
     match, setMatch, session, teams, teamPlayers, players, events, sessionMatches, sessionEvents,
     load, apply, endBlocked, setEndBlocked, staleRef, missing, loadFailed,
   } = useMatchData(sessionId, matchId, league.id)
-  const [dialog, setDialog] = useState<'goal' | 'card' | 'interception' | 'swap' | null>(null)
+  const [dialog, setDialog] = useState<'goal' | 'card' | 'interception' | 'swap' | 'voice' | null>(null)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
   const [result, setResult] = useState<{
@@ -111,6 +113,13 @@ export default function MatchTrackerPage() {
     setDialog(kind)
   }
   const clockFields = { elapsed_seconds: eventClock, minute: Math.floor(eventClock / 60) }
+
+  // The mic: the clock is read at the tap, like the Goal button, not after the referee has spoken
+  const openVoice = () => {
+    if (!inProgress) return
+    setEventClock(timer.elapsed)
+    setDialog('voice')
+  }
 
   const handleGoalConfirm = async ({ scorerId, assisterId, ownGoal }: GoalResult) => {
     setDialog(null)
@@ -177,6 +186,23 @@ export default function MatchTrackerPage() {
     await apply(swapOps({
       match, p1: { id: p1Id, teamId: p1TeamId }, p2: { id: p2Id, teamId: p2TeamId }, clock, newId, now: serverNowIso(),
     }))
+  }
+
+  // A spoken action the referee confirmed is recorded exactly as if its buttons had been tapped
+  const handleVoice = async (c: ConfirmedVoice) => {
+    const { playerId, otherId } = c
+    switch (c.action) {
+      case 'goal': return playerId && handleGoalConfirm({ scorerId: playerId, assisterId: otherId })
+      case 'own_goal': return playerId && handleGoalConfirm({ scorerId: playerId, assisterId: null, ownGoal: true })
+      case 'yellow_card':
+      case 'red_card':
+        return playerId && handleCardConfirm({ playerId, cardType: c.action, suspensionMinutes: c.action === 'red_card' ? c.suspensionMinutes : null })
+      case 'interception': return playerId && handleInterceptionConfirm(playerId)
+      case 'swap': return playerId && otherId && handleSwap(playerId, otherId)
+      case 'pause': setDialog(null); return timer.pause()
+      case 'resume': setDialog(null); return handleStart()
+      case 'undo': setDialog(null); return handleUndo()
+    }
   }
 
   const level = match.team1_score === match.team2_score
@@ -409,6 +435,7 @@ export default function MatchTrackerPage() {
           {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className={`${tile} bg-yellow-600 hover:bg-yellow-500`}>{t('match.card')}</button>}
           <button onClick={() => openEventDialog('interception')} disabled={!inProgress} className={`${tile} bg-sky-700 hover:bg-sky-600`}>{t('match.interception')}</button>
           {swaps && <button onClick={() => setDialog('swap')} className={`${tile} bg-gray-700 hover:bg-gray-600 ${cards ? 'col-span-2' : ''}`}>{t('match.swap')}</button>}
+          {speechSupported() && <button onClick={openVoice} disabled={!inProgress} className={`${tile} col-span-2 bg-purple-700 hover:bg-purple-600`}>{t('voice.mic')}</button>}
         </div>
       )}
 
@@ -515,6 +542,20 @@ export default function MatchTrackerPage() {
       )}
       {swaps && dialog === 'swap' && (
         <SwapDialog teams={teamsWithPlayers} onSwap={handleSwap} onClose={() => setDialog(null)} />
+      )}
+      {dialog === 'voice' && (
+        <VoiceSheet
+          leagueId={league.id}
+          playingTeams={playingTeams}
+          allTeams={teamsWithPlayers}
+          cards={cards}
+          swaps={swaps}
+          clockRunning={timer.timerStatus === 'running'}
+          undoLabel={lastEvent && undoAllowed(lastEvent.event_type, { cards, swaps }) ? lastEventLabel || null : null}
+          onConfirm={handleVoice}
+          onEdit={setDialog}
+          onClose={() => setDialog(null)}
+        />
       )}
     </div>
   )

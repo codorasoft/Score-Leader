@@ -1114,5 +1114,42 @@
     "history": "Day by day",
     "nothing": "Nothing on record yet.",
     "goalsAssists": "{{goals}} G · {{assists}} A"
+  },
+  "voice": {
+    "mic": "🎙️ Voice",
+    "listening": "Listening… say what happened",
+    "thinking": "Understanding…",
+    "hint": "e.g. “Goal Ahmad, assist Khaled”",
+    "done": "Done",
+    "again": "Try again",
+    "notUnderstood": "Didn't get that",
+    "unknownHint": "Say the action and the player, e.g. “Yellow Sami” or “Pause”.",
+    "off": "That action is turned off in this league.",
+    "nothing": {
+      "pause": "The clock is already paused.",
+      "resume": "The clock is already running.",
+      "undo": "There is nothing to undo."
+    },
+    "error": {
+      "denied": "The microphone is blocked. Allow it for this site in the browser settings.",
+      "no-speech": "Nothing was heard. Tap Try again and speak.",
+      "network": "Voice needs an internet connection. Use the buttons for now.",
+      "failed": "Voice did not work this time. Try again or use the buttons."
+    },
+    "action": {
+      "goal": "⚽ Goal",
+      "own_goal": "⚽ Own goal",
+      "yellow_card": "🟨 Yellow card",
+      "red_card": "🟥 Red card",
+      "interception": "🛡️ Interception",
+      "swap": "↔ Swap",
+      "pause": "⏸ Pause the clock",
+      "resume": "▶ Restart the clock",
+      "undo": "↶ Undo the last event"
+    },
+    "assist": "Assist: {{name}}",
+    "changePlayer": "Not this player",
+    "whichPlayer": "Which player?",
+    "swapBoth": "Say both players, or tap Edit to pick them."
   }
 }
