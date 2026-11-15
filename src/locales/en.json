@@ -1150,6 +1150,7 @@
     "assist": "Assist: {{name}}",
     "changePlayer": "Not this player",
     "whichPlayer": "Which player?",
-    "swapBoth": "Say both players, or tap Edit to pick them."
+    "swapBoth": "Say both players, or tap Edit to pick them.",
+    "swapSameTeam": "Both players are on the same team. A swap is between two teams: tap Edit to pick them."
   }
 }

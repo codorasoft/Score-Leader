@@ -87,6 +87,12 @@ describe('readVoiceAnswer', () => {
     expect(readVoiceAnswer(answer({ action: 'yellow_card', player: 'p1', suspension_minutes: 3 }), roster).suspensionMinutes).toBeNull()
   })
 
+  it('keeps the assist and asks for the scorer when the scorer is only unsure', () => {
+    // "هدف محمد أسيست خالد" with two players called محمد
+    expect(readVoiceAnswer(answer({ player: null, other_player: 'p2', candidates: ['p1', 'p3', 'p2'] }), roster))
+      .toEqual({ action: 'goal', playerId: null, otherId: 'b', suspensionMinutes: null, candidates: ['a', 'c'] })
+  })
+
   it('lists candidates only when no player was picked', () => {
     expect(readVoiceAnswer(answer({ candidates: ['p1', 'p2', 'p1', 'p4', 'zz'] }), roster).candidates).toEqual(['a', 'b'])
     expect(readVoiceAnswer(answer({ player: 'p3', candidates: ['p1'] }), roster).candidates).toEqual([])
