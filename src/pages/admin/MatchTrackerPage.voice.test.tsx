@@ -14,11 +14,14 @@ vi.mock('../../lib/supabase', async () => (await import('../../test/fakeSupabase
 let heard = ''
 let answer: VoiceCommand
 let supported = true
+// Listening that never ends, to see the sheet while the mic is on
+let hang = false
 const understandVoice = vi.fn(async (input: unknown) => { void input; return { ok: true as const, command: answer } })
 vi.mock('../../lib/speech', () => ({
   speechSupported: () => supported,
   speechLang: () => 'en-US',
   listenOnce: (_lang: string, onText: (t: string) => void) => {
+    if (hang) return { done: new Promise(() => {}), stop: () => {}, cancel: () => {} }
     onText(heard)
     return { done: Promise.resolve({ text: heard, alternatives: [`${heard}!`] }), stop: () => {}, cancel: () => {} }
   },
@@ -34,6 +37,7 @@ beforeEach(() => {
   outbox.dismissRejected()
   localStorage.clear()
   supported = true
+  hang = false
   understandVoice.mockClear()
   resetDb({
     players, teams, team_players: teamPlayers,
@@ -154,4 +158,43 @@ it('hides the mic where the browser has no speech recognition', async () => {
   renderPage()
   await screen.findByRole('button', { name: '▶ Start' })
   expect(screen.queryByRole('button', { name: '🎙️ Voice' })).not.toBeInTheDocument()
+})
+
+it('changing the scorer to the assister leaves the goal with no assist', async () => {
+  heard = 'goal Omar assist Ali'
+  answer = cmd({ action: 'goal', playerId: 'p2', otherId: 'p1' })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  await user.click(await screen.findByRole('button', { name: 'Not this player' }))
+  await user.click(screen.getByRole('button', { name: 'Ali' }))
+  expect(screen.getByText('No assist')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p1' }))
+  expect(rows('match_events').some((e) => e.event_type === 'assist')).toBe(false)
+})
+
+it('will not swap two players of the same team', async () => {
+  heard = 'swap Ali with Omar'
+  answer = cmd({ action: 'swap', playerId: 'p1', otherId: 'p2' })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Both players are on the same team')
+  expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+  expect(rows('match_events')).toHaveLength(0)
+})
+
+it('Try again shows the mic listening straight away', async () => {
+  heard = 'what a game'
+  answer = cmd({ action: 'unknown' })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  await screen.findByRole('heading', { name: "Didn't get that" })
+  hang = true
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
+  expect(screen.getByRole('heading', { name: 'Listening… say what happened' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: "Didn't get that" })).not.toBeInTheDocument()
 })

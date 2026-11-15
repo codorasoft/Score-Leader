@@ -51,6 +51,7 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   rosterRef.current = roster
   const allPlayers = allTeams.flatMap((tm) => tm.players)
   const nameOf = (id: string | null) => allPlayers.find((p) => p.id === id)?.name ?? '?'
+  const teamOf = (id: string | null) => allTeams.find((tm) => tm.players.some((p) => p.id === id))?.team.id ?? null
 
   useEffect(() => {
     let live = true
@@ -67,7 +68,11 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
     return () => { live = false; l.cancel() }
   }, [attempt, lang, leagueId])
 
-  const retry = () => setAttempt((n) => n + 1)
+  // Back to listening at once, so the tap is seen to work before anything is heard
+  const retry = () => {
+    setStage({ kind: 'listening', text: '' })
+    setAttempt((n) => n + 1)
+  }
   const secondary = 'flex-1 min-h-[48px] rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold'
   const primary = 'flex-1 min-h-[48px] rounded-xl bg-green-600 hover:bg-green-500 font-bold disabled:opacity-40'
   const retryButton = <button type="button" onClick={retry} className={secondary}>{t('voice.again')}</button>
@@ -108,6 +113,7 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
       clockRunning={clockRunning}
       undoLabel={undoLabel}
       nameOf={nameOf}
+      teamOf={teamOf}
       retryButton={retryButton}
       onConfirm={onConfirm}
       onEdit={onEdit}
@@ -116,7 +122,7 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   )
 }
 
-function VoiceResult({ text, command, playingTeams, cards, swaps, clockRunning, undoLabel, nameOf, retryButton, onConfirm, onEdit, onClose }: {
+function VoiceResult({ text, command, playingTeams, cards, swaps, clockRunning, undoLabel, nameOf, teamOf, retryButton, onConfirm, onEdit, onClose }: {
   text: string
   command: VoiceCommand
   playingTeams: TeamWithPlayers[]
@@ -125,6 +131,7 @@ function VoiceResult({ text, command, playingTeams, cards, swaps, clockRunning, 
   clockRunning: boolean
   undoLabel: string | null
   nameOf: (id: string | null) => string
+  teamOf: (id: string | null) => string | null
   retryButton: ReactNode
   onConfirm: (c: ConfirmedVoice) => void
   onEdit: (action: 'goal' | 'card' | 'interception' | 'swap') => void
@@ -133,6 +140,7 @@ function VoiceResult({ text, command, playingTeams, cards, swaps, clockRunning, 
   const { t } = useTranslation()
   const { action } = command
   const [playerId, setPlayerId] = useState(command.playerId)
+  const [otherId, setOtherId] = useState(command.otherId)
   const [minutes, setMinutes] = useState(command.suspensionMinutes)
   const heard = <p className="text-sm text-gray-400 mb-3" dir="auto">«{text}»</p>
   const primary = 'flex-1 min-h-[48px] rounded-xl bg-green-600 hover:bg-green-500 font-bold disabled:opacity-40'
@@ -151,8 +159,15 @@ function VoiceResult({ text, command, playingTeams, cards, swaps, clockRunning, 
 
   const needsPlayer = PLAYER_ACTIONS.includes(action)
   const swap = action === 'swap'
-  const otherId = command.otherId
-  const complete = (!needsPlayer || !!playerId) && (!swap || !!otherId) && (action !== 'red_card' || !!minutes)
+  // A swap is between two teams; nobody assists their own goal
+  const sameTeamSwap = swap && !!playerId && !!otherId && teamOf(playerId) === teamOf(otherId)
+  const complete = (!needsPlayer || !!playerId) && (!swap || (!!otherId && !sameTeamSwap))
+    && (!playerId || playerId !== otherId) && (action !== 'red_card' || !!minutes)
+  // Picking the assister as the scorer leaves the goal with no assist
+  const pickPlayer = (id: string) => {
+    setPlayerId(id)
+    if (id === otherId) setOtherId(null)
+  }
   const editTarget = action === 'goal' || action === 'own_goal' ? 'goal'
     : action === 'yellow_card' || action === 'red_card' ? 'card'
     : action === 'interception' || action === 'swap' ? action : null
@@ -186,10 +201,11 @@ function VoiceResult({ text, command, playingTeams, cards, swaps, clockRunning, 
       {needsPlayer && !playerId && !swap && (
         <>
           <p className="text-sm text-gray-300 mb-2">{t('voice.whichPlayer')}</p>
-          <TeamPlayerGrid teams={pickFrom} onPick={setPlayerId} />
+          <TeamPlayerGrid teams={pickFrom} onPick={pickPlayer} />
         </>
       )}
       {swap && (!playerId || !otherId) && <p className="text-orange-300">{t('voice.swapBoth')}</p>}
+      {sameTeamSwap && <p role="alert" className="text-orange-300">{t('voice.swapSameTeam')}</p>}
       {action === 'red_card' && playerId && (
         <div className="flex gap-3 mt-2">
           {([2, 3] as const).map((m) => (

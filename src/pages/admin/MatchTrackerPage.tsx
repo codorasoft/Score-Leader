@@ -179,7 +179,8 @@ export default function MatchTrackerPage() {
     setDialog(null)
     const p1TeamId = teamPlayers.find((tp) => tp.player_id === p1Id)?.team_id
     const p2TeamId = teamPlayers.find((tp) => tp.player_id === p2Id)?.team_id
-    if (!p1TeamId || !p2TeamId) return
+    // A swap moves players between teams; two players of one team would change nothing
+    if (!p1TeamId || !p2TeamId || p1TeamId === p2TeamId) return
     const clock = timer.timerStatus === 'stopped'
       ? { elapsed_seconds: null, minute: null }
       : { elapsed_seconds: timer.elapsed, minute: Math.floor(timer.elapsed / 60) }
@@ -192,7 +193,7 @@ export default function MatchTrackerPage() {
   const handleVoice = async (c: ConfirmedVoice) => {
     const { playerId, otherId } = c
     switch (c.action) {
-      case 'goal': return playerId && handleGoalConfirm({ scorerId: playerId, assisterId: otherId })
+      case 'goal': return playerId && handleGoalConfirm({ scorerId: playerId, assisterId: otherId === playerId ? null : otherId })
       case 'own_goal': return playerId && handleGoalConfirm({ scorerId: playerId, assisterId: null, ownGoal: true })
       case 'yellow_card':
       case 'red_card':
