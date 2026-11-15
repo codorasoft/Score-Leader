@@ -25,7 +25,7 @@ const PLAYER_ACTIONS: VoiceAction[] = ['goal', 'own_goal', 'yellow_card', 'red_c
 
 // The mic is tapped, the referee says what happened, and the action shows here to confirm.
 // Nothing is saved until Confirm; Edit opens the usual dialog for that action instead.
-export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, holding = false, letGo = 0, onConfirm, onEdit, onClose }: {
+export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, holding = false, letGo = 0, autoSave = false, onConfirm, onEdit, onClose }: {
   leagueId: string
   playingTeams: TeamWithPlayers[]
   // Every team of the session, for a swap with a waiting team
@@ -38,7 +38,10 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   // Push to talk: the mic button is held down; letGo counts each release after a hold
   holding?: boolean
   letGo?: number
-  onConfirm: (c: ConfirmedVoice) => void
+  // Save a clear command on its own, without Confirm
+  autoSave?: boolean
+  // auto: saved without Confirm, because autoSave is on and the command was clear
+  onConfirm: (c: ConfirmedVoice, auto?: boolean) => void
   onEdit: (action: 'goal' | 'card' | 'interception' | 'swap') => void
   onClose: () => void
 }) {
@@ -147,6 +150,7 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
       nameOf={nameOf}
       teamOf={teamOf}
       retryButton={retryButton}
+      autoSave={autoSave}
       onConfirm={onConfirm}
       onEdit={onEdit}
       onClose={onClose}
@@ -154,7 +158,28 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   )
 }
 
-function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, nameOf, teamOf, retryButton, onConfirm, onEdit, onClose }: {
+// Clear enough to save without Confirm: every player was named outright (not picked from guesses),
+// nothing is missing, and it can be done now. Undo is never saved this way: it takes an event away.
+export function clearCommand(c: VoiceCommand, { cards, swaps, clockRunning, teamOf }: {
+  cards: boolean
+  swaps: boolean
+  clockRunning: boolean
+  teamOf: (id: string | null) => string | null
+}): boolean {
+  switch (c.action) {
+    case 'pause': return clockRunning
+    case 'resume': return !clockRunning
+    case 'goal': return !!c.playerId && c.otherId !== c.playerId && (!!c.otherId || c.otherCandidates.length === 0)
+    case 'own_goal':
+    case 'interception': return !!c.playerId
+    case 'yellow_card': return cards && !!c.playerId
+    case 'red_card': return cards && !!c.playerId && !!c.suspensionMinutes
+    case 'swap': return swaps && !!c.playerId && !!c.otherId && teamOf(c.playerId) !== teamOf(c.otherId)
+    default: return false
+  }
+}
+
+function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, nameOf, teamOf, retryButton, autoSave, onConfirm, onEdit, onClose }: {
   text: string
   command: VoiceCommand
   playingTeams: TeamWithPlayers[]
@@ -166,12 +191,28 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   nameOf: (id: string | null) => string
   teamOf: (id: string | null) => string | null
   retryButton: ReactNode
-  onConfirm: (c: ConfirmedVoice) => void
+  autoSave: boolean
+  onConfirm: (c: ConfirmedVoice, auto?: boolean) => void
   onEdit: (action: 'goal' | 'card' | 'interception' | 'swap') => void
   onClose: () => void
 }) {
   const { t } = useTranslation()
   const { action } = command
+
+  // Saved on its own (when the referee chose that) only when nothing about it was a guess
+  const sure = autoSave && clearCommand(command, { cards, swaps, clockRunning, teamOf })
+  const autoSaved = useRef(false)
+  useEffect(() => {
+    if (!sure || autoSaved.current) return
+    autoSaved.current = true
+    const swapOrGoal = command.action === 'goal' || command.action === 'swap'
+    onConfirm({
+      action: command.action as ConfirmedVoice['action'],
+      playerId: command.playerId,
+      otherId: swapOrGoal ? command.otherId : null,
+      suspensionMinutes: command.action === 'red_card' ? command.suspensionMinutes : null,
+    }, true)
+  }, [sure, command, onConfirm])
   // A list of one is no question: that player is taken, and the referee still confirms
   const onlyOne = (ids: string[], teams: TeamWithPlayers[], not: string | null) => {
     const ok = [...new Set(ids)].filter((id) => id !== not && teams.some((tm) => tm.players.some((p) => p.id === id)))
@@ -188,6 +229,8 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   // After "not this player" the whole list is offered, not just the guesses
   const [widened, setWidened] = useState(false)
   const [minutes, setMinutes] = useState(command.suspensionMinutes)
+  // Being saved on its own: the page closes this and says what was saved
+  if (sure) return null
   const heard = <p className="text-sm text-gray-400 mb-3" dir="auto">«{text}»</p>
   const primary = 'flex-1 min-h-[48px] rounded-xl bg-green-600 hover:bg-green-500 font-bold disabled:opacity-40'
   const secondary = 'flex-1 min-h-[48px] rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold'

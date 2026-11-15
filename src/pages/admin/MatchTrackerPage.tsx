@@ -23,6 +23,8 @@ import { InterceptionDialog } from '../../components/InterceptionDialog'
 import { SwapDialog } from '../../components/SwapDialog'
 import { VoiceSheet, type ConfirmedVoice } from '../../components/VoiceSheet'
 import { speechSupported } from '../../lib/speech'
+import { setVoiceAutoSave, voiceAutoSave } from '../../lib/voicePrefs'
+import { TeamRosterSheet } from '../../components/TeamRosterSheet'
 import { SuspensionCountdown } from '../../components/SuspensionCountdown'
 import { MatchResultDialog } from '../../components/MatchResultDialog'
 import { MatchTimeline } from '../../components/MatchTimeline'
@@ -45,6 +47,8 @@ import LoadFailed from '../../components/LoadFailed'
 const HOLD_MS = 400
 // A hold whose release was never seen ends here
 const MAX_HOLD_MS = 30_000
+// How long "Saved by voice" stays up, with its Undo
+const AUTO_SAVED_MS = 6_000
 
 // The mic button's own long-press: no text selection, magnifier or menu, which on a phone would
 // also take the finger away from the button and end the hold
@@ -70,6 +74,17 @@ export default function MatchTrackerPage() {
   const pressedAt = useRef(0)
   const [holding, setHolding] = useState(false)
   const [letGo, setLetGo] = useState(0)
+  // Voice: save a clear command on its own, or wait for Confirm (the default); and what was just
+  // saved on its own, shown for a few seconds with Undo
+  const [autoSave, setAutoSave] = useState(voiceAutoSave)
+  const [autoSaved, setAutoSaved] = useState<ConfirmedVoice['action'] | null>(null)
+  useEffect(() => {
+    if (!autoSaved) return
+    const hide = setTimeout(() => setAutoSaved(null), AUTO_SAVED_MS)
+    return () => clearTimeout(hide)
+  }, [autoSaved])
+  // The team whose players are shown, from its score card
+  const [rosterTeamId, setRosterTeamId] = useState<string | null>(null)
   const releaseMicRef = useRef(() => {})
   const micButton = useCallback((el: HTMLButtonElement | null) => {
     if (!el) return
@@ -249,8 +264,9 @@ export default function MatchTrackerPage() {
   }
 
   // A spoken action the referee confirmed is recorded exactly as if its buttons had been tapped
-  const handleVoice = async (c: ConfirmedVoice) => {
+  const handleVoice = async (c: ConfirmedVoice, auto = false) => {
     const { playerId, otherId } = c
+    if (auto) setAutoSaved(c.action)
     switch (c.action) {
       case 'goal': return playerId && handleGoalConfirm({ scorerId: playerId, assisterId: otherId === playerId ? null : otherId })
       case 'own_goal': return playerId && handleGoalConfirm({ scorerId: playerId, assisterId: null, ownGoal: true })
@@ -472,7 +488,7 @@ export default function MatchTrackerPage() {
         </div>
       )}
 
-      <MatchScoreboard team1={team1} team2={team2} score1={match.team1_score} score2={match.team2_score} />
+      <MatchScoreboard team1={team1} team2={team2} score1={match.team1_score} score2={match.team2_score} onTeam={(tm) => setRosterTeamId(tm.id)} />
 
       <NextUp queue={waitingQueue(match)} teams={teams} className="text-center text-sm text-gray-400 mb-6" />
 
@@ -510,6 +526,24 @@ export default function MatchTrackerPage() {
               {t('voice.mic')}
               <span aria-hidden="true" className="block text-xs font-normal opacity-80">{t('voice.micHint')}</span>
             </button>
+          )}
+          {speechSupported() && (
+            <fieldset className="col-span-2 -mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-300">
+              <legend className="sr-only">{t('voice.saveMode')}</legend>
+              <span aria-hidden="true" className="text-gray-400">{t('voice.saveMode')}</span>
+              {([false, true] as const).map((on) => (
+                <label key={String(on)} className="flex items-center gap-1.5 min-h-[32px] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="voice-save-mode"
+                    checked={autoSave === on}
+                    onChange={() => { setAutoSave(on); setVoiceAutoSave(on) }}
+                    className="accent-purple-500 w-4 h-4"
+                  />
+                  {t(on ? 'voice.saveAuto' : 'voice.saveConfirm')}
+                </label>
+              ))}
+            </fieldset>
           )}
         </div>
       )}
@@ -631,8 +665,31 @@ export default function MatchTrackerPage() {
           onEdit={setDialog}
           holding={holding}
           letGo={letGo}
+          autoSave={autoSave}
           onClose={() => setDialog(null)}
         />
+      )}
+      {rosterTeamId && (() => {
+        const shown = playingTeams.find((tm) => tm.team.id === rosterTeamId)
+        return shown && (
+          <TeamRosterSheet team={shown.team} players={shown.players} events={events} onClose={() => setRosterTeamId(null)} />
+        )
+      })()}
+      {autoSaved && (
+        <div role="status" className="fixed inset-x-3 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 sm:max-w-lg sm:mx-auto rounded-xl bg-green-800 border border-green-600 shadow-2xl px-3 py-2 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-xs text-green-200">{t('voice.autoSaved')}</div>
+            <div className="font-semibold truncate" dir="auto">
+              {autoSaved === 'pause' || autoSaved === 'resume' ? t(`voice.action.${autoSaved}`) : lastEventLabel}
+            </div>
+          </div>
+          {autoSaved !== 'pause' && autoSaved !== 'resume' && lastEvent && (
+            <button type="button" onClick={() => { setAutoSaved(null); void handleUndo() }} className="min-h-[44px] px-3 rounded-lg bg-green-950/60 hover:bg-green-950 font-semibold">
+              {t('match.undo')}
+            </button>
+          )}
+          <button type="button" onClick={() => setAutoSaved(null)} aria-label={t('voice.dismiss')} className="min-h-[44px] px-2 text-green-200">✕</button>
+        </div>
       )}
     </div>
   )

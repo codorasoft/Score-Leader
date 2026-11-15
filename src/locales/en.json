@@ -175,7 +175,12 @@
     "drawEnd": "Draw — end match",
     "interception": "🛡️ Interception",
     "undoInterception": "🛡️ Interception — {{name}}",
-    "undoOwnGoal": "⚽ Own goal — {{name}}"
+    "undoOwnGoal": "⚽ Own goal — {{name}}",
+    "showPlayers": "Players",
+    "teamPlayers": "{{team}}: show players",
+    "playerCount_one": "{{count}} player",
+    "playerCount_other": "{{count}} players",
+    "noTeamPlayers": "No players on this team yet."
   },
   "goal": {
     "whoScored": "Who scored?",
@@ -1157,6 +1162,11 @@
     "swapSameTeam": "Both players are on the same team. A swap is between two teams: tap Edit to pick them.",
     "whoAssisted": "Who assisted? Tap Confirm if nobody did.",
     "swapWith": "Swap {{name}} with?",
-    "changeSwap": "Not these players"
+    "changeSwap": "Not these players",
+    "saveMode": "Voice:",
+    "saveConfirm": "I confirm",
+    "saveAuto": "Save on its own when clear",
+    "autoSaved": "Saved by voice",
+    "dismiss": "Dismiss"
   }
 }

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -348,4 +348,95 @@ it('a quick tap keeps listening after the finger is lifted', async () => {
   // The referee ends it with Done, or by going quiet
   await user.click(screen.getByRole('button', { name: 'Done' }))
   await screen.findByRole('heading', { name: '⏸ Pause the clock' })
+})
+
+it('a score card shows that team\'s players and what they did in the match', async () => {
+  heard = 'goal Omar'
+  const user = await kickOff()
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  await user.click(await screen.findByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(m1().team1_score).toBe(1))
+
+  await user.click(screen.getByRole('button', { name: 'Green Team: show players' }))
+  const sheet = await screen.findByRole('dialog', { name: /Green Team/ })
+  expect(sheet).toHaveTextContent('2 players')
+  expect(sheet).toHaveTextContent('Ali')
+  expect(sheet).toHaveTextContent('Omar⚽')
+  expect(sheet).not.toHaveTextContent('Sami')
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Blue Team: show players' }))
+  expect(await screen.findByRole('dialog', { name: /Blue Team/ })).toHaveTextContent('Sami')
+})
+
+describe('saving a clear command on its own', () => {
+  const chooseAuto = async (user: Awaited<ReturnType<typeof kickOff>>) => {
+    await user.click(screen.getByRole('radio', { name: 'Save on its own when clear' }))
+  }
+
+  it('is off until chosen, and is remembered on this phone', async () => {
+    const user = await kickOff()
+    expect(screen.getByRole('radio', { name: 'I confirm' })).toBeChecked()
+    await chooseAuto(user)
+    expect(localStorage.getItem('voice.autoSave')).toBe('1')
+  })
+
+  it('records a clear goal with no Confirm, says so, and Undo takes it back', async () => {
+    heard = 'goal Omar assist Ali'
+    answer = cmd({ action: 'goal', playerId: 'p2', otherId: 'p1' })
+    const user = await kickOff()
+    await chooseAuto(user)
+
+    await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+    await waitFor(() => expect(m1().team1_score).toBe(1))
+    expect(rows('match_events').find((e) => e.event_type === 'assist')).toMatchObject({ player_id: 'p1' })
+    expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
+    const saved = await screen.findByRole('status')
+    expect(saved).toHaveTextContent('Saved by voice')
+    expect(saved).toHaveTextContent('⚽ Goal — Omar')
+
+    await user.click(within(saved).getByRole('button', { name: '↶ Undo' }))
+    await waitFor(() => expect(m1().team1_score).toBe(0))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('pauses the clock on its own', async () => {
+    heard = 'pause'
+    const user = await kickOff()
+    await chooseAuto(user)
+    await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+    await waitFor(() => expect(m1().timer_status).toBe('paused'))
+    expect(await screen.findByRole('status')).toHaveTextContent('⏸ Pause the clock')
+  })
+
+  it('still asks when the player was a guess', async () => {
+    heard = 'yellow Sam'
+    answer = cmd({ action: 'yellow_card', candidates: ['p3'] })
+    const user = await kickOff()
+    await chooseAuto(user)
+    await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+    // One guess is filled in, but the referee still confirms it
+    await screen.findByRole('heading', { name: '🟨 Yellow card' })
+    expect(rows('match_events')).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'yellow_card')).toMatchObject({ player_id: 'p3' }))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('still asks for an unsure assist, and never undoes on its own', async () => {
+    heard = 'goal Omar assist Sa'
+    answer = cmd({ action: 'goal', playerId: 'p2', otherCandidates: ['p1', 'p3'] })
+    const user = await kickOff()
+    await chooseAuto(user)
+    await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+    expect(await screen.findByText('Who assisted? Tap Confirm if nobody did.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(m1().team1_score).toBe(1))
+
+    heard = 'undo'
+    await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+    await screen.findByRole('heading', { name: '↶ Undo the last event' })
+    expect(m1().team1_score).toBe(1)
+  })
 })
