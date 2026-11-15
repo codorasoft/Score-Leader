@@ -18,6 +18,8 @@ export interface VoicePlayer {
 export interface VoiceRequest {
   league_id: string
   text: string
+  // The recognizer's other guesses at the same words
+  alternatives: string[]
   lang: 'ar' | 'en'
   players: VoicePlayer[]
 }
@@ -37,6 +39,8 @@ type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_TEXT = 300
 const MAX_PLAYERS = 80
+// Enough for a whole team, when the referee names a colour instead of a player
+const MAX_CANDIDATES = 12
 
 export function validateVoiceRequest(body: unknown): Result<VoiceRequest> {
   const b = body !== null && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : null
@@ -45,6 +49,11 @@ export function validateVoiceRequest(body: unknown): Result<VoiceRequest> {
   const text = typeof b.text === 'string' ? b.text.trim() : ''
   if (text.length < 1 || text.length > MAX_TEXT) return { ok: false, error: 'invalid text' }
   if (b.lang !== 'ar' && b.lang !== 'en') return { ok: false, error: 'invalid lang' }
+  const alts = b.alternatives ?? []
+  if (!Array.isArray(alts) || alts.length > 4 || !alts.every((a) => typeof a === 'string' && a.length <= MAX_TEXT)) {
+    return { ok: false, error: 'invalid alternatives' }
+  }
+  const alternatives = alts.map((a: string) => a.trim()).filter((a: string) => a && a !== text)
   if (!Array.isArray(b.players) || b.players.length > MAX_PLAYERS) return { ok: false, error: 'invalid players' }
   const players: VoicePlayer[] = []
   const seen = new Set<string>()
@@ -58,7 +67,7 @@ export function validateVoiceRequest(body: unknown): Result<VoiceRequest> {
     seen.add(r.id)
     players.push({ id: r.id, name: r.name.trim(), team: r.team, playing: r.playing })
   }
-  return { ok: true, value: { league_id: b.league_id, text, lang: b.lang, players } }
+  return { ok: true, value: { league_id: b.league_id, text, alternatives, lang: b.lang, players } }
 }
 
 // Claude sees short keys (p1, p2...) instead of ids: shorter, and the schema can list them, so an
@@ -85,30 +94,64 @@ export function voiceSchema(players: VoicePlayer[]) {
 }
 
 export const VOICE_SYSTEM = `You turn a football referee's short spoken command into one match action.
-The text comes from phone speech recognition on a noisy pitch, usually in Levantine Arabic, sometimes English or mixed. Names are often misheard or misspelled: match them to the roster by sound, allowing Arabic/Latin spellings (Ahmad = أحمد), nicknames and dropped letters.
+The text comes from phone speech recognition on a noisy pitch, usually in Levantine (Jordanian/Palestinian/Syrian) Arabic, sometimes English or mixed. Expect misheard words, missing punctuation, any word order, and Arabic digits (٢ ٣).
 
-Actions:
-- goal: a player scored. "هدف/جول/سجل/goal/scored". The assister ("من/أسيست/تمريرة/صناعة/assist/from") goes in other_player, or null.
-- own_goal: a player scored in their own net. "عكسي/بنفسه/بمرماه/own goal". The player who did it goes in player.
-- yellow_card: "صفرا/أصفر/إنذار/yellow". red_card: "حمرا/أحمر/طرد/red"; suspension_minutes is 2 or 3 if said ("دقيقتين"=2, "تلت/ثلاث دقايق"=3), else null.
-- interception: a player won the ball back. "قطع/قطعها/دفاع/افتك/interception/tackle".
-- swap: two players change places. "بدّل/تبديل/swap/switch" with both players; second one in other_player. Only swap may use players marked waiting.
-- pause: stop the clock ("وقف/وقّف/استوب/pause"). resume: restart it ("كمل/كمّل/ابدأ/شغل/resume/start").
-- undo: cancel the last event ("تراجع/الغي/امسح/undo/cancel").
-- unknown: anything else, or no action is clear.
+Names: match each spoken name to the roster by sound. Allow Arabic/Latin spellings (Ahmad = أحمد = احمد), ة/ه, ى/ي, أ/إ/ا, nicknames and short forms (حمودة = محمد, أبو علي), and dropped or doubled letters. Strip attached prepositions first: لليث / لـليث / عليث / ع ليث / مِن ليث / من ليث / إله ليث all mean the name ليث.
+
+Actions and how the referee says them:
+- goal: هدف، جول، گول، سجل، جاب هدف، فات، دخلت، goal, scored.
+- own_goal: هدف عكسي، عكسي، بمرماه، بحاله، بنفسه، ضد مرماه، own goal. player = who put it in their own net.
+- yellow_card: صفرا، صفراء، أصفر، كرت أصفر، إنذار، yellow. A card with no colour ("كرت ليث") is yellow_card.
+- red_card: حمرا، حمراء، أحمر، كرت أحمر، طرد، red. suspension_minutes: 2 for دقيقتين/٢/two, 3 for تلات/ثلاث/٣/three, else null.
+- interception: قطع، قطعها، قطع كرة، دفاع، افتك، سرق الكرة، خلّص، استخلص، تدخل، صدّ، interception, tackle, block.
+- swap: بدّل، تبديل، غيّر، مكان، فوّت/طلّع، swap, switch, sub. player and other_player are the two players.
+- pause: وقّف، وقف، ستوب، إيقاف، استنى، pause, stop. resume: كمّل، كمل، ابدأ، شغّل، يلا، استأنف، resume, start, play.
+- undo: تراجع، الغي، إلغاء، امسح، شيل آخر، غلط، undo, cancel.
+- unknown: anything else, or when no action word can be found.
+
+Who is who in a goal (the most common mistake):
+- The FIRST player named is the scorer, even when a preposition is attached: "هدف من ليث" and "هدف لليث" both mean ليث scored.
+- other_player (the assister) is set only when a SECOND player is named, or a player follows an assist word: أسيست، تمريرة، بتمريرة من، صناعة، صنعها، مرّر، باص، عطاه، assist, pass, from (after the scorer).
+- When the assist word comes first ("تمريرة خالد هدف ليث", "خالد مرر لليث وسجل"), the assister is the one with the assist word and the scorer is the other.
+
+Examples (by name here; your answer uses the roster keys):
+"هدف ليث" → goal, player ليث, other null
+"هدف من ليث" → goal, player ليث, other null
+"جول لليث" → goal, player ليث, other null
+"ليث سجل" → goal, player ليث, other null
+"هدف ليث من خالد" → goal, player ليث, other خالد
+"هدف من ليث بتمريرة من خالد" → goal, player ليث, other خالد
+"هدف ليث أسيست خالد" → goal, player ليث, other خالد
+"خالد مرر لليث وسجل" → goal, player ليث, other خالد
+"goal Laith assist Khaled" → goal, player ليث, other خالد
+"هدف عكسي من سامي" → own_goal, player سامي
+"سامي سجل بمرماه" → own_goal, player سامي
+"صفرا لمحمد" → yellow_card, player محمد
+"محمد أخد إنذار" → yellow_card, player محمد
+"كرت لسامي" → yellow_card, player سامي
+"حمرا خالد دقيقتين" → red_card, player خالد, suspension_minutes 2
+"طرد سامي ٣ دقايق" → red_card, player سامي, suspension_minutes 3
+"قطع ليث" → interception, player ليث
+"ليث قطع الكرة" → interception, player ليث
+"دفاع من خالد" → interception, player خالد
+"بدّل ليث مع خالد" → swap, player ليث, other خالد
+"وقّف" → pause; "كمّل" → resume; "الغي آخر واحد" → undo
 
 Rules:
-- Only use roster keys. Goals, own goals, cards and interceptions are for players marked playing.
+- Only use roster keys. Goals, own goals, cards and interceptions are for players marked playing; only swap may use players marked waiting.
 - If a name fits one player clearly, put that key in player and leave candidates empty.
-- If it could be several players, set player to null and list them (at most 4) in candidates.
-- If the name was not said or fits nobody, set player to null and candidates empty.
+- If it could be several players (similar names, or a team colour instead of a name: "هدف للأزرق"), set player to null and list the possible players in candidates.
+- If no name was said or it fits nobody, set player to null and candidates empty.
 - Fields that do not apply to the action are null.`
 
 export function voicePrompt(req: VoiceRequest): string {
   const roster = req.players
     .map((p, i) => `${playerKey(i)}: ${p.name} (${p.team}${p.playing ? '' : ', waiting'})`)
     .join('\n')
-  return `Roster:\n${roster || '(none)'}\n\nReferee said (${req.lang === 'ar' ? 'Arabic' : 'English'} recognition):\n"${req.text}"`
+  const others = req.alternatives.length > 0
+    ? `\n\nThe recognizer's other guesses at the same words (may spell a name better):\n${req.alternatives.map((a) => `"${a}"`).join('\n')}`
+    : ''
+  return `Roster:\n${roster || '(none)'}\n\nReferee said (${req.lang === 'ar' ? 'Arabic' : 'English'} recognition):\n"${req.text}"${others}`
 }
 
 // Claude's answer back to ids, dropping anything that breaks the rules above.
@@ -127,12 +170,17 @@ export function readVoiceAnswer(raw: unknown, players: VoicePlayer[]): VoiceComm
   if (action === 'pause' || action === 'resume' || action === 'undo' || action === 'unknown') {
     return { ...unknown, action }
   }
-  const playerId = pick(r.player)
+  let playerId = pick(r.player)
   let otherId = action === 'goal' || swap ? pick(r.other_player) : null
   if (otherId === playerId) otherId = null
+  // A lone name always belongs to the main player ("هدف من ليث": ليث scored, nobody assisted)
+  if (!playerId) {
+    playerId = pick(r.other_player)
+    otherId = null
+  }
   const candidates = playerId ? [] : [...new Set(
     (Array.isArray(r.candidates) ? r.candidates : []).map(pick).filter((id): id is string => !!id),
-  )].slice(0, 4)
+  )].slice(0, MAX_CANDIDATES)
   const mins = r.suspension_minutes
   const suspensionMinutes = action === 'red_card' && (mins === 2 || mins === 3) ? mins : null
   return { action, playerId, otherId, suspensionMinutes, candidates }

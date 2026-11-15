@@ -20,7 +20,7 @@ vi.mock('../../lib/speech', () => ({
   speechLang: () => 'en-US',
   listenOnce: (_lang: string, onText: (t: string) => void) => {
     onText(heard)
-    return { done: Promise.resolve(heard), stop: () => {}, cancel: () => {} }
+    return { done: Promise.resolve({ text: heard, alternatives: [`${heard}!`] }), stop: () => {}, cancel: () => {} }
   },
 }))
 vi.mock('../../lib/voiceApi', () => ({ understandVoice: (input: unknown) => understandVoice(input) }))
@@ -71,8 +71,9 @@ it('records a spoken goal with its assist after Confirm', async () => {
   expect(rows('match_events')).toHaveLength(0)
 
   // Claude gets the players on the pitch and the waiting team (for swaps)
-  const sent = understandVoice.mock.calls[0][0] as { text: string; players: { id: string; playing: boolean }[] }
+  const sent = understandVoice.mock.calls[0][0] as { text: string; alternatives: string[]; players: { id: string; playing: boolean }[] }
   expect(sent.text).toBe('goal Omar assist Ali')
+  expect(sent.alternatives).toEqual(['goal Omar assist Ali!'])
   expect(sent.players.find((p) => p.id === 'p5')).toMatchObject({ playing: false })
   expect(sent.players.find((p) => p.id === 'p2')).toMatchObject({ playing: true })
 

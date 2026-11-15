@@ -14,6 +14,14 @@ describe('validateVoiceRequest', () => {
   it('accepts a request and trims the text', () => {
     const r = validateVoiceRequest(ok)
     expect(r.ok && r.value.text).toBe('هدف أحمد')
+    expect(r.ok && r.value.alternatives).toEqual([])
+  })
+
+  it('keeps the other guesses, without blanks or the main text', () => {
+    const r = validateVoiceRequest({ ...ok, alternatives: ['هدف احمد ', '', 'هدف أحمد'] })
+    expect(r.ok && r.value.alternatives).toEqual(['هدف احمد'])
+    expect(validateVoiceRequest({ ...ok, alternatives: ['a', 'b', 'c', 'd', 'e'] }).ok).toBe(false)
+    expect(validateVoiceRequest({ ...ok, alternatives: [3] }).ok).toBe(false)
   })
 
   it('refuses bad input', () => {
@@ -38,10 +46,11 @@ describe('voiceSchema and voicePrompt', () => {
   })
 
   it('marks waiting players in the roster', () => {
-    const prompt = voicePrompt({ league_id: LEAGUE, text: 'goal Sami', lang: 'en', players: roster })
+    const prompt = voicePrompt({ league_id: LEAGUE, text: 'goal Sami', alternatives: ['goal Sammy'], lang: 'en', players: roster })
     expect(prompt).toContain('p3: Sami (blue)')
     expect(prompt).toContain('p4: محمد (yellow, waiting)')
     expect(prompt).toContain('"goal Sami"')
+    expect(prompt).toContain("other guesses at the same words (may spell a name better):\n\"goal Sammy\"")
   })
 })
 
@@ -64,6 +73,13 @@ describe('readVoiceAnswer', () => {
   it('keeps the assister only on a goal, and never the scorer twice', () => {
     expect(readVoiceAnswer(answer({ action: 'interception', player: 'p3', other_player: 'p1' }), roster).otherId).toBeNull()
     expect(readVoiceAnswer(answer({ player: 'p1', other_player: 'p1' }), roster).otherId).toBeNull()
+  })
+
+  it('a lone name is the scorer, even when Claude put it as the assister', () => {
+    // "هدف من ليث": من before the only name does not make it an assist
+    expect(readVoiceAnswer(answer({ player: null, other_player: 'p1' }), roster))
+      .toEqual({ action: 'goal', playerId: 'a', otherId: null, suspensionMinutes: null, candidates: [] })
+    expect(readVoiceAnswer(answer({ action: 'yellow_card', player: null, other_player: 'p3' }), roster).playerId).toBe('c')
   })
 
   it('keeps suspension minutes only on a red card', () => {
