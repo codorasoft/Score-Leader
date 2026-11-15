@@ -1117,6 +1117,8 @@
   },
   "voice": {
     "mic": "🎙️ Voice",
+    "micHint": "Tap, or hold while you talk",
+    "letGo": "Let go when you're done",
     "listening": "Listening… say what happened",
     "thinking": "Understanding…",
     "hint": "e.g. “Goal Ahmad, assist Khaled”",

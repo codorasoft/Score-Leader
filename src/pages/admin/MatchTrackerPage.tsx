@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import type React from 'react'
 import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
@@ -40,6 +41,9 @@ import type { Match, Team } from '../../lib/types'
 import PageSkeleton from '../../components/PageSkeleton'
 import LoadFailed from '../../components/LoadFailed'
 
+// A press this long is push to talk; shorter is a tap
+const HOLD_MS = 400
+
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
   const navigate = useNavigate()
@@ -54,6 +58,10 @@ export default function MatchTrackerPage() {
     load, apply, endBlocked, setEndBlocked, staleRef, missing, loadFailed,
   } = useMatchData(sessionId, matchId, league.id)
   const [dialog, setDialog] = useState<'goal' | 'card' | 'interception' | 'swap' | 'voice' | null>(null)
+  // Push to talk: when the mic was pressed, whether it is held now, and how many holds have been let go
+  const pressedAt = useRef(0)
+  const [holding, setHolding] = useState(false)
+  const [letGo, setLetGo] = useState(0)
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
   const [result, setResult] = useState<{
@@ -119,6 +127,21 @@ export default function MatchTrackerPage() {
     if (!inProgress) return
     setEventClock(timer.elapsed)
     setDialog('voice')
+  }
+  // Push to talk: held down, the mic listens until it is let go. A quick tap still listens until
+  // the referee stops talking.
+  const pressMic = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!inProgress || e.button !== 0) return
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    pressedAt.current = Date.now()
+    setHolding(true)
+    openVoice()
+  }
+  const releaseMic = () => {
+    if (!pressedAt.current) return
+    if (Date.now() - pressedAt.current >= HOLD_MS) setLetGo((n) => n + 1)
+    pressedAt.current = 0
+    setHolding(false)
   }
 
   const handleGoalConfirm = async ({ scorerId, assisterId, ownGoal }: GoalResult) => {
@@ -436,7 +459,22 @@ export default function MatchTrackerPage() {
           {cards && <button onClick={() => openEventDialog('card')} disabled={!inProgress} className={`${tile} bg-yellow-600 hover:bg-yellow-500`}>{t('match.card')}</button>}
           <button onClick={() => openEventDialog('interception')} disabled={!inProgress} className={`${tile} bg-sky-700 hover:bg-sky-600`}>{t('match.interception')}</button>
           {swaps && <button onClick={() => setDialog('swap')} className={`${tile} bg-gray-700 hover:bg-gray-600 ${cards ? 'col-span-2' : ''}`}>{t('match.swap')}</button>}
-          {speechSupported() && <button onClick={openVoice} disabled={!inProgress} className={`${tile} col-span-2 bg-purple-700 hover:bg-purple-600`}>{t('voice.mic')}</button>}
+          {speechSupported() && (
+            <button
+              onPointerDown={pressMic}
+              onPointerUp={releaseMic}
+              onPointerCancel={releaseMic}
+              // Keyboard: Enter or Space opens it as a tap
+              onClick={(e) => { if (e.detail === 0) openVoice() }}
+              onContextMenu={(e) => e.preventDefault()}
+              disabled={!inProgress}
+              aria-label={t('voice.mic')}
+              className={`${tile} col-span-2 bg-purple-700 hover:bg-purple-600 select-none touch-none [-webkit-touch-callout:none]`}
+            >
+              {t('voice.mic')}
+              <span aria-hidden="true" className="block text-xs font-normal opacity-80">{t('voice.micHint')}</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -555,6 +593,8 @@ export default function MatchTrackerPage() {
           undoLabel={lastEvent && undoAllowed(lastEvent.event_type, { cards, swaps }) ? lastEventLabel || null : null}
           onConfirm={handleVoice}
           onEdit={setDialog}
+          holding={holding}
+          letGo={letGo}
           onClose={() => setDialog(null)}
         />
       )}
