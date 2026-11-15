@@ -57,9 +57,23 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   const nameOf = (id: string | null) => allPlayers.find((p) => p.id === id)?.name ?? '?'
   const teamOf = (id: string | null) => allTeams.find((tm) => tm.players.some((p) => p.id === id))?.team.id ?? null
 
+  // The mic takes a moment to start: words before it is ready are lost, so the referee is told when
+  const [ready, setReady] = useState(false)
+  const holdingRef = useRef(holding)
+  holdingRef.current = holding
+
   useEffect(() => {
     let live = true
-    const l = listenOnce(speechLang(lang), (text) => { if (live) setStage({ kind: 'listening', text }) })
+    const l = listenOnce(speechLang(lang), (text) => { if (live) setStage({ kind: 'listening', text }) }, {
+      onReady: () => {
+        if (!live) return
+        setReady(true)
+        // A short buzz says "speak now" without looking at the screen (Android; iPhone has none)
+        if (holdingRef.current) navigator.vibrate?.(40)
+      },
+      // A pause while the mic is still held does not end the sentence
+      keepListening: () => holdingRef.current,
+    })
     listening.current = l
     l.done.then(async ({ text, alternatives }) => {
       if (!live) return
@@ -83,6 +97,7 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
 
   // Back to listening at once, so the tap is seen to work before anything is heard
   const retry = () => {
+    setReady(false)
     setStage({ kind: 'listening', text: '' })
     setAttempt((n) => n + 1)
   }
@@ -100,9 +115,11 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
         )}
       >
         <div className="flex flex-col items-center gap-3 py-4">
-          <span className={`text-4xl ${stage.kind === 'listening' ? 'animate-pulse' : ''}`} aria-hidden="true">🎙️</span>
-          <p className="min-h-[3rem] text-center text-lg" dir="auto">{stage.text || t('voice.hint')}</p>
-          {stage.kind === 'listening' && holding && <p className="text-sm text-gray-400">{t('voice.letGo')}</p>}
+          <span className={`text-4xl ${stage.kind === 'listening' && ready ? 'animate-pulse' : 'opacity-50'}`} aria-hidden="true">🎙️</span>
+          {stage.kind === 'listening' && !ready && !stage.text
+            ? <p className="min-h-[3rem] text-center text-lg text-gray-400">{t('voice.starting')}</p>
+            : <p className="min-h-[3rem] text-center text-lg" dir="auto">{stage.text || t('voice.hint')}</p>}
+          {stage.kind === 'listening' && ready && holding && <p className="text-sm font-semibold text-green-300">{t('voice.letGo')}</p>}
         </div>
       </MatchSheet>
     )

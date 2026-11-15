@@ -22,8 +22,9 @@ const understandVoice = vi.fn(async (input: unknown) => { void input; return { o
 vi.mock('../../lib/speech', () => ({
   speechSupported: () => supported,
   speechLang: () => 'en-US',
-  listenOnce: (_lang: string, onText: (t: string) => void) => {
+  listenOnce: (_lang: string, onText: (t: string) => void, options: { onReady?: () => void } = {}) => {
     if (hang) return { done: new Promise(() => {}), stop: () => {}, cancel: () => {} }
+    options.onReady?.()
     // Push to talk: nothing is final until the mic is let go
     if (untilStop) {
       onText(heard)
@@ -326,7 +327,7 @@ it('push to talk: holding the mic listens until it is let go', async () => {
 
   now.mockReturnValue(1_000)
   await user.pointer({ keys: '[MouseLeft>]', target: mic })
-  expect(await screen.findByText("Let go when you're done")).toBeInTheDocument()
+  expect(await screen.findByText("Speak now, and let go when you're done")).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Listening… say what happened' })).toBeInTheDocument()
 
   now.mockReturnValue(2_500)
@@ -343,7 +344,7 @@ it('a quick tap keeps listening after the finger is lifted', async () => {
   const user = await kickOff()
   await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
   expect(await screen.findByRole('heading', { name: 'Listening… say what happened' })).toBeInTheDocument()
-  expect(screen.queryByText("Let go when you're done")).not.toBeInTheDocument()
+  expect(screen.queryByText("Speak now, and let go when you're done")).not.toBeInTheDocument()
   // The referee ends it with Done, or by going quiet
   await user.click(screen.getByRole('button', { name: 'Done' }))
   await screen.findByRole('heading', { name: '⏸ Pause the clock' })

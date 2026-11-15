@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import type React from 'react'
 import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -43,6 +43,14 @@ import LoadFailed from '../../components/LoadFailed'
 
 // A press this long is push to talk; shorter is a tap
 const HOLD_MS = 400
+// A hold whose release was never seen ends here
+const MAX_HOLD_MS = 30_000
+
+// The mic button's own long-press: no text selection, magnifier or menu, which on a phone would
+// also take the finger away from the button and end the hold
+function noLongPress(e: TouchEvent) {
+  e.preventDefault()
+}
 
 export default function MatchTrackerPage() {
   const { sessionId, matchId } = useParams<{ sessionId: string; matchId: string }>()
@@ -62,6 +70,33 @@ export default function MatchTrackerPage() {
   const pressedAt = useRef(0)
   const [holding, setHolding] = useState(false)
   const [letGo, setLetGo] = useState(0)
+  const releaseMicRef = useRef(() => {})
+  const micButton = useCallback((el: HTMLButtonElement | null) => {
+    if (!el) return
+    el.addEventListener('touchstart', noLongPress, { passive: false })
+    return () => el.removeEventListener('touchstart', noLongPress)
+  }, [])
+  // While the mic is held, nothing on the page can be selected (the sheet opens under the finger),
+  // and the release counts wherever the finger is lifted
+  useEffect(() => {
+    if (!holding) return
+    const body = document.body.style
+    body.setProperty('user-select', 'none')
+    body.setProperty('-webkit-user-select', 'none')
+    body.setProperty('-webkit-touch-callout', 'none')
+    window.getSelection?.()?.removeAllRanges()
+    const up = () => releaseMicRef.current()
+    const events = ['pointerup', 'touchend', 'touchcancel'] as const
+    events.forEach((name) => window.addEventListener(name, up))
+    const safety = setTimeout(up, MAX_HOLD_MS)
+    return () => {
+      body.removeProperty('user-select')
+      body.removeProperty('-webkit-user-select')
+      body.removeProperty('-webkit-touch-callout')
+      events.forEach((name) => window.removeEventListener(name, up))
+      clearTimeout(safety)
+    }
+  }, [holding])
   const [confirmEarlyEnd, setConfirmEarlyEnd] = useState(false)
   const [confirmUndo, setConfirmUndo] = useState(false)
   const [result, setResult] = useState<{
@@ -143,6 +178,7 @@ export default function MatchTrackerPage() {
     pressedAt.current = 0
     setHolding(false)
   }
+  releaseMicRef.current = releaseMic
 
   const handleGoalConfirm = async ({ scorerId, assisterId, ownGoal }: GoalResult) => {
     setDialog(null)
@@ -461,9 +497,9 @@ export default function MatchTrackerPage() {
           {swaps && <button onClick={() => setDialog('swap')} className={`${tile} bg-gray-700 hover:bg-gray-600 ${cards ? 'col-span-2' : ''}`}>{t('match.swap')}</button>}
           {speechSupported() && (
             <button
+              ref={micButton}
               onPointerDown={pressMic}
               onPointerUp={releaseMic}
-              onPointerCancel={releaseMic}
               // Keyboard: Enter or Space opens it as a tap
               onClick={(e) => { if (e.detail === 0) openVoice() }}
               onContextMenu={(e) => e.preventDefault()}
