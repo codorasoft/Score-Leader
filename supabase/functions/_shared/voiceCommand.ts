@@ -1,5 +1,6 @@
 // A referee's spoken command, turned into one match action. Shared by the voice-command function
 // (which asks Claude) and the app (which shows the action to confirm before saving it).
+import { voiceNameHints } from './voiceNames.ts'
 
 export const VOICE_ACTIONS = [
   'goal', 'own_goal', 'yellow_card', 'red_card', 'interception', 'swap', 'pause', 'resume', 'undo', 'unknown',
@@ -97,6 +98,8 @@ export const VOICE_SYSTEM = `You turn a football referee's short spoken command 
 The text comes from phone speech recognition on a noisy pitch, usually in Levantine (Jordanian/Palestinian/Syrian) Arabic, sometimes English or mixed. Expect misheard words, missing punctuation, any word order, and Arabic digits (٢ ٣).
 
 Names: match each spoken name to the roster by sound. Allow Arabic/Latin spellings (Ahmad = أحمد = احمد), ة/ه, ى/ي, أ/إ/ا, nicknames and short forms (حمودة = محمد, أبو علي), and dropped or doubled letters. Strip attached prepositions first: لليث / لـليث / عليث / ع ليث / مِن ليث / من ليث / إله ليث all mean the name ليث.
+Match ANY part of a full name, not just the first word: "العجل" can mean "محمد العجل", and "يوسف" can mean "أحمد يوسف الحسن". A family name may be spoken without ال. Keep multiword names together; two words of one roster name are not two different players.
+Name-part hints may be supplied for recognition mistakes, e.g. "دجل سجل جول" may refer to "محمد العجل". These are suggestions, not facts or action words. If only an approximate hint supports the main player, leave player null and put the possible players in candidates for the referee to choose. Preserve ambiguity when several players share the spoken part. Use the sentence to distinguish scorer from assister; never turn a clear assister into an unknown scorer.
 
 Actions and how the referee says them:
 - goal: هدف، جول، گول، سجل، جاب هدف، فات، دخلت، goal, scored.
@@ -151,11 +154,15 @@ export function voicePrompt(req: VoiceRequest): string {
   const others = req.alternatives.length > 0
     ? `\n\nThe recognizer's other guesses at the same words (may spell a name better):\n${req.alternatives.map((a) => `"${a}"`).join('\n')}`
     : ''
-  return `Roster:\n${roster || '(none)'}\n\nReferee said (${req.lang === 'ar' ? 'Arabic' : 'English'} recognition):\n"${req.text}"${others}`
+  const keys = new Map(req.players.map((p, i) => [p.id, playerKey(i)]))
+  const hints = voiceNameHints([req.text, ...req.alternatives], req.players)
+    .map((h) => `"${h.heard}" -> ${h.playerIds.map((id) => keys.get(id)).join(', ')} (${h.approximate ? 'similar spelling only; ask the referee' : 'matching name part'})`)
+  const names = hints.length ? `\n\nPossible name parts (do not change player roles):\n${hints.join('\n')}` : ''
+  return `Roster:\n${roster || '(none)'}\n\nReferee said (${req.lang === 'ar' ? 'Arabic' : 'English'} recognition):\n"${req.text}"${others}${names}`
 }
 
 // Claude's answer back to ids, dropping anything that breaks the rules above.
-export function readVoiceAnswer(raw: unknown, players: VoicePlayer[]): VoiceCommand {
+export function readVoiceAnswer(raw: unknown, players: VoicePlayer[], heard?: Pick<VoiceRequest, 'text' | 'alternatives'>): VoiceCommand {
   const unknown: VoiceCommand = { action: 'unknown', playerId: null, otherId: null, suspensionMinutes: null, candidates: [] }
   const r = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
   if (!r || !(VOICE_ACTIONS as readonly unknown[]).includes(r.action)) return unknown
@@ -177,9 +184,19 @@ export function readVoiceAnswer(raw: unknown, players: VoicePlayer[]): VoiceComm
   // A goal keeps its assist: "هدف … أسيست خالد" with the scorer misheard must not credit خالد with the
   // goal. The referee picks the scorer, with one tap if خالد did score after all.
   if (!playerId && action !== 'goal' && !swap) playerId = pick(r.other_player)
-  const candidates = playerId ? [] : [...new Set(
+  let candidates = playerId ? [] : [...new Set(
     (Array.isArray(r.candidates) ? r.candidates : []).map(pick).filter((id): id is string => !!id),
   )].filter((id) => id !== otherId).slice(0, MAX_CANDIDATES)
+  // If the action was understood but its player was missed, offer roster suggestions. Keep the
+  // player unselected, and never reuse the known assister's name (even a shared family name).
+  if (!playerId && !candidates.length && !swap && heard) {
+    const hints = voiceNameHints([heard.text, ...heard.alternatives], players)
+      .filter((h) => !otherId || !h.playerIds.includes(otherId))
+    const suggested = [...new Set(hints.flatMap((h) => h.playerIds))]
+      .filter((id) => players.some((p) => p.id === id && p.playing))
+    // An overly broad hint is no better than the usual full player picker.
+    if (suggested.length <= MAX_CANDIDATES) candidates = suggested
+  }
   const mins = r.suspension_minutes
   const suspensionMinutes = action === 'red_card' && (mins === 2 || mins === 3) ? mins : null
   return { action, playerId, otherId, suspensionMinutes, candidates }
