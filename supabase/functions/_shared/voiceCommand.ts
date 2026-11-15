@@ -173,16 +173,13 @@ export function readVoiceAnswer(raw: unknown, players: VoicePlayer[]): VoiceComm
   let playerId = pick(r.player)
   let otherId = action === 'goal' || swap ? pick(r.other_player) : null
   if (otherId === playerId) otherId = null
-  let candidates = playerId ? [] : [...new Set(
+  // Cards and interceptions have one player, so a name Claude put in the wrong field is still theirs.
+  // A goal keeps its assist: "هدف … أسيست خالد" with the scorer misheard must not credit خالد with the
+  // goal. The referee picks the scorer, with one tap if خالد did score after all.
+  if (!playerId && action !== 'goal' && !swap) playerId = pick(r.other_player)
+  const candidates = playerId ? [] : [...new Set(
     (Array.isArray(r.candidates) ? r.candidates : []).map(pick).filter((id): id is string => !!id),
   )].filter((id) => id !== otherId).slice(0, MAX_CANDIDATES)
-  // A lone name belongs to the main player ("هدف من ليث": ليث scored, nobody assisted). Not when
-  // the main player is only unsure ("هدف محمد أسيست خالد" with two Mohammads): keep the assist and ask.
-  if (!playerId && candidates.length === 0 && !swap) {
-    playerId = pick(r.other_player)
-    otherId = null
-    candidates = []
-  }
   const mins = r.suspension_minutes
   const suspensionMinutes = action === 'red_card' && (mins === 2 || mins === 3) ? mins : null
   return { action, playerId, otherId, suspensionMinutes, candidates }

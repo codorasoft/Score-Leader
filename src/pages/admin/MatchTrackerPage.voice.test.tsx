@@ -198,3 +198,32 @@ it('Try again shows the mic listening straight away', async () => {
   expect(screen.getByRole('heading', { name: 'Listening… say what happened' })).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: "Didn't get that" })).not.toBeInTheDocument()
 })
+
+it('keeps a clear assist and asks for a scorer that was not understood', async () => {
+  heard = 'goal mmm assist Ali'
+  answer = cmd({ action: 'goal', otherId: 'p1' })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  expect(await screen.findByText('Who scored?')).toBeInTheDocument()
+  expect(screen.getByText('Assist: Ali')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Omar' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p2' }))
+  expect(rows('match_events').find((e) => e.event_type === 'assist')).toMatchObject({ player_id: 'p1' })
+})
+
+it('one tap makes the named player the scorer when the name came back as the assist', async () => {
+  heard = 'goal from Ali'
+  answer = cmd({ action: 'goal', otherId: 'p1' })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  await user.click(await screen.findByRole('button', { name: 'Ali scored it (no assist)' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p1' }))
+  expect(rows('match_events').some((e) => e.event_type === 'assist')).toBe(false)
+})

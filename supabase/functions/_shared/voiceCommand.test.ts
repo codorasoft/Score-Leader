@@ -75,10 +75,13 @@ describe('readVoiceAnswer', () => {
     expect(readVoiceAnswer(answer({ player: 'p1', other_player: 'p1' }), roster).otherId).toBeNull()
   })
 
-  it('a lone name is the scorer, even when Claude put it as the assister', () => {
-    // "هدف من ليث": من before the only name does not make it an assist
-    expect(readVoiceAnswer(answer({ player: null, other_player: 'p1' }), roster))
-      .toEqual({ action: 'goal', playerId: 'a', otherId: null, suspensionMinutes: null, candidates: [] })
+  it('never turns an assister into the scorer', () => {
+    // "هدف … أسيست خالد" with the scorer misheard: خالد stays the assister and the scorer is asked
+    expect(readVoiceAnswer(answer({ player: null, other_player: 'p2' }), roster))
+      .toEqual({ action: 'goal', playerId: null, otherId: 'b', suspensionMinutes: null, candidates: [] })
+  })
+
+  it('a one-player action takes its player from either field', () => {
     expect(readVoiceAnswer(answer({ action: 'yellow_card', player: null, other_player: 'p3' }), roster).playerId).toBe('c')
   })
 

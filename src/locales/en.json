@@ -1148,6 +1148,7 @@
       "undo": "↶ Undo the last event"
     },
     "assist": "Assist: {{name}}",
+    "assisterScored": "{{name}} scored it (no assist)",
     "changePlayer": "Not this player",
     "whichPlayer": "Which player?",
     "swapBoth": "Say both players, or tap Edit to pick them.",
