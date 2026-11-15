@@ -72,7 +72,7 @@ describe('readVoiceAnswer', () => {
 
   it('maps keys back to player ids', () => {
     expect(readVoiceAnswer(answer({ player: 'p1', other_player: 'p2' }), roster))
-      .toEqual({ action: 'goal', playerId: 'a', otherId: 'b', suspensionMinutes: null, candidates: [] })
+      .toEqual({ action: 'goal', playerId: 'a', otherId: 'b', suspensionMinutes: null, candidates: [], otherCandidates: [] })
   })
 
   it('drops a waiting player from anything but a swap', () => {
@@ -89,7 +89,7 @@ describe('readVoiceAnswer', () => {
   it('never turns an assister into the scorer', () => {
     // "هدف … أسيست خالد" with the scorer misheard: خالد stays the assister and the scorer is asked
     expect(readVoiceAnswer(answer({ player: null, other_player: 'p2' }), roster))
-      .toEqual({ action: 'goal', playerId: null, otherId: 'b', suspensionMinutes: null, candidates: [] })
+      .toEqual({ action: 'goal', playerId: null, otherId: 'b', suspensionMinutes: null, candidates: [], otherCandidates: [] })
   })
 
   it('a one-player action takes its player from either field', () => {
@@ -104,7 +104,7 @@ describe('readVoiceAnswer', () => {
   it('keeps the assist and asks for the scorer when the scorer is only unsure', () => {
     // "هدف محمد أسيست خالد" with two players called محمد
     expect(readVoiceAnswer(answer({ player: null, other_player: 'p2', candidates: ['p1', 'p3', 'p2'] }), roster))
-      .toEqual({ action: 'goal', playerId: null, otherId: 'b', suspensionMinutes: null, candidates: ['a', 'c'] })
+      .toEqual({ action: 'goal', playerId: null, otherId: 'b', suspensionMinutes: null, candidates: ['a', 'c'], otherCandidates: [] })
   })
 
   it('lists candidates only when no player was picked', () => {
@@ -114,7 +114,24 @@ describe('readVoiceAnswer', () => {
 
   it('clears player fields on clock and undo commands', () => {
     expect(readVoiceAnswer(answer({ action: 'pause', player: 'p1' }), roster))
-      .toEqual({ action: 'pause', playerId: null, otherId: null, suspensionMinutes: null, candidates: [] })
+      .toEqual({ action: 'pause', playerId: null, otherId: null, suspensionMinutes: null, candidates: [], otherCandidates: [] })
+  })
+
+  it('will not swap two players of the same team', () => {
+    expect(readVoiceAnswer(answer({ action: 'swap', player: 'p1', other_player: 'p2' }), roster))
+      .toMatchObject({ playerId: 'a', otherId: null })
+  })
+
+  it('lists the second player\'s candidates apart from the first player\'s', () => {
+    // "هدف خالد أسيست …" with the assister unsure: the scorer is never among them
+    expect(readVoiceAnswer(answer({ player: 'p2', other_candidates: ['p1', 'p2', 'p3', 'zz'] }), roster).otherCandidates)
+      .toEqual(['a', 'c'])
+    // A swap's second player comes from another team
+    expect(readVoiceAnswer(answer({ action: 'swap', player: 'p1', other_candidates: ['p2', 'p3', 'p4'] }), roster).otherCandidates)
+      .toEqual(['c', 'd'])
+    // Only for goals and swaps, and only while the second player is unknown
+    expect(readVoiceAnswer(answer({ action: 'yellow_card', player: 'p1', other_candidates: ['p3'] }), roster).otherCandidates).toEqual([])
+    expect(readVoiceAnswer(answer({ player: 'p1', other_player: 'p2', other_candidates: ['p3'] }), roster).otherCandidates).toEqual([])
   })
 
   it('reads anything unexpected as not understood', () => {
@@ -135,7 +152,7 @@ describe('roster suggestions when the interpreter misses a name', () => {
 
   it('suggests the misheard surname but leaves the scorer for the referee to choose', () => {
     expect(readVoiceAnswer(missing, players.slice(0, 3), heard('دجل سجل جول')))
-      .toEqual({ action: 'goal', playerId: null, otherId: null, suspensionMinutes: null, candidates: ['a'] })
+      .toEqual({ action: 'goal', playerId: null, otherId: null, suspensionMinutes: null, candidates: ['a'], otherCandidates: [] })
   })
 
   it('keeps all players sharing the spoken surname', () => {

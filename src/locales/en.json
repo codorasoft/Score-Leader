@@ -1151,7 +1151,9 @@
     "assisterScored": "{{name}} scored it (no assist)",
     "changePlayer": "Not this player",
     "whichPlayer": "Which player?",
-    "swapBoth": "Say both players, or tap Edit to pick them.",
-    "swapSameTeam": "Both players are on the same team. A swap is between two teams: tap Edit to pick them."
+    "swapSameTeam": "Both players are on the same team. A swap is between two teams: tap Edit to pick them.",
+    "whoAssisted": "Who assisted? Tap Confirm if nobody did.",
+    "swapWith": "Swap {{name}} with?",
+    "changeSwap": "Not these players"
   }
 }

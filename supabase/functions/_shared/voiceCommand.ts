@@ -33,6 +33,8 @@ export interface VoiceCommand {
   suspensionMinutes: 2 | 3 | null
   // Players the name could be, when Claude could not tell which one was meant
   candidates: string[]
+  // The same for the second player (goal: the assister, swap: the player swapped with)
+  otherCandidates: string[]
 }
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string }
@@ -83,13 +85,14 @@ export function voiceSchema(players: VoicePlayer[]) {
   return {
     type: 'object',
     additionalProperties: false,
-    required: ['action', 'player', 'other_player', 'suspension_minutes', 'candidates'],
+    required: ['action', 'player', 'other_player', 'suspension_minutes', 'candidates', 'other_candidates'],
     properties: {
       action: { type: 'string', enum: [...VOICE_ACTIONS] },
       player: nullableKey(keys),
       other_player: nullableKey(keys),
       suspension_minutes: { anyOf: [{ type: 'integer', enum: [2, 3] }, { type: 'null' }] },
       candidates: { type: 'array', items: keys.length > 0 ? { type: 'string', enum: keys } : { type: 'string' } },
+      other_candidates: { type: 'array', items: keys.length > 0 ? { type: 'string', enum: keys } : { type: 'string' } },
     },
   }
 }
@@ -100,6 +103,15 @@ The text comes from phone speech recognition on a noisy pitch, usually in Levant
 Names: match each spoken name to the roster by sound. Allow Arabic/Latin spellings (Ahmad = أحمد = احمد), ة/ه, ى/ي, أ/إ/ا, nicknames and short forms (حمودة = محمد, أبو علي), and dropped or doubled letters. Strip attached prepositions first: لليث / لـليث / عليث / ع ليث / مِن ليث / من ليث / إله ليث all mean the name ليث.
 Match ANY part of a full name, not just the first word: "العجل" can mean "محمد العجل", and "يوسف" can mean "أحمد يوسف الحسن". A family name may be spoken without ال. Keep multiword names together; two words of one roster name are not two different players.
 Name-part hints may be supplied for recognition mistakes, e.g. "دجل سجل جول" may refer to "محمد العجل". These are suggestions, not facts or action words. If only an approximate hint supports the main player, leave player null and put the possible players in candidates for the referee to choose. Preserve ambiguity when several players share the spoken part. Use the sentence to distinguish scorer from assister; never turn a clear assister into an unknown scorer.
+
+A team colour said with a name picks that team's player: "محمد الأزرق", "محمد تبع الأخضر", "Mohammad blue". An exact full-name or whole-word match beats a partial or sound-alike one: with "محمد العجل" and "محمد سالم", "العجل" means محمد العجل. When two players fit equally well, never choose: list them.
+
+Corrections: the referee may correct himself mid-sentence. Only the FINAL version counts. Correction words: مش، مو، لا، لأ، قصدي، يعني، بل، لحظة، غلط (inside a sentence), no, not, I mean, sorry. Apply them to the action and to names:
+"مش هدف، قطع كرة للعجل" → interception, player العجل
+"هدف محمد… قصدي خالد" → goal, player خالد
+"صفرا… لا حمرا لسامي" → red_card, player سامي
+"هدف ليث، لا لا، هدف خالد من ليث" → goal, player خالد, other ليث
+A lone "غلط" or "الغي" with no new action is undo.
 
 Actions and how the referee says them:
 - goal: هدف، جول، گول، سجل، جاب هدف، فات، دخلت، goal, scored.
@@ -116,6 +128,8 @@ Who is who in a goal (the most common mistake):
 - The FIRST player named is the scorer, even when a preposition is attached: "هدف من ليث" and "هدف لليث" both mean ليث scored.
 - other_player (the assister) is set only when a SECOND player is named, or a player follows an assist word: أسيست، تمريرة، بتمريرة من، صناعة، صنعها، مرّر، باص، عطاه، assist, pass, from (after the scorer).
 - When the assist word comes first ("تمريرة خالد هدف ليث", "خالد مرر لليث وسجل"), the assister is the one with the assist word and the scorer is the other.
+
+Each player is matched on their own. When one role is clear and the other is not, fill the clear one and list the possible players for the unclear one: candidates for player, other_candidates for other_player. Never move a player from one role to the other to fill a gap.
 
 Examples (by name here; your answer uses the roster keys):
 "هدف ليث" → goal, player ليث, other null
@@ -138,6 +152,8 @@ Examples (by name here; your answer uses the roster keys):
 "ليث قطع الكرة" → interception, player ليث
 "دفاع من خالد" → interception, player خالد
 "بدّل ليث مع خالد" → swap, player ليث, other خالد
+"بدّل ليث مع محمد" (two محمد on other teams) → swap, player ليث, other null, other_candidates both محمد
+"هدف ليث من محمد" (two محمد) → goal, player ليث, other null, other_candidates both محمد
 "وقّف" → pause; "كمّل" → resume; "الغي آخر واحد" → undo
 
 Rules:
@@ -145,7 +161,9 @@ Rules:
 - If a name fits one player clearly, put that key in player and leave candidates empty.
 - If it could be several players (similar names, or a team colour instead of a name: "هدف للأزرق"), set player to null and list the possible players in candidates.
 - If no name was said or it fits nobody, set player to null and candidates empty.
-- Fields that do not apply to the action are null.`
+- A swap is between two different teams: never pair two players of the same team.
+- other_candidates is only for goal and swap, and only when other_player is null; otherwise it is empty.
+- Fields that do not apply to the action are null (lists empty).`
 
 export function voicePrompt(req: VoiceRequest): string {
   const roster = req.players
@@ -163,7 +181,7 @@ export function voicePrompt(req: VoiceRequest): string {
 
 // Claude's answer back to ids, dropping anything that breaks the rules above.
 export function readVoiceAnswer(raw: unknown, players: VoicePlayer[], heard?: Pick<VoiceRequest, 'text' | 'alternatives'>): VoiceCommand {
-  const unknown: VoiceCommand = { action: 'unknown', playerId: null, otherId: null, suspensionMinutes: null, candidates: [] }
+  const unknown: VoiceCommand = { action: 'unknown', playerId: null, otherId: null, suspensionMinutes: null, candidates: [], otherCandidates: [] }
   const r = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
   if (!r || !(VOICE_ACTIONS as readonly unknown[]).includes(r.action)) return unknown
   const action = r.action as VoiceAction
@@ -197,7 +215,13 @@ export function readVoiceAnswer(raw: unknown, players: VoicePlayer[], heard?: Pi
     // An overly broad hint is no better than the usual full player picker.
     if (suggested.length <= MAX_CANDIDATES) candidates = suggested
   }
+  // A swap is between two teams: a same-team pair keeps its first player and asks for the second
+  const teamOfId = (id: string | null) => players.find((p) => p.id === id)?.team
+  if (swap && playerId && otherId && teamOfId(playerId) === teamOfId(otherId)) otherId = null
+  const otherCandidates = (action === 'goal' || swap) && !otherId ? [...new Set(
+    (Array.isArray(r.other_candidates) ? r.other_candidates : []).map(pick).filter((id): id is string => !!id),
+  )].filter((id) => id !== playerId && !(swap && playerId && teamOfId(id) === teamOfId(playerId))).slice(0, MAX_CANDIDATES) : []
   const mins = r.suspension_minutes
   const suspensionMinutes = action === 'red_card' && (mins === 2 || mins === 3) ? mins : null
-  return { action, playerId, otherId, suspensionMinutes, candidates }
+  return { action, playerId, otherId, suspensionMinutes, candidates, otherCandidates }
 }

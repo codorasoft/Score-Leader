@@ -32,7 +32,7 @@ vi.mock('../../lib/voiceApi', () => ({ understandVoice: (input: unknown) => unde
 import MatchTrackerPage from './MatchTrackerPage'
 import { outbox } from '../../lib/pitchOutbox'
 
-const cmd = (c: Partial<VoiceCommand>): VoiceCommand => ({ action: 'unknown', playerId: null, otherId: null, suspensionMinutes: null, candidates: [], ...c })
+const cmd = (c: Partial<VoiceCommand>): VoiceCommand => ({ action: 'unknown', playerId: null, otherId: null, suspensionMinutes: null, candidates: [], otherCandidates: [], ...c })
 
 beforeEach(() => {
   outbox.dismissRejected()
@@ -229,7 +229,7 @@ it('one tap makes the named player the scorer when the name came back as the ass
   expect(rows('match_events').some((e) => e.event_type === 'assist')).toBe(false)
 })
 
-it('offers a player by their misheard surname and saves only after they are picked and confirmed', async () => {
+it('takes the one player a misheard surname points to, and saves only after Confirm', async () => {
   heard = 'دجل سجل جول'
   const namedPlayers = players.map((p) => p.id === 'p2' ? { ...p, name: 'محمد العجل' } : p)
   resetDb({
@@ -243,12 +243,67 @@ it('offers a player by their misheard surname and saves only after they are pick
   )
   const user = await kickOff()
   await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
-  await screen.findByText('Who scored?')
-  expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
-  expect(rows('match_events')).toHaveLength(0)
-  await user.click(screen.getByRole('button', { name: 'محمد العجل' }))
+  expect(await screen.findByText('محمد العجل')).toBeInTheDocument()
+  expect(screen.queryByText('Who scored?')).not.toBeInTheDocument()
   expect(rows('match_events')).toHaveLength(0)
   await user.click(screen.getByRole('button', { name: 'Confirm' }))
   await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p2' }))
   expect(rows('match_events').some((e) => e.event_type === 'assist')).toBe(false)
+})
+
+it('understands a clear command in the app without asking Claude', async () => {
+  heard = 'goal Omar'
+  answer = cmd({ action: 'unknown' })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  expect(await screen.findByRole('heading', { name: '⚽ Goal' })).toBeInTheDocument()
+  expect(understandVoice).not.toHaveBeenCalled()
+  expect(rows('match_events')).toHaveLength(0)
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p2' }))
+})
+
+it('takes the only player on the list instead of asking', async () => {
+  heard = 'yellow Sammy'
+  answer = cmd({ action: 'yellow_card', candidates: ['p3'] })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  await screen.findByRole('heading', { name: '🟨 Yellow card' })
+  expect(screen.queryByText('Which player?')).not.toBeInTheDocument()
+  expect(screen.getByText('Sami')).toBeInTheDocument()
+  // "Not this player" offers everyone, not the same list of one
+  await user.click(screen.getByRole('button', { name: 'Not this player' }))
+  expect(screen.getByRole('button', { name: 'Omar' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Sami' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'yellow_card')).toMatchObject({ player_id: 'p3' }))
+})
+
+it('keeps a clear scorer and asks only who assisted', async () => {
+  heard = 'goal Omar assist Sa'
+  answer = cmd({ action: 'goal', playerId: 'p2', otherCandidates: ['p1', 'p3'] })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  expect(await screen.findByText('Who assisted? Tap Confirm if nobody did.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Ali' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'assist')).toMatchObject({ player_id: 'p1' }))
+  expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p2' })
+})
+
+it('a swap with one clear player asks for the other from another team', async () => {
+  heard = 'swap Ali with mmm'
+  answer = cmd({ action: 'swap', playerId: 'p1' })
+  const user = await kickOff()
+
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  expect(await screen.findByText('Swap Ali with?')).toBeInTheDocument()
+  // Ali's own team is not offered
+  expect(screen.queryByRole('button', { name: 'Omar' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Sami' }))
+  expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
 })
