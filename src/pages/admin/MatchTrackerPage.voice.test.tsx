@@ -17,12 +17,20 @@ let answer: VoiceCommand
 let supported = true
 // Listening that never ends, to see the sheet while the mic is on
 let hang = false
+let untilStop = false
 const understandVoice = vi.fn(async (input: unknown) => { void input; return { ok: true as const, command: answer } })
 vi.mock('../../lib/speech', () => ({
   speechSupported: () => supported,
   speechLang: () => 'en-US',
   listenOnce: (_lang: string, onText: (t: string) => void) => {
     if (hang) return { done: new Promise(() => {}), stop: () => {}, cancel: () => {} }
+    // Push to talk: nothing is final until the mic is let go
+    if (untilStop) {
+      onText(heard)
+      let finish = () => {}
+      const done = new Promise((resolve) => { finish = () => resolve({ text: heard, alternatives: [] }) })
+      return { done, stop: () => finish(), cancel: () => {} }
+    }
     onText(heard)
     return { done: Promise.resolve({ text: heard, alternatives: [`${heard}!`] }), stop: () => {}, cancel: () => {} }
   },
@@ -39,6 +47,7 @@ beforeEach(() => {
   localStorage.clear()
   supported = true
   hang = false
+  untilStop = false
   understandVoice.mockClear()
   resetDb({
     players, teams, team_players: teamPlayers,
@@ -306,4 +315,36 @@ it('a swap with one clear player asks for the other from another team', async ()
   expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Sami' }))
   expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled()
+})
+
+it('push to talk: holding the mic listens until it is let go', async () => {
+  heard = 'pause'
+  untilStop = true
+  const user = await kickOff()
+  const mic = screen.getByRole('button', { name: '🎙️ Voice' })
+  const now = vi.spyOn(Date, 'now')
+
+  now.mockReturnValue(1_000)
+  await user.pointer({ keys: '[MouseLeft>]', target: mic })
+  expect(await screen.findByText("Let go when you're done")).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Listening… say what happened' })).toBeInTheDocument()
+
+  now.mockReturnValue(2_500)
+  await user.pointer({ keys: '[/MouseLeft]', target: mic })
+  await screen.findByRole('heading', { name: '⏸ Pause the clock' })
+  now.mockRestore()
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(m1().timer_status).toBe('paused'))
+})
+
+it('a quick tap keeps listening after the finger is lifted', async () => {
+  heard = 'pause'
+  untilStop = true
+  const user = await kickOff()
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  expect(await screen.findByRole('heading', { name: 'Listening… say what happened' })).toBeInTheDocument()
+  expect(screen.queryByText("Let go when you're done")).not.toBeInTheDocument()
+  // The referee ends it with Done, or by going quiet
+  await user.click(screen.getByRole('button', { name: 'Done' }))
+  await screen.findByRole('heading', { name: '⏸ Pause the clock' })
 })

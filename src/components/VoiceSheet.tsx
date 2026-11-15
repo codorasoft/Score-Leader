@@ -25,7 +25,7 @@ const PLAYER_ACTIONS: VoiceAction[] = ['goal', 'own_goal', 'yellow_card', 'red_c
 
 // The mic is tapped, the referee says what happened, and the action shows here to confirm.
 // Nothing is saved until Confirm; Edit opens the usual dialog for that action instead.
-export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, onConfirm, onEdit, onClose }: {
+export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, holding = false, letGo = 0, onConfirm, onEdit, onClose }: {
   leagueId: string
   playingTeams: TeamWithPlayers[]
   // Every team of the session, for a swap with a waiting team
@@ -35,6 +35,9 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   clockRunning: boolean
   // The event Undo would take back, or null when there is nothing to undo
   undoLabel: string | null
+  // Push to talk: the mic button is held down; letGo counts each release after a hold
+  holding?: boolean
+  letGo?: number
   onConfirm: (c: ConfirmedVoice) => void
   onEdit: (action: 'goal' | 'card' | 'interception' | 'swap') => void
   onClose: () => void
@@ -72,6 +75,12 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
     return () => { live = false; l.cancel() }
   }, [attempt, lang, leagueId])
 
+  // Letting go of a held mic ends the sentence there, and what was heard goes on
+  const firstLetGo = useRef(letGo)
+  useEffect(() => {
+    if (letGo !== firstLetGo.current) listening.current?.stop()
+  }, [letGo])
+
   // Back to listening at once, so the tap is seen to work before anything is heard
   const retry = () => {
     setStage({ kind: 'listening', text: '' })
@@ -93,6 +102,7 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
         <div className="flex flex-col items-center gap-3 py-4">
           <span className={`text-4xl ${stage.kind === 'listening' ? 'animate-pulse' : ''}`} aria-hidden="true">🎙️</span>
           <p className="min-h-[3rem] text-center text-lg" dir="auto">{stage.text || t('voice.hint')}</p>
+          {stage.kind === 'listening' && holding && <p className="text-sm text-gray-400">{t('voice.letGo')}</p>}
         </div>
       </MatchSheet>
     )
