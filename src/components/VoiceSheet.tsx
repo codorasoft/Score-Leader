@@ -200,7 +200,16 @@ function VoiceResult({ text, command, playingTeams, cards, swaps, clockRunning, 
       )}
       {needsPlayer && !playerId && !swap && (
         <>
-          <p className="text-sm text-gray-300 mb-2">{t('voice.whichPlayer')}</p>
+          {action === 'goal' && otherId && (
+            <div className="rounded-xl bg-gray-700 p-3 mb-3 space-y-2">
+              <p className="text-sm text-gray-300" dir="auto">{t('voice.assist', { name: nameOf(otherId) })}</p>
+              {/* "هدف من ليث" can come back as an assist: one tap makes ليث the scorer, with no assist */}
+              <button type="button" onClick={() => pickPlayer(otherId)} className="text-sm text-blue-300 underline" dir="auto">
+                {t('voice.assisterScored', { name: nameOf(otherId) })}
+              </button>
+            </div>
+          )}
+          <p className="text-sm text-gray-300 mb-2">{action === 'goal' ? t('goal.whoScored') : t('voice.whichPlayer')}</p>
           <TeamPlayerGrid teams={pickFrom} onPick={pickPlayer} />
         </>
       )}
