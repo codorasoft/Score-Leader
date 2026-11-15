@@ -40,5 +40,6 @@ function sanitize(c: VoiceCommand, players: VoicePlayer[]): VoiceCommand {
     otherId: keep(c.otherId),
     suspensionMinutes: c.suspensionMinutes === 2 || c.suspensionMinutes === 3 ? c.suspensionMinutes : null,
     candidates: Array.isArray(c.candidates) ? c.candidates.map(keep).filter((id): id is string => !!id) : [],
+    otherCandidates: Array.isArray(c.otherCandidates) ? c.otherCandidates.map(keep).filter((id): id is string => !!id) : [],
   }
 }

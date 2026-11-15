@@ -6,14 +6,14 @@ export interface VoiceNameHint {
   approximate: boolean
 }
 
-function words(text: string): string[] {
+export function words(text: string): string[] {
   return text.normalize('NFKC').toLowerCase()
     .replace(/[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]/g, '')
     .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
     .match(/\p{L}+/gu) ?? []
 }
 
-function namePart(word: string): string {
+export function namePart(word: string): string {
   // Keep short names intact; do not strip arbitrary first letters from names such as علي or عجل.
   return word.replace(/^(?:بال|وال|فال|كال|لل|ال)(?=[\u0621-\u064a]{3,}$)/u, '')
 }
