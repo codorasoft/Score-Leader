@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { listenOnce, speechLang, speechSupported } from './speech'
 
 // A stand-in for the browser's SpeechRecognition that the test drives by hand
@@ -9,9 +10,10 @@ class FakeRecognition {
   onresult: ((e: unknown) => void) | null = null
   onerror: ((e: { error: string }) => void) | null = null
   onend: (() => void) | null = null
+  onstart: (() => void) | null = null
   started = false
   constructor() { FakeRecognition.last = this }
-  start() { this.started = true }
+  start() { this.started = true; this.onstart?.() }
   stop() { this.onend?.() }
   abort() { this.onerror?.({ error: 'aborted' }); this.onend?.() }
   // Each part is one result; a part given as a list carries the recognizer's other guesses
@@ -72,4 +74,49 @@ it('cancel gives back nothing', async () => {
   FakeRecognition.last.say('goal')
   l.cancel()
   await expect(l.done).resolves.toEqual({ text: '', alternatives: [] })
+})
+
+it('says when the mic is really on', () => {
+  const onReady = vi.fn()
+  listenOnce('ar-JO', () => {}, { onReady })
+  expect(onReady).toHaveBeenCalledTimes(1)
+})
+
+it('push to talk: a pause while the mic is held listens on and keeps what was said', async () => {
+  let held = true
+  const seen: string[] = []
+  const onReady = vi.fn()
+  const l = listenOnce('ar-JO', (t) => seen.push(t), { onReady, keepListening: () => held })
+  const first = FakeRecognition.last
+  first.say('هدف')
+  // The recognizer ends on its own at the pause
+  first.onend?.()
+  const second = FakeRecognition.last
+  expect(second).not.toBe(first)
+  expect(second.started).toBe(true)
+  // Ready is said once, not again for each round
+  expect(onReady).toHaveBeenCalledTimes(1)
+  second.say(['العجل', 'الدجل'])
+  held = false
+  l.stop()
+  await expect(l.done).resolves.toEqual({ text: 'هدف العجل', alternatives: ['هدف الدجل'] })
+  expect(seen).toEqual(['هدف', 'هدف العجل'])
+})
+
+it('a tap ends at the first pause, as before', async () => {
+  const l = listenOnce('ar-JO', () => {}, { keepListening: () => false })
+  const rec = FakeRecognition.last
+  rec.say('هدف')
+  rec.onend?.()
+  expect(FakeRecognition.last).toBe(rec)
+  await expect(l.done).resolves.toEqual({ text: 'هدف', alternatives: [] })
+})
+
+it('stops trying again when the mic is refused', async () => {
+  const l = listenOnce('ar-JO', () => {}, { keepListening: () => true })
+  const rec = FakeRecognition.last
+  rec.onerror?.({ error: 'not-allowed' })
+  rec.onend?.()
+  expect(FakeRecognition.last).toBe(rec)
+  await expect(l.done).rejects.toBe('denied')
 })
