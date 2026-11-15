@@ -199,7 +199,16 @@
     "drawEnd": "تعادل — إنهاء المباراة",
     "interception": "🛡️ قطع كرة",
     "undoInterception": "🛡️ قطع كرة — {{name}}",
-    "undoOwnGoal": "⚽ هدف عكسي — {{name}}"
+    "undoOwnGoal": "⚽ هدف عكسي — {{name}}",
+    "showPlayers": "اللاعبين",
+    "teamPlayers": "{{team}}: عرض اللاعبين",
+    "playerCount_zero": "{{count}} لاعب",
+    "playerCount_one": "لاعب واحد",
+    "playerCount_two": "لاعبين",
+    "playerCount_few": "{{count}} لاعبين",
+    "playerCount_many": "{{count}} لاعب",
+    "playerCount_other": "{{count}} لاعب",
+    "noTeamPlayers": "ما في لاعبين بهاد الفريق لسا."
   },
   "goal": {
     "whoScored": "من سجّل؟",
@@ -1314,6 +1323,11 @@
     "swapSameTeam": "اللاعبين من نفس الفريق. التبديل بيكون بين فريقين، اكبس «تعديل» واختارهم.",
     "whoAssisted": "مين صنع الهدف؟ اكبس «تأكيد» إذا ما حدا صنعه.",
     "swapWith": "تبديل {{name}} مع مين؟",
-    "changeSwap": "مش هدول اللاعبين"
+    "changeSwap": "مش هدول اللاعبين",
+    "saveMode": "الصوت:",
+    "saveConfirm": "بأكّد أنا",
+    "saveAuto": "سجّل لحاله إذا واضح",
+    "autoSaved": "انسجّل بالصوت",
+    "dismiss": "إخفاء"
   }
 }
