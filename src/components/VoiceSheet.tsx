@@ -56,11 +56,11 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
     let live = true
     const l = listenOnce(speechLang(lang), (text) => { if (live) setStage({ kind: 'listening', text }) })
     listening.current = l
-    l.done.then(async (text) => {
+    l.done.then(async ({ text, alternatives }) => {
       if (!live) return
       if (!text) { setStage({ kind: 'error', error: 'no-speech' }); return }
       setStage({ kind: 'thinking', text })
-      const res = await understandVoice({ leagueId, text, lang, players: rosterRef.current })
+      const res = await understandVoice({ leagueId, text, alternatives, lang, players: rosterRef.current })
       if (!live) return
       setStage(res.ok ? { kind: 'result', text, command: res.command } : { kind: 'error', error: res.error })
     }, (error: SpeechError) => { if (live) setStage({ kind: 'error', error }) })

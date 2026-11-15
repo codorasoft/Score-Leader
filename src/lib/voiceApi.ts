@@ -9,13 +9,14 @@ export type VoiceResult = { ok: true; command: VoiceCommand } | { ok: false; err
 export async function understandVoice(input: {
   leagueId: string
   text: string
+  alternatives: string[]
   lang: 'ar' | 'en'
   players: VoicePlayer[]
 }): Promise<VoiceResult> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, error: 'network' }
   try {
     const { data, error } = await supabase.functions.invoke('voice-command', {
-      body: { league_id: input.leagueId, text: input.text, lang: input.lang, players: input.players },
+      body: { league_id: input.leagueId, text: input.text, alternatives: input.alternatives, lang: input.lang, players: input.players },
     })
     if (error) {
       const name = (error as { name?: string }).name

@@ -5,6 +5,7 @@ class FakeRecognition {
   static last: FakeRecognition
   lang = ''
   interimResults = false
+  maxAlternatives = 1
   onresult: ((e: unknown) => void) | null = null
   onerror: ((e: { error: string }) => void) | null = null
   onend: (() => void) | null = null
@@ -13,8 +14,13 @@ class FakeRecognition {
   start() { this.started = true }
   stop() { this.onend?.() }
   abort() { this.onerror?.({ error: 'aborted' }); this.onend?.() }
-  say(...parts: string[]) {
-    this.onresult?.({ resultIndex: 0, results: parts.map((p) => ({ isFinal: true, 0: { transcript: p } })) })
+  // Each part is one result; a part given as a list carries the recognizer's other guesses
+  say(...parts: (string | string[])[]) {
+    const results = parts.map((p) => {
+      const guesses = (Array.isArray(p) ? p : [p]).map((transcript) => ({ transcript }))
+      return Object.assign(guesses, { isFinal: true })
+    })
+    this.onresult?.({ resultIndex: 0, results })
   }
 }
 
@@ -40,8 +46,17 @@ it('streams what it hears and resolves with the whole text when it ends', async 
   expect(rec).toMatchObject({ started: true, lang: 'ar-JO', interimResults: true })
   rec.say('هدف ', 'أحمد')
   l.stop()
-  await expect(l.done).resolves.toBe('هدف أحمد')
+  await expect(l.done).resolves.toEqual({ text: 'هدف أحمد', alternatives: [] })
   expect(seen).toEqual(['هدف أحمد'])
+})
+
+it('keeps the other guesses, which often spell a name better', async () => {
+  const l = listenOnce('ar-JO', () => {})
+  const rec = FakeRecognition.last
+  expect(rec.maxAlternatives).toBe(3)
+  rec.say(['هدف من ليث', 'هدف ملايث', 'هدف من ليث'])
+  l.stop()
+  await expect(l.done).resolves.toEqual({ text: 'هدف من ليث', alternatives: ['هدف ملايث'] })
 })
 
 it('reports a blocked microphone', async () => {
@@ -56,5 +71,5 @@ it('cancel gives back nothing', async () => {
   const l = listenOnce('en-US', () => {})
   FakeRecognition.last.say('goal')
   l.cancel()
-  await expect(l.done).resolves.toBe('')
+  await expect(l.done).resolves.toEqual({ text: '', alternatives: [] })
 })

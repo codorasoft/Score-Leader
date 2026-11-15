@@ -1,7 +1,7 @@
 // The browser's own speech recognition (Web Speech API): Chrome on Android, Safari on iPhone.
 // It listens once, until the referee stops talking, and gives back the text. It needs a connection.
 
-interface RecognitionResult { isFinal: boolean; 0: { transcript: string } }
+interface RecognitionResult extends ArrayLike<{ transcript: string }> { isFinal: boolean }
 interface RecognitionEvent { resultIndex: number; results: ArrayLike<RecognitionResult> }
 interface Recognition {
   lang: string
@@ -29,9 +29,17 @@ export const speechLang = (appLang: string) => (appLang.startsWith('ar') ? 'ar-J
 
 export type SpeechError = 'denied' | 'no-speech' | 'network' | 'failed'
 
+// What was heard: the best guess, and the recognizer's other guesses, which often spell a name better
+export interface Heard {
+  text: string
+  alternatives: string[]
+}
+
+const ALTERNATIVES = 3
+
 export interface Listening {
   // The final text, '' when nothing was heard
-  done: Promise<string>
+  done: Promise<Heard>
   // Stop listening now and keep what was heard so far
   stop: () => void
   // Stop and throw it away
@@ -40,21 +48,31 @@ export interface Listening {
 
 export function listenOnce(lang: string, onText: (text: string) => void): Listening {
   const Ctor = ctor()
-  if (!Ctor) return { done: Promise.reject<string>('failed'), stop: () => {}, cancel: () => {} }
+  if (!Ctor) return { done: Promise.reject<Heard>('failed'), stop: () => {}, cancel: () => {} }
   const rec = new Ctor()
   rec.lang = lang
   rec.interimResults = true
   rec.continuous = false
-  rec.maxAlternatives = 1
+  rec.maxAlternatives = ALTERNATIVES
 
   let text = ''
+  let alternatives: string[] = []
   let failure: SpeechError | null = null
   let cancelled = false
-  const done = new Promise<string>((resolve, reject) => {
+  const done = new Promise<Heard>((resolve, reject) => {
     rec.onresult = (e) => {
-      let all = ''
-      for (let i = 0; i < e.results.length; i++) all += e.results[i][0].transcript
-      text = all.trim()
+      // Guess k of the whole phrase: guess k of each part, or the best guess where a part has fewer
+      const guess = (k: number) => {
+        let all = ''
+        for (let i = 0; i < e.results.length; i++) {
+          const r = e.results[i]
+          all += (r[k] ?? r[0]).transcript
+        }
+        return all.trim().replace(/\s+/g, ' ')
+      }
+      text = guess(0)
+      alternatives = [...new Set(Array.from({ length: ALTERNATIVES - 1 }, (_, i) => guess(i + 1)))]
+        .filter((a) => a && a !== text)
       onText(text)
     }
     rec.onerror = (e) => {
@@ -65,15 +83,15 @@ export function listenOnce(lang: string, onText: (text: string) => void): Listen
         : 'failed'
     }
     rec.onend = () => {
-      if (cancelled) resolve('')
+      if (cancelled) resolve({ text: '', alternatives: [] })
       else if (failure && !text) reject(failure)
-      else resolve(text)
+      else resolve({ text, alternatives })
     }
   })
   try {
     rec.start()
   } catch {
-    return { done: Promise.reject<string>('failed'), stop: () => {}, cancel: () => {} }
+    return { done: Promise.reject<Heard>('failed'), stop: () => {}, cancel: () => {} }
   }
   return {
     done,
