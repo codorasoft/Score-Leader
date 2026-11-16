@@ -25,3 +25,12 @@ it('asks whenever anything is a guess, missing, off or not possible now', () => 
   expect(clearCommand(cmd({ action: 'undo' }), ctx)).toBe(false)
   expect(clearCommand(cmd({ action: 'unknown' }), ctx)).toBe(false)
 })
+
+it('holds back a goal whose spoken assist was not placed', () => {
+  // «هدف ليث أسيست دجل» with ليث understood and the assister missed
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث أسيست دجل' })).toBe(false)
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'goal Omar assist mmm' })).toBe(false)
+  // Placed, or never spoken of: clear
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a', otherId: 'b' }), { ...ctx, heard: 'هدف ليث أسيست خالد' })).toBe(true)
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث' })).toBe(true)
+})

@@ -1,4 +1,4 @@
-import { readVoiceAnswer, validateVoiceRequest, voicePrompt, voiceSchema, type VoicePlayer } from './voiceCommand'
+import { mentionsAssist, readVoiceAnswer, validateVoiceRequest, voicePrompt, voiceSchema, type VoicePlayer } from './voiceCommand'
 
 const LEAGUE = '11111111-2222-3333-4444-555555555555'
 const roster: VoicePlayer[] = [
@@ -204,8 +204,9 @@ describe('a misheard name after the assist word', () => {
   it('is offered as the assister, never as the scorer', () => {
     expect(readVoiceAnswer(missing, players, heard('هدف أسيست دجل')))
       .toMatchObject({ playerId: null, otherId: null, candidates: [], otherCandidates: ['a'] })
+    // With the scorer known, the misheard assister is still offered for the assist
     expect(readVoiceAnswer({ ...missing, player: 'p2' }, players, heard('هدف ليث أسيست دجل')))
-      .toMatchObject({ playerId: 'b', otherCandidates: [] })
+      .toMatchObject({ playerId: 'b', candidates: [], otherCandidates: ['a'] })
   })
 
   it('keeps each role\'s guesses apart when both were misheard', () => {
@@ -221,5 +222,43 @@ describe('a misheard name after the assist word', () => {
   it('still reads a name before a passing verb as the scorer\'s guess', () => {
     // «مرّر» is not an assist marker: the order around it varies
     expect(readVoiceAnswer(missing, players, heard('دجل مرر جول')).candidates).toEqual(['a'])
+  })
+})
+
+describe('a family name two players share', () => {
+  const players: VoicePlayer[] = [
+    { id: 'k', name: 'خالد الحسن', team: 'green', playing: true },
+    { id: 'o', name: 'عمر الحسن', team: 'blue', playing: true },
+    { id: 'l', name: 'ليث', team: 'blue', playing: true },
+  ]
+  const goal = { action: 'goal', player: null, other_player: null, suspension_minutes: null, candidates: [] }
+  const heard = (text: string) => ({ text, alternatives: [] })
+
+  it('never offers the assister\'s relative as the scorer', () => {
+    // خالد الحسن understood as the assister from «باص الحسن»: عمر الحسن was never named
+    expect(readVoiceAnswer({ ...goal, other_player: 'p1' }, players, heard('هدف باص الحسن')))
+      .toMatchObject({ playerId: null, otherId: 'k', candidates: [] })
+    expect(readVoiceAnswer({ ...goal, other_candidates: ['p1'] }, players, heard('هدف الحسن')))
+      .toMatchObject({ playerId: null, candidates: [], otherCandidates: ['k'] })
+  })
+
+  it('never offers the scorer\'s relative as the assister', () => {
+    expect(readVoiceAnswer({ ...goal, player: 'p2' }, players, heard('هدف عمر أسيست الحسن')))
+      .toMatchObject({ playerId: 'o', otherCandidates: [] })
+  })
+
+  it('still offers both when nobody was placed yet', () => {
+    expect(readVoiceAnswer(goal, players, heard('هدف الحسن')).candidates).toEqual(['k', 'o'])
+  })
+})
+
+describe('mentionsAssist', () => {
+  it('hears an assist however it is said', () => {
+    for (const t of ['هدف ليث أسيست دجل', 'هدف العجل بتمريرة خالد', 'خالد مرّر للعجل وسجّل', 'هدف باص الحسن', 'goal Omar assist Ali']) {
+      expect(mentionsAssist(t)).toBe(true)
+    }
+    for (const t of ['هدف ليث', 'هدف من ليث', 'goal for Sami', 'صفرا لسامي']) {
+      expect(mentionsAssist(t)).toBe(false)
+    }
   })
 })
