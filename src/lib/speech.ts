@@ -107,10 +107,10 @@ export function listenOnce(lang: string, onText: (text: string) => void, options
     else if (text) finish({ text, alternatives })
     else fail(failure ?? (ready ? 'no-speech' : 'failed'))
   }
+  // Done, a release or a timer: the grace starts at the first ask, and asking again never extends it
   const stop = () => {
-    if (settled) return
+    if (settled || stopped) return
     stopped = true
-    clearTimeout(graceTimer)
     graceTimer = setTimeout(settle, STOP_GRACE_MS)
     try { rec.stop() } catch { settle() }
   }
@@ -160,6 +160,9 @@ export function listenOnce(lang: string, onText: (text: string) => void, options
         : e.error === 'network' ? 'network'
         : e.error === 'aborted' ? null
         : 'failed'
+      // A blocked mic, no connection or a broken recognizer will not come right by waiting, held or
+      // not, and the browser may never say it ended: show it now
+      if (failure === 'denied' || failure === 'network' || failure === 'failed') settle()
     }
     r.onend = () => {
       // Still held: the referee only paused, so listen on and keep what was said

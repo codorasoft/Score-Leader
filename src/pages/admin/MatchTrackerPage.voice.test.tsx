@@ -424,6 +424,22 @@ describe('saving a clear command on its own', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('does not save a goal without the assist the referee named, and asks who it was', async () => {
+    heard = 'goal Omar assist mmm'
+    answer = cmd({ action: 'goal', playerId: 'p2' })
+    const user = await kickOff()
+    await chooseAuto(user)
+    await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+    expect(await screen.findByText('Who assisted? Tap Confirm if nobody did.')).toBeInTheDocument()
+    expect(rows('match_events')).toHaveLength(0)
+    // Everyone on the pitch but the scorer
+    expect(screen.queryByRole('button', { name: 'Omar' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sami' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'assist')).toMatchObject({ player_id: 'p3' }))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('still asks for an unsure assist, and never undoes on its own', async () => {
     heard = 'goal Omar assist Sa'
     answer = cmd({ action: 'goal', playerId: 'p2', otherCandidates: ['p1', 'p3'] })

@@ -4,6 +4,7 @@ import { MatchSheet, TeamPlayerGrid, type TeamWithPlayers } from './PlayerSheet'
 import { listenOnce, speechLang, type Listening, type SpeechError } from '../lib/speech'
 import { understandVoice, type VoiceCommand, type VoicePlayer } from '../lib/voiceApi'
 import { understandLocally } from '../../supabase/functions/_shared/voiceLocal.ts'
+import { mentionsAssist } from '../../supabase/functions/_shared/voiceCommand.ts'
 
 export type VoiceAction = VoiceCommand['action']
 
@@ -160,16 +161,20 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
 
 // Clear enough to save without Confirm: every player was named outright (not picked from guesses),
 // nothing is missing, and it can be done now. Undo is never saved this way: it takes an event away.
-export function clearCommand(c: VoiceCommand, { cards, swaps, clockRunning, teamOf }: {
+// A goal whose assist was spoken but not placed («هدف ليث أسيست دجل») is missing its assister.
+export function clearCommand(c: VoiceCommand, { cards, swaps, clockRunning, teamOf, heard = '' }: {
   cards: boolean
   swaps: boolean
   clockRunning: boolean
   teamOf: (id: string | null) => string | null
+  // What the referee said
+  heard?: string
 }): boolean {
   switch (c.action) {
     case 'pause': return clockRunning
     case 'resume': return !clockRunning
-    case 'goal': return !!c.playerId && c.otherId !== c.playerId && (!!c.otherId || c.otherCandidates.length === 0)
+    case 'goal': return !!c.playerId && c.otherId !== c.playerId
+      && (!!c.otherId || (c.otherCandidates.length === 0 && !mentionsAssist(heard)))
     case 'own_goal':
     case 'interception': return !!c.playerId
     case 'yellow_card': return cards && !!c.playerId
@@ -200,7 +205,7 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   const { action } = command
 
   // Saved on its own (when the referee chose that) only when nothing about it was a guess
-  const sure = autoSave && clearCommand(command, { cards, swaps, clockRunning, teamOf })
+  const sure = autoSave && clearCommand(command, { cards, swaps, clockRunning, teamOf, heard: text })
   const autoSaved = useRef(false)
   useEffect(() => {
     if (!sure || autoSaved.current) return
@@ -273,10 +278,13 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   // A swap's second player comes from another team; a goal's assister from the pitch
   const otherFrom = swap
     ? only(allTeams.filter((tm) => tm.team.id !== teamOf(playerId)), widened ? [] : command.otherCandidates)
+    // (never the scorer: nobody assists their own goal)
     : only(playingTeams, widened ? [] : command.otherCandidates)
+      .map((tm) => ({ ...tm, players: tm.players.filter((p) => p.id !== playerId) }))
   const pickOther = (id: string) => { if (id !== playerId) setOtherId(id) }
-  // Asked only when the referee named an assister Claude could not place
-  const askAssist = action === 'goal' && !!playerId && !otherId && command.otherCandidates.length > 0
+  // Asked only when the referee spoke of an assist that could not be placed: from the guesses, or
+  // from everyone on the pitch when there were none
+  const askAssist = action === 'goal' && !!playerId && !otherId && (command.otherCandidates.length > 0 || mentionsAssist(text))
 
   const confirm = () => onConfirm({ action, playerId, otherId: action === 'goal' || swap ? otherId : null, suspensionMinutes: action === 'red_card' ? minutes : null })
 

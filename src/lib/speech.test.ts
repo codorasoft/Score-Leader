@@ -176,6 +176,50 @@ describe('never waits on the browser for ever', () => {
     await expect(l.done).resolves.toEqual({ text: 'هدف', alternatives: [] })
   })
 
+  it('shows a mic error at once, even while the mic is held and the browser never ends', async () => {
+    FakeRecognition.noEnd = true
+    const l = listenOnce('ar-JO', () => {}, { keepListening: () => true })
+    const rec = FakeRecognition.last
+    rec.onerror?.({ error: 'network' })
+    await expect(l.done).rejects.toBe('network')
+    expect(rec.aborted).toBe(true)
+  })
+
+  it('keeps what was heard when the mic fails part way', async () => {
+    FakeRecognition.noEnd = true
+    const l = listenOnce('ar-JO', () => {}, { keepListening: () => true })
+    FakeRecognition.last.say('هدف العجل')
+    FakeRecognition.last.onerror?.({ error: 'audio-capture' })
+    await expect(l.done).resolves.toEqual({ text: 'هدف العجل', alternatives: [] })
+  })
+
+  it('a quiet spell (no-speech) while held does not end it', async () => {
+    FakeRecognition.noEnd = true
+    let ended = false
+    const l = listenOnce('ar-JO', () => {}, { keepListening: () => true })
+    void l.done.then(() => { ended = true }, () => { ended = true })
+    FakeRecognition.last.onerror?.({ error: 'no-speech' })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(ended).toBe(false)
+    l.cancel()
+  })
+
+  it('pressing Done again does not extend the wait', async () => {
+    FakeRecognition.noEnd = true
+    const l = listenOnce('ar-JO', () => {})
+    FakeRecognition.last.say('هدف')
+    let ended = false
+    void l.done.then(() => { ended = true })
+    l.stop()
+    for (let i = 0; i < 10; i++) {
+      await vi.advanceTimersByTimeAsync(2_000)
+      l.stop()
+      if (ended) break
+    }
+    expect(ended).toBe(true)
+    await expect(l.done).resolves.toEqual({ text: 'هدف', alternatives: [] })
+  })
+
   it('stops after the longest allowed listen', async () => {
     FakeRecognition.noEnd = true
     const l = listenOnce('ar-JO', () => {}, { keepListening: () => true })
