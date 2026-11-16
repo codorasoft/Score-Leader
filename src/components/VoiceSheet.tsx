@@ -218,7 +218,11 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
     const ok = [...new Set(ids)].filter((id) => id !== not && teams.some((tm) => tm.players.some((p) => p.id === id)))
     return ok.length === 1 ? ok[0] : null
   }
-  const firstPlayer = command.playerId ?? onlyOne(command.candidates, action === 'swap' ? allTeams : playingTeams, command.otherId)
+  // A guess that was also offered for the other role is not taken for this one: the assister must
+  // never show up as the scorer
+  const firstPlayer = command.playerId ?? onlyOne(
+    command.candidates.filter((id) => !command.otherCandidates.includes(id)),
+    action === 'swap' ? allTeams : playingTeams, command.otherId)
   const secondPlayer = command.otherId ?? ((action === 'goal' || action === 'swap') && firstPlayer
     ? onlyOne(command.otherCandidates, action === 'swap'
       ? allTeams.filter((tm) => tm.team.id !== teamOf(firstPlayer))
