@@ -1,6 +1,6 @@
 // A referee's spoken command, turned into one match action. Shared by the voice-command function
 // (which asks Claude) and the app (which shows the action to confirm before saving it).
-import { voiceNameHints } from './voiceNames.ts'
+import { namePart, voiceNameHints, words } from './voiceNames.ts'
 
 export const VOICE_ACTIONS = [
   'goal', 'own_goal', 'yellow_card', 'red_card', 'interception', 'swap', 'pause', 'resume', 'undo', 'unknown',
@@ -44,6 +44,17 @@ const MAX_TEXT = 300
 const MAX_PLAYERS = 80
 // Enough for a whole team, when the referee names a colour instead of a player
 const MAX_CANDIDATES = 12
+
+// Words that say "the assister comes next": «هدف … أسيست دجل», «بتمريرة خالد». Verbs such as مرّر are
+// left out, since «خالد مرّر للعجل وسجّل» names the assister first.
+const ASSIST_MARKERS = new Set(words('اسيست اسست اسيس assist assists تمريره بتمريره صناعه بصناعه'))
+
+// A heard sentence cut at its assist word: the scorer's part, and the assister's
+function splitAtAssist(text: string): [string, string] {
+  const said = words(text)
+  const at = said.findIndex((w) => ASSIST_MARKERS.has(w) || ASSIST_MARKERS.has(namePart(w)))
+  return at < 0 ? [said.join(' '), ''] : [said.slice(0, at).join(' '), said.slice(at + 1).join(' ')]
+}
 
 export function validateVoiceRequest(body: unknown): Result<VoiceRequest> {
   const b = body !== null && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : null
@@ -202,25 +213,34 @@ export function readVoiceAnswer(raw: unknown, players: VoicePlayer[], heard?: Pi
   // A goal keeps its assist: "هدف … أسيست خالد" with the scorer misheard must not credit خالد with the
   // goal. The referee picks the scorer, with one tap if خالد did score after all.
   if (!playerId && action !== 'goal' && !swap) playerId = pick(r.other_player)
-  let candidates = playerId ? [] : [...new Set(
-    (Array.isArray(r.candidates) ? r.candidates : []).map(pick).filter((id): id is string => !!id),
-  )].filter((id) => id !== otherId).slice(0, MAX_CANDIDATES)
-  // If the action was understood but its player was missed, offer roster suggestions. Keep the
-  // player unselected, and never reuse the known assister's name (even a shared family name).
-  if (!playerId && !candidates.length && !swap && heard) {
-    const hints = voiceNameHints([heard.text, ...heard.alternatives], players)
-      .filter((h) => !otherId || !h.playerIds.includes(otherId))
-    const suggested = [...new Set(hints.flatMap((h) => h.playerIds))]
-      .filter((id) => players.some((p) => p.id === id && p.playing))
-    // An overly broad hint is no better than the usual full player picker.
-    if (suggested.length <= MAX_CANDIDATES) candidates = suggested
-  }
   // A swap is between two teams: a same-team pair keeps its first player and asks for the second
   const teamOfId = (id: string | null) => players.find((p) => p.id === id)?.team
   if (swap && playerId && otherId && teamOfId(playerId) === teamOfId(otherId)) otherId = null
-  const otherCandidates = (action === 'goal' || swap) && !otherId ? [...new Set(
+  let otherCandidates = (action === 'goal' || swap) && !otherId ? [...new Set(
     (Array.isArray(r.other_candidates) ? r.other_candidates : []).map(pick).filter((id): id is string => !!id),
   )].filter((id) => id !== playerId && !(swap && playerId && teamOfId(id) === teamOfId(playerId))).slice(0, MAX_CANDIDATES) : []
+  // A player offered only as the assister is never offered as the scorer: the referee would see the
+  // assister in the scorer's place
+  let candidates = playerId ? [] : [...new Set(
+    (Array.isArray(r.candidates) ? r.candidates : []).map(pick).filter((id): id is string => !!id),
+  )].filter((id) => id !== otherId && !otherCandidates.includes(id)).slice(0, MAX_CANDIDATES)
+  // If the action was understood but its player was missed, offer roster suggestions. Keep the
+  // player unselected, and never reuse the known assister's name (even a shared family name).
+  // In a goal, a name after the assist word suggests the assister, not the scorer.
+  if (!playerId && !candidates.length && !swap && heard) {
+    const parts = [heard.text, ...heard.alternatives]
+      .map((t): [string, string] => (action === 'goal' ? splitAtAssist(t) : [t, '']))
+    const roleHints = (said: string[], not: (string | null)[]) => {
+      const ids = [...new Set(voiceNameHints(said.filter(Boolean), players).flatMap((h) => h.playerIds))]
+        .filter((id) => !not.includes(id) && players.some((p) => p.id === id && p.playing))
+      // An overly broad hint is no better than the usual full player picker.
+      return ids.length <= MAX_CANDIDATES ? ids : []
+    }
+    if (action === 'goal' && !otherId && !otherCandidates.length) {
+      otherCandidates = roleHints(parts.map(([, assistPart]) => assistPart), [])
+    }
+    candidates = roleHints(parts.map(([scorerPart]) => scorerPart), [otherId, ...otherCandidates])
+  }
   const mins = r.suspension_minutes
   const suspensionMinutes = action === 'red_card' && (mins === 2 || mins === 3) ? mins : null
   return { action, playerId, otherId, suspensionMinutes, candidates, otherCandidates }

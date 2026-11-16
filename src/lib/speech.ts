@@ -58,6 +58,16 @@ export interface ListenOptions {
 
 // Enough for a sentence with a few pauses, without looping on a mic that keeps failing
 const MAX_RESTARTS = 6
+// The browser does not always say it has started or ended (iPhone home-screen apps can sit with the
+// mic on and nothing coming), so listening never waits on it for ever:
+// the mic has this long to start,
+const START_MS = 6_000
+// a tap ends after this long with nothing new heard (a held mic waits for the finger),
+const SILENCE_MS = 8_000
+// once asked to stop, the browser has this long to hand back the text,
+const STOP_GRACE_MS = 2_500
+// and nothing listens longer than this.
+const MAX_MS = 35_000
 
 const join = (a: string, b: string) => [a, b].filter(Boolean).join(' ')
 
@@ -74,11 +84,44 @@ export function listenOnce(lang: string, onText: (text: string) => void, options
   let cancelled = false
   let stopped = false
   let ready = false
+  let settled = false
   let restarts = 0
   let rec: Recognition
   let finish: (h: Heard) => void = () => {}
   let fail: (e: SpeechError) => void = () => {}
   const done = new Promise<Heard>((resolve, reject) => { finish = resolve; fail = reject })
+
+  let startTimer: ReturnType<typeof setTimeout> | undefined
+  let silenceTimer: ReturnType<typeof setTimeout> | undefined
+  let graceTimer: ReturnType<typeof setTimeout> | undefined
+  const maxTimer = setTimeout(() => stop(), MAX_MS)
+
+  // The one way out: hand back what was heard (or why nothing was) and let go of the mic
+  const settle = () => {
+    if (settled) return
+    settled = true
+    for (const t of [startTimer, silenceTimer, graceTimer, maxTimer]) clearTimeout(t)
+    rec.onresult = rec.onerror = rec.onend = rec.onstart = null
+    try { rec.abort() } catch { /* already ended */ }
+    if (cancelled) finish({ text: '', alternatives: [] })
+    else if (text) finish({ text, alternatives })
+    else fail(failure ?? (ready ? 'no-speech' : 'failed'))
+  }
+  const stop = () => {
+    if (settled) return
+    stopped = true
+    clearTimeout(graceTimer)
+    graceTimer = setTimeout(settle, STOP_GRACE_MS)
+    try { rec.stop() } catch { settle() }
+  }
+  const quietFor = () => {
+    clearTimeout(silenceTimer)
+    silenceTimer = setTimeout(() => {
+      // A held mic waits for the finger; a tap gives up and keeps what it has
+      if (options.keepListening?.()) quietFor()
+      else stop()
+    }, SILENCE_MS)
+  }
 
   const begin = () => {
     const r = new Ctor()
@@ -87,6 +130,8 @@ export function listenOnce(lang: string, onText: (text: string) => void, options
     r.continuous = false
     r.maxAlternatives = ALTERNATIVES
     r.onstart = () => {
+      clearTimeout(startTimer)
+      quietFor()
       if (ready) return
       ready = true
       options.onReady?.()
@@ -106,6 +151,7 @@ export function listenOnce(lang: string, onText: (text: string) => void, options
       alternatives = [...new Set(Array.from({ length: ALTERNATIVES - 1 }, (_, i) => guess(i + 1)))]
         .filter((a) => a && a !== best)
         .map((a) => join(before, a))
+      quietFor()
       onText(text)
     }
     r.onerror = (e) => {
@@ -116,10 +162,9 @@ export function listenOnce(lang: string, onText: (text: string) => void, options
         : 'failed'
     }
     r.onend = () => {
-      if (cancelled) { finish({ text: '', alternatives: [] }); return }
       // Still held: the referee only paused, so listen on and keep what was said
       const fatal = failure === 'denied' || failure === 'network'
-      if (!stopped && !fatal && restarts < MAX_RESTARTS && options.keepListening?.()) {
+      if (!stopped && !cancelled && !fatal && restarts < MAX_RESTARTS && options.keepListening?.()) {
         restarts++
         before = text
         failure = null
@@ -130,21 +175,23 @@ export function listenOnce(lang: string, onText: (text: string) => void, options
           // Could not start again: go on with what was heard
         }
       }
-      if (failure && !text) fail(failure)
-      else finish({ text, alternatives })
+      settle()
     }
     rec = r
+    clearTimeout(startTimer)
+    startTimer = setTimeout(settle, START_MS)
     r.start()
   }
 
   try {
     begin()
   } catch {
+    for (const t of [startTimer, maxTimer]) clearTimeout(t)
     return failed()
   }
   return {
     done,
-    stop: () => { stopped = true; rec.stop() },
-    cancel: () => { cancelled = true; rec.abort() },
+    stop,
+    cancel: () => { cancelled = true; settle() },
   }
 }

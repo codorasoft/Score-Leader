@@ -440,3 +440,39 @@ describe('saving a clear command on its own', () => {
     expect(m1().team1_score).toBe(1)
   })
 })
+
+it('a misheard name after the assist word never shows up as the scorer', async () => {
+  heard = 'هدف أسيست دجل'
+  const namedPlayers = players.map((p) => p.id === 'p2' ? { ...p, name: 'محمد العجل' } : p)
+  resetDb({
+    players: namedPlayers, teams, team_players: teamPlayers,
+    sessions: [{ ...session, status: 'active' }], matches: [match('m1')], match_events: [],
+  })
+  answer = readVoiceAnswer(
+    { action: 'goal', player: null, other_player: null, suspension_minutes: null, candidates: [] },
+    [{ id: 'p1', name: 'Ali', team: 'green', playing: true }, { id: 'p2', name: 'محمد العجل', team: 'green', playing: true }],
+    { text: heard, alternatives: [] },
+  )
+  const user = await kickOff()
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  // The scorer is asked; محمد العجل is not put in the scorer's place
+  expect(await screen.findByText('Who scored?')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Ali' }))
+  // Then the assister, offered from the name heard after the assist word
+  expect(screen.getByText('Who assisted? Tap Confirm if nobody did.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'محمد العجل' }))
+  expect(screen.getByText('Assist: محمد العجل')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Confirm' }))
+  await waitFor(() => expect(rows('match_events').find((e) => e.event_type === 'goal')).toMatchObject({ player_id: 'p1' }))
+  expect(rows('match_events').find((e) => e.event_type === 'assist')).toMatchObject({ player_id: 'p2' })
+})
+
+it('a guess offered for both roles is not taken as the scorer', async () => {
+  heard = 'goal mmm assist Om'
+  answer = cmd({ action: 'goal', candidates: ['p2'], otherCandidates: ['p2'] })
+  const user = await kickOff()
+  await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+  expect(await screen.findByText('Who scored?')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
+})

@@ -12,10 +12,14 @@ class FakeRecognition {
   onend: (() => void) | null = null
   onstart: (() => void) | null = null
   started = false
+  // A browser that goes quiet: never says it started, or never says it ended
+  static noStart = false
+  static noEnd = false
+  aborted = false
   constructor() { FakeRecognition.last = this }
-  start() { this.started = true; this.onstart?.() }
-  stop() { this.onend?.() }
-  abort() { this.onerror?.({ error: 'aborted' }); this.onend?.() }
+  start() { this.started = true; if (!FakeRecognition.noStart) this.onstart?.() }
+  stop() { if (!FakeRecognition.noEnd) this.onend?.() }
+  abort() { this.aborted = true; this.onerror?.({ error: 'aborted' }); if (!FakeRecognition.noEnd) this.onend?.() }
   // Each part is one result; a part given as a list carries the recognizer's other guesses
   say(...parts: (string | string[])[]) {
     const results = parts.map((p) => {
@@ -27,7 +31,11 @@ class FakeRecognition {
 }
 
 const w = globalThis as unknown as { webkitSpeechRecognition?: unknown }
-beforeEach(() => { w.webkitSpeechRecognition = FakeRecognition })
+beforeEach(() => {
+  w.webkitSpeechRecognition = FakeRecognition
+  FakeRecognition.noStart = false
+  FakeRecognition.noEnd = false
+})
 afterEach(() => { delete w.webkitSpeechRecognition })
 
 it('picks the recognition language from the app language', () => {
@@ -119,4 +127,60 @@ it('stops trying again when the mic is refused', async () => {
   rec.onend?.()
   expect(FakeRecognition.last).toBe(rec)
   await expect(l.done).rejects.toBe('denied')
+})
+
+describe('never waits on the browser for ever', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('gives up when the mic never starts', async () => {
+    FakeRecognition.noStart = true
+    const l = listenOnce('ar-JO', () => {})
+    const rec = FakeRecognition.last
+    const result = expect(l.done).rejects.toBe('failed')
+    await vi.advanceTimersByTimeAsync(6_000)
+    await result
+    expect(rec.aborted).toBe(true)
+  })
+
+  it('keeps what was heard when the browser never says it ended after Done', async () => {
+    FakeRecognition.noEnd = true
+    const l = listenOnce('ar-JO', () => {})
+    FakeRecognition.last.say('هدف العجل')
+    l.stop()
+    await vi.advanceTimersByTimeAsync(2_500)
+    await expect(l.done).resolves.toEqual({ text: 'هدف العجل', alternatives: [] })
+  })
+
+  it('a tap with the mic on and nothing coming ends as nothing heard', async () => {
+    FakeRecognition.noEnd = true
+    const l = listenOnce('ar-JO', () => {})
+    const result = expect(l.done).rejects.toBe('no-speech')
+    await vi.advanceTimersByTimeAsync(8_000 + 2_500)
+    await result
+    expect(FakeRecognition.last.aborted).toBe(true)
+  })
+
+  it('a quiet stretch does not end a held mic, but letting go does', async () => {
+    FakeRecognition.noEnd = true
+    let held = true
+    const l = listenOnce('ar-JO', () => {}, { keepListening: () => held })
+    let ended = false
+    void l.done.then(() => { ended = true }, () => { ended = true })
+    FakeRecognition.last.say('هدف')
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(ended).toBe(false)
+    held = false
+    l.stop()
+    await vi.advanceTimersByTimeAsync(2_500)
+    await expect(l.done).resolves.toEqual({ text: 'هدف', alternatives: [] })
+  })
+
+  it('stops after the longest allowed listen', async () => {
+    FakeRecognition.noEnd = true
+    const l = listenOnce('ar-JO', () => {}, { keepListening: () => true })
+    FakeRecognition.last.say('هدف')
+    await vi.advanceTimersByTimeAsync(35_000 + 2_500)
+    await expect(l.done).resolves.toEqual({ text: 'هدف', alternatives: [] })
+  })
 })

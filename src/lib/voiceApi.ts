@@ -3,6 +3,9 @@ import { VOICE_ACTIONS, type VoiceCommand, type VoicePlayer } from '../../supaba
 
 export type { VoiceCommand, VoicePlayer }
 
+// How long Claude has to answer before the referee is told to use the buttons
+const UNDERSTAND_MS = 15_000
+
 export type VoiceResult = { ok: true; command: VoiceCommand } | { ok: false; error: 'network' | 'failed' }
 
 // Asks the voice-command function what the referee meant. Nothing is saved.
@@ -14,10 +17,17 @@ export async function understandVoice(input: {
   players: VoicePlayer[]
 }): Promise<VoiceResult> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, error: 'network' }
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const { data, error } = await supabase.functions.invoke('voice-command', {
-      body: { league_id: input.leagueId, text: input.text, alternatives: input.alternatives, lang: input.lang, players: input.players },
-    })
+    // A stalled connection must not leave the referee on "Understanding…": after a while it is
+    // treated as no connection, and the buttons still work
+    const timedOut = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), UNDERSTAND_MS) })
+    const { data, error } = await Promise.race([
+      supabase.functions.invoke('voice-command', {
+        body: { league_id: input.leagueId, text: input.text, alternatives: input.alternatives, lang: input.lang, players: input.players },
+      }),
+      timedOut,
+    ])
     if (error) {
       const name = (error as { name?: string }).name
       return { ok: false, error: name === 'FunctionsFetchError' ? 'network' : 'failed' }
@@ -27,6 +37,8 @@ export async function understandVoice(input: {
     return { ok: true, command: sanitize(raw, input.players) }
   } catch {
     return { ok: false, error: 'network' }
+  } finally {
+    clearTimeout(timer)
   }
 }
 

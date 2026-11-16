@@ -191,3 +191,35 @@ describe('roster suggestions when the interpreter misses a name', () => {
     }
   })
 })
+
+describe('a misheard name after the assist word', () => {
+  const players: VoicePlayer[] = [
+    { id: 'a', name: 'محمد العجل', team: 'green', playing: true },
+    { id: 'b', name: 'ليث', team: 'blue', playing: true },
+    { id: 'c', name: 'خالد', team: 'blue', playing: true },
+  ]
+  const missing = { action: 'goal', player: null, other_player: null, suspension_minutes: null, candidates: [] }
+  const heard = (text: string) => ({ text, alternatives: [] })
+
+  it('is offered as the assister, never as the scorer', () => {
+    expect(readVoiceAnswer(missing, players, heard('هدف أسيست دجل')))
+      .toMatchObject({ playerId: null, otherId: null, candidates: [], otherCandidates: ['a'] })
+    expect(readVoiceAnswer({ ...missing, player: 'p2' }, players, heard('هدف ليث أسيست دجل')))
+      .toMatchObject({ playerId: 'b', otherCandidates: [] })
+  })
+
+  it('keeps each role\'s guesses apart when both were misheard', () => {
+    expect(readVoiceAnswer(missing, players, heard('هدف خالض بتمريرة دجل')))
+      .toMatchObject({ candidates: ['c'], otherCandidates: ['a'] })
+  })
+
+  it('drops a scorer guess that Claude also gave as the assister', () => {
+    expect(readVoiceAnswer({ ...missing, candidates: ['p1', 'p2'], other_candidates: ['p1'] }, players, heard('هدف ممم أسيست دجل')))
+      .toMatchObject({ candidates: ['b'], otherCandidates: ['a'] })
+  })
+
+  it('still reads a name before a passing verb as the scorer\'s guess', () => {
+    // «مرّر» is not an assist marker: the order around it varies
+    expect(readVoiceAnswer(missing, players, heard('دجل مرر جول')).candidates).toEqual(['a'])
+  })
+})
