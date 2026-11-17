@@ -30,6 +30,9 @@ it('holds back a goal whose spoken assist was not placed', () => {
   // «هدف ليث أسيست دجل» with ليث understood and the assister missed
   expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث أسيست دجل' })).toBe(false)
   expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'goal Omar assist mmm' })).toBe(false)
+  // "and" joined to the assist word: «وأسيست», «وباص»
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث وأسيست دجل' })).toBe(false)
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث وباص دجل' })).toBe(false)
   // Placed, or never spoken of: clear
   expect(clearCommand(cmd({ action: 'goal', playerId: 'a', otherId: 'b' }), { ...ctx, heard: 'هدف ليث أسيست خالد' })).toBe(true)
   expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث' })).toBe(true)
