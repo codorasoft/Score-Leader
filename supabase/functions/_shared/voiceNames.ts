@@ -18,6 +18,12 @@ export function namePart(word: string): string {
   return word.replace(/^(?:بال|وال|فال|كال|لل|ال)(?=[\u0621-\u064a]{3,}$)/u, '')
 }
 
+// A word as said, then without a preposition joined to it: لليث (ل + ليث), للعجل, عليث. Only these
+// short ones, and never down to fewer than two letters.
+export function withoutJoinedPreposition(word: string): string[] {
+  return [word, ...['ل', 'لل', 'ع'].filter((p) => word.startsWith(p) && word.length >= p.length + 2).map((p) => word.slice(p.length))]
+}
+
 // In particular, سجل must not suggest العجل merely because they differ by one letter.
 const COMMAND_WORDS = new Set(words(`
   هدف اهداف جول گول سجل يسجل سجلت سجلها جاب فات دخلت عكسي بمرماه بحاله بنفسه ضد مرماه
@@ -27,10 +33,16 @@ const COMMAND_WORDS = new Set(words(`
   تراجع الغي الغاء امسح شيل اخر غلط
   اسيست اسست تمريره بتمريره صناعه صنعها مرر باص عطاه من ل ع هو اللي
   ازرق اخضر اصفر احمر ابيض اسود برتقالي بنفسجي فريق الفريق
+  لا ولا او قصدي يعني بل لحظه مش no not or mean sorry
   goal goals scored score scoring own yellow red card assist assists pass passed from
   interception tackle block swap switch sub pause stop resume start play undo cancel
   two three minutes minute with for by the a an to and blue green white black orange purple
 `).flatMap((word) => [word, namePart(word)]))
+
+// An action, link or filler word, so not (part of) a player's name
+export function isCommandWord(word: string): boolean {
+  return COMMAND_WORDS.has(word) || COMMAND_WORDS.has(namePart(word))
+}
 
 function oneEditApart(a: string, b: string): boolean {
   if (Math.abs(a.length - b.length) > 1) return false

@@ -1,6 +1,6 @@
 // A referee's spoken command, turned into one match action. Shared by the voice-command function
 // (which asks Claude) and the app (which shows the action to confirm before saving it).
-import { namePart, voiceNameHints, words } from './voiceNames.ts'
+import { isCommandWord, namePart, voiceNameHints, withoutJoinedPreposition, words } from './voiceNames.ts'
 
 export const VOICE_ACTIONS = [
   'goal', 'own_goal', 'yellow_card', 'red_card', 'interception', 'swap', 'pause', 'resume', 'undo', 'unknown',
@@ -45,32 +45,118 @@ const MAX_PLAYERS = 80
 // Enough for a whole team, when the referee names a colour instead of a player
 const MAX_CANDIDATES = 12
 
-// Words that say "the assister comes next": «هدف … أسيست دجل», «بتمريرة خالد». Verbs such as مرّر are
-// left out, since «خالد مرّر للعجل وسجّل» names the assister first.
+// Words that say "the assister comes next" wherever they stand: «هدف … أسيست دجل», «بتمريرة خالد»
 const ASSIST_MARKERS = new Set(words('اسيست اسست اسيس assist assists تمريره بتمريره صناعه بصناعه'))
 
-// Any word that says an assist was given, wherever the assister is named. Used only to hold back a
-// goal that would otherwise be saved without its assist, so it errs towards asking.
-const ASSIST_WORDS = new Set([...ASSIST_MARKERS, ...words('مرر مررها مررله باص باصها pass passed صنع صنعه صنعها')])
+// Passing verbs. They name the assister after them only once the goal and its scorer were said
+// («هدف ليث وباص دجل»); «خالد مرّر للعجل وسجّل» names the assister first.
+const ASSIST_VERBS = new Set(words('مرر مررها مررله باص باصها pass passed صنع صنعه صنعها'))
+
+// Any word that says an assist was given, wherever the assister is named
+const ASSIST_WORDS = new Set([...ASSIST_MARKERS, ...ASSIST_VERBS])
+
+// «هدف ليث من خالد», «ليث سجل من خالد»: once the goal and its scorer's name were said, «من» names
+// the assister. Straight after the goal word it is the scorer's own: «هدف من ليث».
+const FROM = new Set(words('من from'))
+
+// «هدف ليث من بعيد», "from a corner": after «من», how the goal was scored, not who passed
+const HOW_SCORED = new Set(words('بعيد قريب ركنيه كورنر ضربه فاول راس راسيه بلنتي جزاء distance corner header penalty free'))
+
+// Where the goal is said: the scorer's part of «أسيست خالد هدف دجل» starts here
+const GOAL_WORDS = new Set(words('هدف جول گول goal سجل scored'))
+
+// The referee taking something back. After one of these, what follows replaces what came before
+// («هدف العجل قصدي زيد», «صفرا لا حمرا»).
+const REPLACE = new Set(words('لا قصدي يعني بل لحظه غلط no sorry mean'))
+// Ruling something out («هدف خالد مش ليث», «مش هدف، قطع»): the words alone do not say which part
+const NEGATE = new Set(words('مش مو not'))
+// Not sure: «هدف ليث ولا خالد» ("or"), "Omar or Ali"
+const UNSURE = new Set(words('ولا او or'))
 
 // A word from the list, also when "and" or "then" is joined to it: «وأسيست», «وباص», «فمرّرها»,
 // «والأسيست». The letter is dropped only to compare with the list, so names such as وليد or فارس
 // are never cut.
-function isOneOf(list: Set<string>, word: string): boolean {
+export function isOneOf(list: Set<string>, word: string): boolean {
   const bare = word.replace(/^[وف](?=\p{L}{2,}$)/u, '')
   return [word, namePart(word), bare, namePart(bare)].some((w) => list.has(w))
 }
 
-// The referee spoke of an assist: «هدف ليث أسيست دجل», «هدف ليث وباص دجل», «خالد مرّر للعجل وسجّل»
-export function mentionsAssist(text: string): boolean {
-  return words(text).some((w) => isOneOf(ASSIST_WORDS, w))
+// How a word changes the sentence around it. «ولا» is "or", not «لا».
+function change(word: string): 'replace' | 'negate' | 'unsure' | null {
+  if (UNSURE.has(word)) return 'unsure'
+  if (isOneOf(NEGATE, word)) return 'negate'
+  if (isOneOf(REPLACE, word)) return 'replace'
+  return null
+}
+const negated = (said: string[]) => said.some((w) => change(w) === 'negate')
+
+// The referee corrected himself, ruled something out or was not sure: never saved without Confirm,
+// and never read on the phone alone
+export function hasCorrection(text: string): boolean {
+  return words(text).some((w) => change(w) !== null)
 }
 
-// A heard sentence cut at its assist word: the scorer's part, and the assister's
-function splitAtAssist(text: string): [string, string] {
+// The words after the last correction: «هدف العجل قصدي زيد» is «زيد»
+export function finalWords(text: string): string[] {
   const said = words(text)
-  const at = said.findIndex((w) => isOneOf(ASSIST_MARKERS, w))
-  return at < 0 ? [said.join(' '), ''] : [said.slice(0, at).join(' '), said.slice(at + 1).join(' ')]
+  let last = -1
+  said.forEach((w, i) => { if (change(w) === 'replace') last = i })
+  return said.slice(last + 1)
+}
+
+// «هدف ليث من خالد», «هدف ليث أسيست خالد»: a word that says the assister is named next
+export function isAssistLink(word: string): boolean {
+  return isOneOf(ASSIST_MARKERS, word) || isOneOf(FROM, word)
+}
+
+// What the roster makes of some words: a player's name, or one whole word of it ('named'); only
+// words it does not know for sure, which may describe the goal («هدف حلو») or be a name the
+// recognizer got wrong ('unknown'); or nothing but action and link words ('none').
+function rosterReads(spoken: string[], players: readonly VoicePlayer[]): 'named' | 'unknown' | 'none' {
+  const rest = spoken.filter((w) => !isCommandWord(w))
+  if (!rest.length) return 'none'
+  return voiceNameHints(rest.flatMap(withoutJoinedPreposition), players).some((h) => !h.approximate) ? 'named' : 'unknown'
+}
+
+// A goal sentence in its two roles: the scorer's words and the assister's. assistSpoken says an
+// assist was spoken of for sure, so a goal is never saved without an assister the referee named.
+// clear is false when the words do not say whose name is whose: something was ruled out («مش»), a
+// correction left a bare name («… أسيست خالد لا دجل»), or words the roster does not know came
+// before «من» or a passing verb («هدف حلو من ليث»: praise, or a misheard scorer?).
+export interface GoalParts { scorer: string[]; assist: string[]; assistSpoken: boolean; clear: boolean }
+
+export function goalParts(text: string, players: readonly VoicePlayer[]): GoalParts {
+  const all = words(text)
+  const said = finalWords(text)
+  const goalAt = said.findIndex((w) => isOneOf(GOAL_WORDS, w))
+  // «من» followed by how it was scored («من بعيد», "from a corner") names nobody
+  const howScored = (i: number) => {
+    const next = said.slice(i + 1).find((w) => !['a', 'an', 'the'].includes(w))
+    return !!next && isOneOf(HOW_SCORED, next)
+  }
+  // A word that starts the assister's part once the scorer was named: «من» or a passing verb after
+  // the goal word. What the roster makes of everything before it (the goal word aside) says
+  // whether the scorer was named there.
+  const linkAfterScorer = (w: string, i: number) => goalAt >= 0 && goalAt < i
+    && (isOneOf(ASSIST_VERBS, w) || (isOneOf(FROM, w) && !howScored(i)))
+  const before = (i: number) => rosterReads(said.slice(0, i).filter((_, j) => j !== goalAt), players)
+  // Assist words such as «أسيست» start it wherever they stand; «من» and the verbs only after a
+  // name, and nothing but the goal before them leaves them to the scorer («هدف من ليث»)
+  const at = said.findIndex((w, i) => isOneOf(ASSIST_MARKERS, w) || (linkAfterScorer(w, i) && before(i) !== 'none'))
+  const spoken = said.some((w) => isOneOf(ASSIST_WORDS, w))
+  const plain = !negated(all) && (said.length === all.length || goalAt >= 0 || at >= 0)
+  if (at < 0) return { scorer: said, assist: [], assistSpoken: spoken, clear: plain }
+  // Unknown words before «من»: the referee's own words, not the phone, say which role is whose
+  if (!isOneOf(ASSIST_MARKERS, said[at]) && before(at) === 'unknown') return { scorer: said, assist: [], assistSpoken: spoken, clear: false }
+  // «أسيست خالد هدف دجل»: the assister's part ends where the goal is said
+  if (goalAt > at) return { scorer: [...said.slice(0, at), ...said.slice(goalAt)], assist: said.slice(at + 1, goalAt), assistSpoken: true, clear: plain }
+  return { scorer: said.slice(0, at), assist: said.slice(at + 1), assistSpoken: true, clear: plain }
+}
+
+// The referee spoke of an assist for sure: «هدف ليث أسيست دجل», «هدف ليث من دجل», «خالد مرّر
+// للعجل وسجّل»
+export function mentionsAssist(text: string, players: readonly VoicePlayer[]): boolean {
+  return goalParts(text, players).assistSpoken
 }
 
 export function validateVoiceRequest(body: unknown): Result<VoiceRequest> {
@@ -201,7 +287,9 @@ export function voicePrompt(req: VoiceRequest): string {
     ? `\n\nThe recognizer's other guesses at the same words (may spell a name better):\n${req.alternatives.map((a) => `"${a}"`).join('\n')}`
     : ''
   const keys = new Map(req.players.map((p, i) => [p.id, playerKey(i)]))
-  const hints = voiceNameHints([req.text, ...req.alternatives], req.players)
+  // A name the referee took back («هدف العجل قصدي زيد») or ruled out («مش ليث») is not offered as a hint
+  const hints = voiceNameHints([req.text, ...req.alternatives]
+    .filter((t) => !negated(words(t))).map((t) => finalWords(t).join(' ')), req.players)
     .map((h) => `"${h.heard}" -> ${h.playerIds.map((id) => keys.get(id)).join(', ')} (${h.approximate ? 'similar spelling only; ask the referee' : 'matching name part'})`)
   const names = hints.length ? `\n\nPossible name parts (do not change player roles):\n${hints.join('\n')}` : ''
   return `Roster:\n${roster || '(none)'}\n\nReferee said (${req.lang === 'ar' ? 'Arabic' : 'English'} recognition):\n"${req.text}"${others}${names}`
@@ -246,8 +334,13 @@ export function readVoiceAnswer(raw: unknown, players: VoicePlayer[], heard?: Pi
   // role is dropped whole: with خالد الحسن as the assister, «الحسن» must not offer عمر الحسن as the
   // scorer (nor the scorer's relative as the assister).
   if (heard && !swap) {
-    const parts = [heard.text, ...heard.alternatives]
-      .map((t): [string, string] => (action === 'goal' ? splitAtAssist(t) : [t, '']))
+    // Only what the referee said after correcting himself, cut into the goal's two roles; nothing
+    // when the words alone do not say whose name is whose
+    const parts = [heard.text, ...heard.alternatives].map((t): [string, string] => {
+      if (action !== 'goal') return [negated(words(t)) ? '' : finalWords(t).join(' '), '']
+      const { scorer, assist, clear } = goalParts(t, players)
+      return clear ? [scorer.join(' '), assist.join(' ')] : ['', '']
+    })
     const roleHints = (said: string[], not: (string | null)[]) => {
       const ids = [...new Set(voiceNameHints(said.filter(Boolean), players)
         .filter((h) => !h.playerIds.some((id) => not.includes(id)))

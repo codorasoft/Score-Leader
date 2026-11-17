@@ -3,7 +3,12 @@ import type { VoiceCommand } from '../lib/voiceApi'
 
 const cmd = (c: Partial<VoiceCommand>): VoiceCommand => ({ action: 'unknown', playerId: null, otherId: null, suspensionMinutes: null, candidates: [], otherCandidates: [], ...c })
 const teams: Record<string, string> = { a: 'green', b: 'green', c: 'blue' }
-const ctx = { cards: true, swaps: true, clockRunning: true, teamOf: (id: string | null) => (id ? teams[id] ?? null : null) }
+const players = [
+  { id: 'a', name: 'ليث', team: 'green', playing: true },
+  { id: 'b', name: 'خالد', team: 'green', playing: true },
+  { id: 'c', name: 'Omar', team: 'blue', playing: true },
+]
+const ctx = { cards: true, swaps: true, clockRunning: true, players, teamOf: (id: string | null) => (id ? teams[id] ?? null : null) }
 
 it('saves on its own only what was named outright and can be done now', () => {
   expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), ctx)).toBe(true)
@@ -36,4 +41,36 @@ it('holds back a goal whose spoken assist was not placed', () => {
   // Placed, or never spoken of: clear
   expect(clearCommand(cmd({ action: 'goal', playerId: 'a', otherId: 'b' }), { ...ctx, heard: 'هدف ليث أسيست خالد' })).toBe(true)
   expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث' })).toBe(true)
+})
+
+it('holds back a goal whose assister came after «من» and was not placed', () => {
+  // «هدف ليث من دجل»: an assist was spoken; saving it without one would lose it
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف ليث من دجل' })).toBe(false)
+  // «هدف من ليث»: no assist was spoken
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف من ليث' })).toBe(true)
+})
+
+it('holds back a goal when the words before «من» name nobody on the roster', () => {
+  // Praise or a misheard scorer: the roles are for the referee to confirm, even with both placed
+  for (const [heard, named] of [['هدف رائع من ليث', 'a'], ['يا سلام هدف من ليث', 'a'], ['goal blorp from Omar', 'c'], ['what a goal from Omar', 'c']]) {
+    expect(clearCommand(cmd({ action: 'goal', playerId: named }), { ...ctx, heard }), heard).toBe(false)
+    expect(clearCommand(cmd({ action: 'goal', playerId: 'b', otherId: named }), { ...ctx, heard }), heard).toBe(false)
+  }
+  // A player's name before «من»: clear
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a', otherId: 'b' }), { ...ctx, heard: 'هدف ليث من خالد' })).toBe(true)
+})
+
+it('holds back anything the referee corrected himself on', () => {
+  expect(clearCommand(cmd({ action: 'goal', playerId: 'a' }), { ...ctx, heard: 'هدف العجل قصدي ليث' })).toBe(false)
+  expect(clearCommand(cmd({ action: 'pause' }), { ...ctx, heard: 'كمل لا وقف' })).toBe(false)
+})
+
+it('holds back whatever was heard when listening was cut off, or the words were not final', () => {
+  const goal = cmd({ action: 'goal', playerId: 'a' })
+  expect(clearCommand(goal, { ...ctx, heard: 'هدف ليث', capture: { end: 'done', final: true } })).toBe(true)
+  expect(clearCommand(goal, { ...ctx, heard: 'هدف ليث', capture: { end: 'done', final: false } })).toBe(false)
+  expect(clearCommand(goal, { ...ctx, heard: 'هدف ليث', capture: { end: 'error', final: false } })).toBe(false)
+  expect(clearCommand(goal, { ...ctx, heard: 'هدف ليث', capture: { end: 'timeout', final: true } })).toBe(false)
+  expect(clearCommand(goal, { ...ctx, heard: 'هدف ليث', capture: { end: 'hidden', final: true } })).toBe(false)
+  expect(clearCommand(cmd({ action: 'pause' }), { ...ctx, capture: { end: 'error', final: true } })).toBe(false)
 })

@@ -1142,7 +1142,8 @@
       "denied": "The microphone is blocked. Allow it for this site in the browser settings.",
       "no-speech": "Nothing was heard. Tap Try again and speak.",
       "network": "Voice needs an internet connection. Use the buttons for now.",
-      "failed": "Voice did not work this time. Try again or use the buttons."
+      "failed": "Voice did not work this time. Try again or use the buttons.",
+      "timeout": "Voice took too long this time. Try again or use the buttons."
     },
     "action": {
       "goal": "⚽ Goal",
@@ -1167,6 +1168,7 @@
     "saveConfirm": "I confirm",
     "saveAuto": "Save on its own when clear",
     "autoSaved": "Saved by voice",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "cutOff": "Listening stopped before you finished. Check this before you confirm."
   }
 }
