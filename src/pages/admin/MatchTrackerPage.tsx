@@ -24,6 +24,7 @@ import { SwapDialog } from '../../components/SwapDialog'
 import { VoiceSheet, type ConfirmedVoice } from '../../components/VoiceSheet'
 import { speechSupported } from '../../lib/speech'
 import { setVoiceAutoSave, voiceAutoSave } from '../../lib/voicePrefs'
+import { noteVoiceUndo } from '../../lib/voiceMetrics'
 import { TeamRosterSheet } from '../../components/TeamRosterSheet'
 import { SuspensionCountdown } from '../../components/SuspensionCountdown'
 import { MatchResultDialog } from '../../components/MatchResultDialog'
@@ -70,10 +71,12 @@ export default function MatchTrackerPage() {
     load, apply, endBlocked, setEndBlocked, staleRef, missing, loadFailed,
   } = useMatchData(sessionId, matchId, league.id)
   const [dialog, setDialog] = useState<'goal' | 'card' | 'interception' | 'swap' | 'voice' | null>(null)
-  // Push to talk: when the mic was pressed, whether it is held now, and how many holds have been let go
+  // Push to talk: when the mic was pressed, whether it is held now, how many holds have been let go,
+  // and how many were taken away before the referee let go (a cancelled touch, the app hidden)
   const pressedAt = useRef(0)
   const [holding, setHolding] = useState(false)
   const [letGo, setLetGo] = useState(0)
+  const [holdCut, setHoldCut] = useState(0)
   // Voice: save a clear command on its own, or wait for Confirm (the default); and what was just
   // saved on its own, shown for a few seconds with Undo
   const [autoSave, setAutoSave] = useState(voiceAutoSave)
@@ -85,7 +88,7 @@ export default function MatchTrackerPage() {
   }, [autoSaved])
   // The team whose players are shown, from its score card
   const [rosterTeamId, setRosterTeamId] = useState<string | null>(null)
-  const releaseMicRef = useRef(() => {})
+  const releaseMicRef = useRef((cut?: boolean) => { void cut })
   const micButton = useCallback((el: HTMLButtonElement | null) => {
     if (!el) return
     el.addEventListener('touchstart', noLongPress, { passive: false })
@@ -101,14 +104,23 @@ export default function MatchTrackerPage() {
     body.setProperty('-webkit-touch-callout', 'none')
     window.getSelection?.()?.removeAllRanges()
     const up = () => releaseMicRef.current()
-    const events = ['pointerup', 'touchend', 'touchcancel'] as const
-    events.forEach((name) => window.addEventListener(name, up))
-    const safety = setTimeout(up, MAX_HOLD_MS)
+    // The system took the finger away (an edge gesture, a call), the app went to the background, or
+    // the release was never seen: the referee may not have finished, so the sentence is cut off there
+    const cut = () => releaseMicRef.current(true)
+    const ups = ['pointerup', 'touchend'] as const
+    const cuts = ['pointercancel', 'touchcancel'] as const
+    ups.forEach((name) => window.addEventListener(name, up))
+    cuts.forEach((name) => window.addEventListener(name, cut))
+    const hidden = () => { if (document.visibilityState === 'hidden') cut() }
+    document.addEventListener('visibilitychange', hidden)
+    const safety = setTimeout(cut, MAX_HOLD_MS)
     return () => {
       body.removeProperty('user-select')
       body.removeProperty('-webkit-user-select')
       body.removeProperty('-webkit-touch-callout')
-      events.forEach((name) => window.removeEventListener(name, up))
+      ups.forEach((name) => window.removeEventListener(name, up))
+      cuts.forEach((name) => window.removeEventListener(name, cut))
+      document.removeEventListener('visibilitychange', hidden)
       clearTimeout(safety)
     }
   }, [holding])
@@ -133,7 +145,9 @@ export default function MatchTrackerPage() {
   const format = session ?? DEFAULT_FORMAT
   const screen = match ? matchScreen(format, match, timer) : null
   useEndAlert(match?.id, screen?.reachedEnd ?? false)
-  useWakeLock(timer.timerStatus === 'running')
+  // The screen stays on while the clock runs, and while the referee is using voice, clock paused or
+  // not: a screen that locks mid-sentence takes the mic away
+  useWakeLock(timer.timerStatus === 'running' || dialog === 'voice')
 
   const handleStart = () => {
     primeAlertAudio()
@@ -187,9 +201,13 @@ export default function MatchTrackerPage() {
     setHolding(true)
     openVoice()
   }
-  const releaseMic = () => {
+  // cut: the hold was taken away rather than let go. A quick tap listens on either way.
+  const releaseMic = (cut = false) => {
     if (!pressedAt.current) return
-    if (Date.now() - pressedAt.current >= HOLD_MS) setLetGo((n) => n + 1)
+    if (Date.now() - pressedAt.current >= HOLD_MS) {
+      if (cut) setHoldCut((n) => n + 1)
+      else setLetGo((n) => n + 1)
+    }
     pressedAt.current = 0
     setHolding(false)
   }
@@ -515,7 +533,7 @@ export default function MatchTrackerPage() {
             <button
               ref={micButton}
               onPointerDown={pressMic}
-              onPointerUp={releaseMic}
+              onPointerUp={() => releaseMic()}
               // Keyboard: Enter or Space opens it as a tap
               onClick={(e) => { if (e.detail === 0) openVoice() }}
               onContextMenu={(e) => e.preventDefault()}
@@ -665,6 +683,7 @@ export default function MatchTrackerPage() {
           onEdit={setDialog}
           holding={holding}
           letGo={letGo}
+          holdCut={holdCut}
           autoSave={autoSave}
           onClose={() => setDialog(null)}
         />
@@ -684,7 +703,7 @@ export default function MatchTrackerPage() {
             </div>
           </div>
           {autoSaved !== 'pause' && autoSaved !== 'resume' && lastEvent && (
-            <button type="button" onClick={() => { setAutoSaved(null); void handleUndo() }} className="min-h-[44px] px-3 rounded-lg bg-green-950/60 hover:bg-green-950 font-semibold">
+            <button type="button" onClick={() => { setAutoSaved(null); noteVoiceUndo(); void handleUndo() }} className="min-h-[44px] px-3 rounded-lg bg-green-950/60 hover:bg-green-950 font-semibold">
               {t('match.undo')}
             </button>
           )}

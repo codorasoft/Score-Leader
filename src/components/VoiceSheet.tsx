@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MatchSheet, TeamPlayerGrid, type TeamWithPlayers } from './PlayerSheet'
-import { listenOnce, speechLang, type Listening, type SpeechError } from '../lib/speech'
+import { heardInFull, listenOnce, speechLang, type Heard, type Listening, type SpeechError } from '../lib/speech'
 import { understandVoice, type VoiceCommand, type VoicePlayer } from '../lib/voiceApi'
+import { startVoiceAttempt, type VoiceAttemptTracker } from '../lib/voiceMetrics'
 import { understandLocally } from '../../supabase/functions/_shared/voiceLocal.ts'
-import { mentionsAssist } from '../../supabase/functions/_shared/voiceCommand.ts'
+import { goalParts, hasCorrection, mentionsAssist } from '../../supabase/functions/_shared/voiceCommand.ts'
 
 export type VoiceAction = VoiceCommand['action']
 
@@ -16,17 +17,21 @@ export interface ConfirmedVoice {
   suspensionMinutes: 2 | 3 | null
 }
 
+// How the sentence was heard: whether listening ended normally and the words were final
+export type Capture = Pick<Heard, 'end' | 'final'>
+const IN_FULL: Capture = { end: 'done', final: true }
+
 type Stage =
   | { kind: 'listening'; text: string }
   | { kind: 'thinking'; text: string }
-  | { kind: 'result'; text: string; command: VoiceCommand }
-  | { kind: 'error'; error: SpeechError | 'network' | 'failed' }
+  | { kind: 'result'; text: string; command: VoiceCommand; capture: Capture }
+  | { kind: 'error'; error: SpeechError | 'network' | 'failed' | 'timeout' }
 
 const PLAYER_ACTIONS: VoiceAction[] = ['goal', 'own_goal', 'yellow_card', 'red_card', 'interception', 'swap']
 
 // The mic is tapped, the referee says what happened, and the action shows here to confirm.
 // Nothing is saved until Confirm; Edit opens the usual dialog for that action instead.
-export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, holding = false, letGo = 0, autoSave = false, onConfirm, onEdit, onClose }: {
+export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, holding = false, letGo = 0, holdCut = 0, autoSave = false, onConfirm, onEdit, onClose }: {
   leagueId: string
   playingTeams: TeamWithPlayers[]
   // Every team of the session, for a swap with a waiting team
@@ -36,9 +41,11 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   clockRunning: boolean
   // The event Undo would take back, or null when there is nothing to undo
   undoLabel: string | null
-  // Push to talk: the mic button is held down; letGo counts each release after a hold
+  // Push to talk: the mic button is held down; letGo counts each release after a hold, and holdCut
+  // each hold taken away before the referee let go (a cancelled touch, the app hidden)
   holding?: boolean
   letGo?: number
+  holdCut?: number
   // Save a clear command on its own, without Confirm
   autoSave?: boolean
   // auto: saved without Confirm, because autoSave is on and the command was clear
@@ -61,16 +68,37 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
   const nameOf = (id: string | null) => allPlayers.find((p) => p.id === id)?.name ?? '?'
   const teamOf = (id: string | null) => allTeams.find((tm) => tm.players.some((p) => p.id === id))?.team.id ?? null
 
-  // The mic takes a moment to start: words before it is ready are lost, so the referee is told when
+  // The mic takes a moment to start: words before it is ready are lost, so the referee is told when.
+  // It is also off for a moment between the rounds of a held mic, and from Done on.
   const [ready, setReady] = useState(false)
+  const [micOn, setMicOn] = useState(false)
   const holdingRef = useRef(holding)
   holdingRef.current = holding
+  // This try's timings and outcome (no words or names are kept)
+  const metric = useRef<VoiceAttemptTracker | null>(null)
 
   useEffect(() => {
+    // Everything below belongs to this try only: once it is over (closed, or tried again), a late
+    // word, mic event or answer changes nothing, and the request to Claude is cancelled
     let live = true
-    const l = listenOnce(speechLang(lang), (text) => { if (live) setStage({ kind: 'listening', text }) }, {
-      onReady: () => {
+    const request = new AbortController()
+    // A press opens the sheet before anyone knows whether it is a tap or a hold: it counts as a
+    // tap until it is let go, or taken away, as a hold
+    const m = startVoiceAttempt('tap')
+    metric.current = m
+    let firstWords = true
+    let buzzed = false
+    const l = listenOnce(speechLang(lang), (text) => {
+      if (!live) return
+      if (firstWords) { firstWords = false; m.firstWords() }
+      setStage({ kind: 'listening', text })
+    }, {
+      onLive: (on) => {
         if (!live) return
+        setMicOn(on)
+        if (!on || buzzed) return
+        buzzed = true
+        m.micOn()
         setReady(true)
         // A short buzz says "speak now" without looking at the screen (Android; iPhone has none)
         if (holdingRef.current) navigator.vibrate?.(40)
@@ -79,29 +107,68 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
       keepListening: () => holdingRef.current,
     })
     listening.current = l
-    l.done.then(async ({ text, alternatives }) => {
+    l.done.then(async (heard) => {
       if (!live) return
+      m.heard(heard)
+      const { text, alternatives } = heard
       if (!text) { setStage({ kind: 'error', error: 'no-speech' }); return }
-      // "وقّف" or "هدف العجل" with one clear player: no need to ask Claude
-      const local = understandLocally(text, rosterRef.current)
-      if (local) { setStage({ kind: 'result', text, command: local }); return }
+      // A cut-off sentence is still understood, but never saved without Confirm
+      const capture: Capture = { end: heard.end, final: heard.final }
+      // "وقّف", "هدف العجل", "قطع ليث" with every player clear: no need to ask Claude
+      const local = understandLocally(text, rosterRef.current, alternatives)
+      if (local) {
+        m.interpreted('local')
+        m.shown()
+        setStage({ kind: 'result', text, command: local, capture })
+        return
+      }
       setStage({ kind: 'thinking', text })
-      const res = await understandVoice({ leagueId, text, alternatives, lang, players: rosterRef.current })
+      m.asking()
+      const res = await understandVoice({ leagueId, text, alternatives, lang, players: rosterRef.current }, { signal: request.signal })
       if (!live) return
-      setStage(res.ok ? { kind: 'result', text, command: res.command } : { kind: 'error', error: res.error })
-    }, (error: SpeechError) => { if (live) setStage({ kind: 'error', error }) })
-    return () => { live = false; l.cancel() }
+      m.interpreted('server', res.ok ? { modelMs: res.modelMs } : { error: res.error })
+      m.shown()
+      if (res.ok) setStage({ kind: 'result', text, command: res.command, capture })
+      else setStage({ kind: 'error', error: res.error === 'cancelled' ? 'failed' : res.error })
+    }, (error: SpeechError) => {
+      if (!live) return
+      m.heard(error)
+      setStage({ kind: 'error', error })
+    })
+    return () => {
+      live = false
+      request.abort()
+      l.cancel()
+      m.finish('closed')
+    }
   }, [attempt, lang, leagueId])
 
-  // Letting go of a held mic ends the sentence there, and what was heard goes on
+  // Done, or letting go of a held mic: the sentence ends there, and what was heard goes on
+  const endSpeech = () => {
+    metric.current?.speechEnded()
+    listening.current?.stop()
+  }
+  // Both come only after a press long enough to be a hold
   const firstLetGo = useRef(letGo)
   useEffect(() => {
-    if (letGo !== firstLetGo.current) listening.current?.stop()
+    if (letGo === firstLetGo.current) return
+    metric.current?.held()
+    endSpeech()
   }, [letGo])
+  // A hold taken away: what was heard goes on, marked as cut off, so it is never saved on its own
+  const firstCut = useRef(holdCut)
+  useEffect(() => {
+    if (holdCut === firstCut.current) return
+    metric.current?.held()
+    metric.current?.speechEnded()
+    listening.current?.interrupt()
+  }, [holdCut])
 
   // Back to listening at once, so the tap is seen to work before anything is heard
   const retry = () => {
+    metric.current?.finish('retried')
     setReady(false)
+    setMicOn(false)
     setStage({ kind: 'listening', text: '' })
     setAttempt((n) => n + 1)
   }
@@ -115,15 +182,16 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
         title={stage.kind === 'listening' ? t('voice.listening') : t('voice.thinking')}
         onClose={onClose}
         footer={stage.kind === 'listening' && (
-          <button type="button" onClick={() => listening.current?.stop()} className={primary}>{t('voice.done')}</button>
+          <button type="button" onClick={endSpeech} className={primary}>{t('voice.done')}</button>
         )}
       >
         <div className="flex flex-col items-center gap-3 py-4">
-          <span className={`text-4xl ${stage.kind === 'listening' && ready ? 'animate-pulse' : 'opacity-50'}`} aria-hidden="true">🎙️</span>
+          {/* Pulses only while the mic really takes words */}
+          <span className={`text-4xl ${stage.kind === 'listening' && micOn ? 'animate-pulse' : 'opacity-50'}`} aria-hidden="true">🎙️</span>
           {stage.kind === 'listening' && !ready && !stage.text
             ? <p className="min-h-[3rem] text-center text-lg text-gray-400">{t('voice.starting')}</p>
             : <p className="min-h-[3rem] text-center text-lg" dir="auto">{stage.text || t('voice.hint')}</p>}
-          {stage.kind === 'listening' && ready && holding && <p className="text-sm font-semibold text-green-300">{t('voice.letGo')}</p>}
+          {stage.kind === 'listening' && micOn && holding && <p className="text-sm font-semibold text-green-300">{t('voice.letGo')}</p>}
         </div>
       </MatchSheet>
     )
@@ -142,6 +210,8 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
       key={attempt}
       text={stage.text}
       command={stage.command}
+      capture={stage.capture}
+      players={roster}
       playingTeams={playingTeams}
       allTeams={allTeams}
       cards={cards}
@@ -152,29 +222,45 @@ export function VoiceSheet({ leagueId, playingTeams, allTeams, cards, swaps, clo
       teamOf={teamOf}
       retryButton={retryButton}
       autoSave={autoSave}
-      onConfirm={onConfirm}
-      onEdit={onEdit}
+      onConfirm={(c, auto, corrected) => {
+        metric.current?.finish(auto ? 'auto-saved' : 'confirmed', corrected)
+        onConfirm(c, auto)
+      }}
+      onEdit={(target) => {
+        metric.current?.finish('edited')
+        onEdit(target)
+      }}
       onClose={onClose}
     />
   )
 }
 
-// Clear enough to save without Confirm: every player was named outright (not picked from guesses),
-// nothing is missing, and it can be done now. Undo is never saved this way: it takes an event away.
-// A goal whose assist was spoken but not placed («هدف ليث أسيست دجل») is missing its assister.
-export function clearCommand(c: VoiceCommand, { cards, swaps, clockRunning, teamOf, heard = '' }: {
+// Clear enough to save without Confirm: the whole sentence was heard (nothing cut it off and every
+// word was final), the referee did not correct himself, every player was named outright (not picked
+// from guesses), nothing is missing, and it can be done now. Undo is never saved this way: it takes
+// an event away. A goal whose assist was spoken but not placed («هدف ليث من دجل») is missing its
+// assister, and one whose words leave the roles open («هدف حلو من ليث») is for the referee to check.
+export function clearCommand(c: VoiceCommand, { cards, swaps, clockRunning, teamOf, players, heard = '', capture = IN_FULL }: {
   cards: boolean
   swaps: boolean
   clockRunning: boolean
   teamOf: (id: string | null) => string | null
+  // Who could be named: the roster tells a player's name from any other word
+  players: readonly VoicePlayer[]
   // What the referee said
   heard?: string
+  // How it was heard
+  capture?: Capture
 }): boolean {
+  if (!heardInFull(capture) || hasCorrection(heard)) return false
   switch (c.action) {
     case 'pause': return clockRunning
     case 'resume': return !clockRunning
-    case 'goal': return !!c.playerId && c.otherId !== c.playerId
-      && (!!c.otherId || (c.otherCandidates.length === 0 && !mentionsAssist(heard)))
+    case 'goal': {
+      const said = goalParts(heard, players)
+      return said.clear && !!c.playerId && c.otherId !== c.playerId
+        && (!!c.otherId || (c.otherCandidates.length === 0 && !said.assistSpoken))
+    }
     case 'own_goal':
     case 'interception': return !!c.playerId
     case 'yellow_card': return cards && !!c.playerId
@@ -184,9 +270,12 @@ export function clearCommand(c: VoiceCommand, { cards, swaps, clockRunning, team
   }
 }
 
-function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, nameOf, teamOf, retryButton, autoSave, onConfirm, onEdit, onClose }: {
+function VoiceResult({ text, command, capture, players, playingTeams, allTeams, cards, swaps, clockRunning, undoLabel, nameOf, teamOf, retryButton, autoSave, onConfirm, onEdit, onClose }: {
   text: string
   command: VoiceCommand
+  capture: Capture
+  // The roster the words were read against
+  players: readonly VoicePlayer[]
   playingTeams: TeamWithPlayers[]
   allTeams: TeamWithPlayers[]
   cards: boolean
@@ -197,7 +286,8 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   teamOf: (id: string | null) => string | null
   retryButton: ReactNode
   autoSave: boolean
-  onConfirm: (c: ConfirmedVoice, auto?: boolean) => void
+  // corrected: the referee changed a player or the minutes that were put forward
+  onConfirm: (c: ConfirmedVoice, auto: boolean, corrected: boolean) => void
   onEdit: (action: 'goal' | 'card' | 'interception' | 'swap') => void
   onClose: () => void
 }) {
@@ -205,7 +295,7 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   const { action } = command
 
   // Saved on its own (when the referee chose that) only when nothing about it was a guess
-  const sure = autoSave && clearCommand(command, { cards, swaps, clockRunning, teamOf, heard: text })
+  const sure = autoSave && clearCommand(command, { cards, swaps, clockRunning, teamOf, players, heard: text, capture })
   const autoSaved = useRef(false)
   useEffect(() => {
     if (!sure || autoSaved.current) return
@@ -216,7 +306,7 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
       playerId: command.playerId,
       otherId: swapOrGoal ? command.otherId : null,
       suspensionMinutes: command.action === 'red_card' ? command.suspensionMinutes : null,
-    }, true)
+    }, true, false)
   }, [sure, command, onConfirm])
   // A list of one is no question: that player is taken, and the referee still confirms
   const onlyOne = (ids: string[], teams: TeamWithPlayers[], not: string | null) => {
@@ -240,7 +330,11 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   const [minutes, setMinutes] = useState(command.suspensionMinutes)
   // Being saved on its own: the page closes this and says what was saved
   if (sure) return null
-  const heard = <p className="text-sm text-gray-400 mb-3" dir="auto">«{text}»</p>
+  const heard = <>
+    <p className="text-sm text-gray-400 mb-3" dir="auto">«{text}»</p>
+    {/* The mic failed, something took it away, time ran out or the app went to the background before the referee finished */}
+    {capture.end !== 'done' && <p className="text-sm font-semibold text-orange-300 mb-3">{t('voice.cutOff')}</p>}
+  </>
   const primary = 'flex-1 min-h-[48px] rounded-xl bg-green-600 hover:bg-green-500 font-bold disabled:opacity-40'
   const secondary = 'flex-1 min-h-[48px] rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold'
 
@@ -284,9 +378,12 @@ function VoiceResult({ text, command, playingTeams, allTeams, cards, swaps, cloc
   const pickOther = (id: string) => { if (id !== playerId) setOtherId(id) }
   // Asked only when the referee spoke of an assist that could not be placed: from the guesses, or
   // from everyone on the pitch when there were none
-  const askAssist = action === 'goal' && !!playerId && !otherId && (command.otherCandidates.length > 0 || mentionsAssist(text))
+  const askAssist = action === 'goal' && !!playerId && !otherId && (command.otherCandidates.length > 0 || mentionsAssist(text, players))
 
-  const confirm = () => onConfirm({ action, playerId, otherId: action === 'goal' || swap ? otherId : null, suspensionMinutes: action === 'red_card' ? minutes : null })
+  // Filling in what was missing is not a correction; changing what was put forward is
+  const changed = <T,>(proposed: T | null, final: T | null) => proposed !== null && final !== proposed
+  const corrected = changed(firstPlayer, playerId) || changed(secondPlayer, otherId) || changed(command.suspensionMinutes, minutes)
+  const confirm = () => onConfirm({ action, playerId, otherId: action === 'goal' || swap ? otherId : null, suspensionMinutes: action === 'red_card' ? minutes : null }, false, corrected)
 
   return (
     <MatchSheet
