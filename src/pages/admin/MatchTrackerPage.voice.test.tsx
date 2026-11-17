@@ -440,6 +440,17 @@ describe('saving a clear command on its own', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it.each(['هدف عمر وأسيست ممم', 'هدف عمر وباص ممم'])('does not save «%s» without the assist, with "and" joined to the word', async (said) => {
+    heard = said
+    answer = cmd({ action: 'goal', playerId: 'p2' })
+    const user = await kickOff()
+    await chooseAuto(user)
+    await user.click(screen.getByRole('button', { name: '🎙️ Voice' }))
+    expect(await screen.findByText('Who assisted? Tap Confirm if nobody did.')).toBeInTheDocument()
+    expect(rows('match_events')).toHaveLength(0)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('still asks for an unsure assist, and never undoes on its own', async () => {
     heard = 'goal Omar assist Sa'
     answer = cmd({ action: 'goal', playerId: 'p2', otherCandidates: ['p1', 'p3'] })

@@ -219,6 +219,16 @@ describe('a misheard name after the assist word', () => {
       .toMatchObject({ candidates: ['b'], otherCandidates: ['a'] })
   })
 
+  it('finds the assist word with "and" joined to it', () => {
+    // «وأسيست»: the referee's natural «هدف ليث وأسيست دجل»
+    expect(readVoiceAnswer({ ...missing, player: 'p2' }, players, heard('هدف ليث وأسيست دجل')))
+      .toMatchObject({ playerId: 'b', candidates: [], otherCandidates: ['a'] })
+    expect(readVoiceAnswer(missing, players, heard('هدف وأسيست دجل')))
+      .toMatchObject({ playerId: null, candidates: [], otherCandidates: ['a'] })
+    expect(readVoiceAnswer(missing, players, heard('هدف خالض وبتمريرة دجل')))
+      .toMatchObject({ candidates: ['c'], otherCandidates: ['a'] })
+  })
+
   it('still reads a name before a passing verb as the scorer\'s guess', () => {
     // «مرّر» is not an assist marker: the order around it varies
     expect(readVoiceAnswer(missing, players, heard('دجل مرر جول')).candidates).toEqual(['a'])
@@ -257,8 +267,14 @@ describe('mentionsAssist', () => {
     for (const t of ['هدف ليث أسيست دجل', 'هدف العجل بتمريرة خالد', 'خالد مرّر للعجل وسجّل', 'هدف باص الحسن', 'goal Omar assist Ali']) {
       expect(mentionsAssist(t)).toBe(true)
     }
-    for (const t of ['هدف ليث', 'هدف من ليث', 'goal for Sami', 'صفرا لسامي']) {
+    for (const t of ['هدف ليث', 'هدف من ليث', 'goal for Sami', 'صفرا لسامي', 'هدف وليد', 'هدف فارس', 'هدف وسيم']) {
       expect(mentionsAssist(t)).toBe(false)
+    }
+  })
+
+  it('hears it with "and" or "then" joined to the word', () => {
+    for (const t of ['هدف ليث وأسيست دجل', 'هدف ليث وباص دجل', 'هدف ليث وبتمريرة دجل', 'هدف ليث والأسيست لدجل', 'هدف ليث فمررها دجل', 'هدف ليث وصناعة دجل']) {
+      expect(mentionsAssist(t)).toBe(true)
     }
   })
 })

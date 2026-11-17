@@ -53,15 +53,23 @@ const ASSIST_MARKERS = new Set(words('اسيست اسست اسيس assist assist
 // goal that would otherwise be saved without its assist, so it errs towards asking.
 const ASSIST_WORDS = new Set([...ASSIST_MARKERS, ...words('مرر مررها مررله باص باصها pass passed صنع صنعه صنعها')])
 
-// The referee spoke of an assist: «هدف ليث أسيست دجل», «خالد مرّر للعجل وسجّل»
+// A word from the list, also when "and" or "then" is joined to it: «وأسيست», «وباص», «فمرّرها»,
+// «والأسيست». The letter is dropped only to compare with the list, so names such as وليد or فارس
+// are never cut.
+function isOneOf(list: Set<string>, word: string): boolean {
+  const bare = word.replace(/^[وف](?=\p{L}{2,}$)/u, '')
+  return [word, namePart(word), bare, namePart(bare)].some((w) => list.has(w))
+}
+
+// The referee spoke of an assist: «هدف ليث أسيست دجل», «هدف ليث وباص دجل», «خالد مرّر للعجل وسجّل»
 export function mentionsAssist(text: string): boolean {
-  return words(text).some((w) => ASSIST_WORDS.has(w) || ASSIST_WORDS.has(namePart(w)))
+  return words(text).some((w) => isOneOf(ASSIST_WORDS, w))
 }
 
 // A heard sentence cut at its assist word: the scorer's part, and the assister's
 function splitAtAssist(text: string): [string, string] {
   const said = words(text)
-  const at = said.findIndex((w) => ASSIST_MARKERS.has(w) || ASSIST_MARKERS.has(namePart(w)))
+  const at = said.findIndex((w) => isOneOf(ASSIST_MARKERS, w))
   return at < 0 ? [said.join(' '), ''] : [said.slice(0, at).join(' '), said.slice(at + 1).join(' ')]
 }
 
